@@ -1,7 +1,5 @@
 import { Fragment, useCallback, useEffect, useState } from "react";
-
 import { mc } from "./assets/mc";
-
 import './App.css'
 
 function App() {
@@ -62,7 +60,7 @@ function App() {
               </Fragment>
           ))}
 
-          {/* eslint-disable-next-line tailwindcss/no-arbitrary-value */}
+          {/* ⬇️ إزالة التعليق غير المستخدم من هنا ⬇️ */}
           <button className={mc("hover:opacity-75 duration-200 font-bold text-lg", isConnectionOpen ? "text-[#f06b6b]" : "text-[#6bf06b]")} onClick={onToggleConnection}>
               {isConnectionOpen ? "Stop" : "Start"} Quotes
           </button>
@@ -72,4 +70,4 @@ function App() {
   );
 }
 
-export default App
+export default App;
