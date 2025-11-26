@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/nawthtech/backend/internal/logger"
+
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.mongodb.org/mongo-driver/mongo/readpref"
-
-	"github.com/nawthtech/backend/internal/logger"
 )
 
 var (
