@@ -7,7 +7,7 @@ on:
     branches: [ "main" ]
 
 env:
-  GO_VERSION: '1.22.5'  # ⬅️ تحديث لتتوافق مع go.mod
+  GO_VERSION: '1.25.4'  # ⬅️ تحديث لتتوافق مع go.mod
   NODE_VERSION: '22.x'
 
 jobs:
