@@ -1,4 +1,4 @@
-package main
+package github.com/nawthtech/backend
 
 import (
 	"cmp"
@@ -7,9 +7,9 @@ import (
 	"os"
 	"time"
 
-	"main/internal/handlers"
-	"main/internal/logger"
-	"main/internal/middleware"
+	"github.com/nawthtech/backend/internal/handlers"
+	"github.com/nawthtech/backend/internal/logger"
+	"github.com/nawthtech/backend/internal/middleware"
 
 	"github.com/go-chi/chi/v5"
 )
