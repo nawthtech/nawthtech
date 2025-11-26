@@ -6,7 +6,7 @@ COPY backend/go.mod backend/go.sum ./
 
 RUN go mod download
 
-COPY . ./
+COPY backend/ ./
 
 RUN go build -ldflags="-w -s" -o nawthtech-backend .
 
