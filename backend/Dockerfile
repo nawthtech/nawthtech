@@ -8,12 +8,12 @@ RUN go mod download
 
 COPY . ./
 
-RUN go build -ldflags="-w -s" -o main
+RUN go build -ldflags="-w -s" -o nawthtech-backend .
 
 FROM gcr.io/distroless/static
 
 WORKDIR /app
 
-COPY --from=builder /app/main ./
+COPY --from=builder /app/nawthtech-backend ./
 
-ENTRYPOINT ["/app/main"]
+ENTRYPOINT ["/app/nawthtech-backend"]
