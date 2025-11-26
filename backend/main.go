@@ -1,4 +1,4 @@
-package github.com/nawthtech/backend
+package main
 
 import (
 	"cmp"
