@@ -3,7 +3,6 @@ package main
 import (
 	"cmp"
 	"context"
-	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
@@ -17,7 +16,7 @@ import (
 	"github.com/nawthtech/backend/internal/services"
 	"github.com/nawthtech/backend/internal/utils"
 
-	"github.com/go-chi/chi/v5" // استخدام chi بدلاً من gorilla/mux
+	"github.com/go-chi/chi/v5"
 )
 
 func main() {
@@ -26,7 +25,7 @@ func main() {
 
 	// تهيئة النظام
 	if err := initializeSystem(cfg); err != nil {
-		logger.Stdout.Error("فشل في تهيئة النظام", logger.ErrAttr(err))
+		logger.Stderr.Error("فشل في تهيئة النظام", logger.ErrAttr(err))
 		os.Exit(1)
 	}
 
@@ -57,13 +56,13 @@ func main() {
 	// بدء الخادم في goroutine منفصلة
 	go func() {
 		logger.Stdout.Info("بدء تشغيل الخادم", 
-			slog.String("port", port),
-			slog.String("environment", cfg.Environment),
-			slog.String("version", cfg.Version),
+			"port", port,
+			"environment", cfg.Environment,
+			"version", cfg.Version,
 		)
 
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			logger.Stdout.Error("فشل في بدء الخادم", logger.ErrAttr(err))
+			logger.Stderr.Error("فشل في بدء الخادم", logger.ErrAttr(err))
 			os.Exit(1)
 		}
 	}()
@@ -84,13 +83,6 @@ func initializeSystem(cfg *config.Config) error {
 	// تهيئة المدقق
 	if err := utils.InitValidator(); err != nil {
 		return err
-	}
-
-	// تهيئة نظام التشفير إذا كان المفتاح متوفراً
-	if cfg.EncryptionKey != "" {
-		if err := utils.InitEncryption(cfg.EncryptionKey); err != nil {
-			return err
-		}
 	}
 
 	// التحقق من المساحات التخزينية
@@ -153,7 +145,7 @@ func gracefulShutdown(server *http.Server) {
 
 	// إيقاف الخادم
 	if err := server.Shutdown(ctx); err != nil {
-		logger.Stdout.Error("فشل في إيقاف الخادم بشكل آمن", logger.ErrAttr(err))
+		logger.Stderr.Error("فشل في إيقاف الخادم بشكل آمن", logger.ErrAttr(err))
 	} else {
 		logger.Stdout.Info("تم إيقاف الخادم بشكل آمن")
 	}
