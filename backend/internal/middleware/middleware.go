@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"backend-app/internal/config"
-	"backend-app/internal/logger"
+	"github.com/nawthtech/nawthtech/backend/internal/config"
+	"github.com/nawthtech/nawthtech/backend/internal/logger"
 
 	"github.com/go-chi/chi/v5"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
