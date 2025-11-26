@@ -1,9 +1,11 @@
 package middleware
 
 import (
+	"context"
+	"fmt"
+	"log/slog"
 	"net"
 	"net/http"
-	"os"
 	"strings"
 	"time"
 
