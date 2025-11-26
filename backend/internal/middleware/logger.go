@@ -7,7 +7,7 @@ import (
 
 	"github.com/go-chi/chi/v5/middleware"
 
-	"backend-app/internal/logger"
+	"github.com/nawthtech/nawthtech/backend/internal/logger"
 )
 
 // logger middleware for access logs
