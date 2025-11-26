@@ -1,8 +1,8 @@
 package handlers
 
 import (
-	"github.com/nawthtech/backend/internal/handlers/health"
-	"github.com/nawthtech/backend/internal/handlers/sse"
+	"backend-app/internal/handlers/health"
+  "backend-app/internal/handlers/sse"
 
 	"github.com/go-chi/chi/v5"
 )
