@@ -35,10 +35,12 @@ RegisterCategoryRoutes(router, services.Category)
 RegisterAIRoutes(router, services.AI)
 RegisterAuthRoutes(router, services.Auth)
 RegisterAdminRoutes(router, services.Admin)
-// أضف هذا / تسجيل مسارات المحتوى
 contentService := services.NewContentService()
 contentHandler := handlers.NewContentHandler(contentService, authService)
 handlers.RegisterContentRoutes(api, contentHandler, authMiddleware)
+notificationService := services.NewNotificationService()
+notificationHandler := handlers.NewNotificationHandler(notificationService, authService)
+handlers.RegisterNotificationRoutes(api, notificationHandler, authMiddleware, adminMiddleware)
 
 	// المسارات العامة الأساسية
 	router.Route("/api", func(r chi.Router) {
