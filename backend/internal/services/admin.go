@@ -3,7 +3,7 @@ package services
 import (
 	"time"
 
-	"backend-app/internal/models"
+	"github.com/nawthtech/nawthtech/backend/internal/models"
 )
 
 type AdminService struct {
