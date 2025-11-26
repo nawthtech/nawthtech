@@ -1,70 +1,73 @@
 package sse
 
 import (
+	"context"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"time"
 
 	"github.com/nawthtech/nawthtech/backend/internal/logger"
-	"github.com/nawthtech/nawthtech/backend/internal/middleware"
 	"github.com/nawthtech/nawthtech/backend/internal/quote"
 )
 
+// Handler معالج SSE (Server-Sent Events)
 func Handler(w http.ResponseWriter, r *http.Request) {
-	// check if the request supports sse
+	// التحقق من دعم الـ SSE
 	flusher, ok := w.(http.Flusher)
 	if !ok {
 		http.Error(w, "streaming unsupported", http.StatusBadRequest)
 		return
 	}
 
-	// set up connection for sse
+	// إعداد الاتصال لـ SSE
 	w.Header().Set("Content-Type", "text/event-stream; charset=UTF-8")
-	w.Header().Set("Cache-Control", "No-Cache")
-	w.Header().Set("Connection", "Keep-Alive")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("Access-Control-Allow-Origin", "*")
 
-	// send headers to client
+	// إرسال الرؤوس إلى العميل
 	w.WriteHeader(http.StatusOK)
 	flusher.Flush()
 
-	// setup logger
-	eventLogger := logger.Stdout.With(slog.String("request_id", middleware.GetReqID(r.Context())))
+	// إعداد المسجل
+	requestID := getRequestID(r.Context())
+	eventLogger := logger.Stdout.With(slog.String("request_id", requestID))
 
 	var eventCount uint64
 
-	// convenient function to call at connection and in a loop
+	// دالة ملائمة للاستدعاء عند الاتصال وفي الحلقة
 	sendData := func() {
-		fmt.Fprintf(w, "data: %s\n\n", quote.GetRandom())
+		quoteData := quote.GetRandom()
+		fmt.Fprintf(w, "data: %s\n\n", quoteData)
 
 		flusher.Flush()
 
 		eventCount++
+		eventLogger.Debug("sent sse event", "quote", quoteData, "event_count", eventCount)
 	}
 
-	// log sse request
-	eventLogger.Info("sse client connected")
+	// تسجيل طلب SSE
+	eventLogger.Info("عميل SSE متصل")
 
-	// send data on connection
+	// إرسال بيانات عند الاتصال
 	sendData()
 
-	// setup scheduler to send data every 1 second
+	// إعداد المجدول لإرسال بيانات كل ثانية
 	ticker := time.NewTicker(1 * time.Second)
-
 	defer ticker.Stop()
 
 	done := make(chan struct{}, 1)
 
-	// wait for client to disconnect then close the done channel
+	// انتظار انقطاع العميل ثم إغلاق قناة done
 	go func() {
 		<-r.Context().Done()
 
-		eventLogger.Info("sse client disconnected", slog.Uint64("event_count", eventCount))
-
+		eventLogger.Info("عميل SSE انقطع", slog.Uint64("event_count", eventCount))
 		close(done)
 	}()
 
-	// wait for tick or done channel, send data every tick
+	// انتظار tick أو قناة done، إرسال بيانات كل tick
 	for {
 		select {
 		case <-ticker.C:
@@ -73,4 +76,12 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+}
+
+// getRequestID استخراج معرف الطلب من السياق
+func getRequestID(ctx context.Context) string {
+	if reqID, ok := ctx.Value("requestID").(string); ok {
+		return reqID
+	}
+	return "unknown"
 }

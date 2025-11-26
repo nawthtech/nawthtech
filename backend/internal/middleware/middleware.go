@@ -17,10 +17,14 @@ import (
 	"github.com/go-chi/cors"
 )
 
+// ==================== هياكل البيانات ====================
+
 // trustProxyConfig تكوين وسيط الثقة بالبروكسي
 type trustProxyConfig struct {
 	ErrorLogger *slog.Logger
 }
+
+// ==================== الوسائط الأساسية ====================
 
 // TrustProxy وسيط الثقة بالبروكسي
 func TrustProxy(config *trustProxyConfig) func(http.Handler) http.Handler {
@@ -125,6 +129,8 @@ func Logger() func(http.Handler) http.Handler {
 	}
 }
 
+// ==================== وسائط المصادقة ====================
+
 // AuthMiddleware وسيط المصادقة الأساسي
 func AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -182,6 +188,8 @@ func AdminAuth(next http.Handler) http.Handler {
 	})
 }
 
+// ==================== وسائط الأمان والأداء ====================
+
 // RateLimiter وسيط تحديد المعدل
 func RateLimiter(requests int, window time.Duration) func(http.Handler) http.Handler {
 	// تنفيذ مبسط لتحديد المعدل (في الواقع يجب استخدام Redis أو ذاكرة مشتركة)
@@ -230,9 +238,9 @@ func RateLimiter(requests int, window time.Duration) func(http.Handler) http.Han
 			limit.lastSeen = now
 			
 			// إضافة معلومات التحديد إلى الرأس
-			w.Header().Set("X-RateLimit-Limit", string(requests))
-			w.Header().Set("X-RateLimit-Remaining", string(requests-limit.count))
-			w.Header().Set("X-RateLimit-Reset", string(now.Add(window).Unix()))
+			w.Header().Set("X-RateLimit-Limit", fmt.Sprintf("%d", requests))
+			w.Header().Set("X-RateLimit-Remaining", fmt.Sprintf("%d", requests-limit.count))
+			w.Header().Set("X-RateLimit-Reset", fmt.Sprintf("%d", now.Add(window).Unix()))
 			
 			next.ServeHTTP(w, r)
 		})
@@ -243,7 +251,7 @@ func RateLimiter(requests int, window time.Duration) func(http.Handler) http.Han
 func ValidateAdminAction(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// التحقق من صحة البيانات والإجراءات للمسؤول
-		if r.Method == "POST" || r.Method == "PUT" {
+		if r.Method == "POST" || r.Method == "PUT" || r.Method == "PATCH" {
 			contentType := r.Header.Get("Content-Type")
 			if !strings.Contains(contentType, "application/json") {
 				http.Error(w, `{"success": false, "error": "نوع المحتوى يجب أن يكون JSON"}`, http.StatusBadRequest)
@@ -347,6 +355,8 @@ func isSystemReadyForUpdate() bool {
 	// هذا تنفيذ مبسط للتوضيح
 	return true
 }
+
+// ==================== تسجيل الوسائط ====================
 
 // Register تسجيل جميع الوسائط
 func Register(r *chi.Mux) {

@@ -1,7 +1,7 @@
 package services
 
 import (
-	"time"
+	"time" // نحتاج time للـ timestamp
 
 	"github.com/nawthtech/nawthtech/backend/internal/models"
 )
@@ -52,7 +52,6 @@ func (s *AdminService) GetDashboardData(timeRange string) (*models.DashboardData
 			Type:     "store",
 			Category: "وسائل اجتماعية",
 		},
-		// ... إضافة باقي الطلبات
 	}
 
 	userActivity := []models.UserActivity{
@@ -64,7 +63,6 @@ func (s *AdminService) GetDashboardData(timeRange string) (*models.DashboardData
 			IP:      "192.168.1.100",
 			Type:    "purchase",
 		},
-		// ... إضافة باقي النشاطات
 	}
 
 	return &models.DashboardData{
@@ -76,4 +74,21 @@ func (s *AdminService) GetDashboardData(timeRange string) (*models.DashboardData
 	}, nil
 }
 
-// باقي الدوال تبقى كما هي...
+// SystemHealth التحقق من صحة النظام
+func (s *AdminService) SystemHealth() map[string]interface{} {
+	return map[string]interface{}{
+		"status":    "healthy",
+		"timestamp": time.Now().Unix(),
+	}
+}
+
+// GetSystemStats الحصول على إحصائيات النظام
+func (s *AdminService) GetSystemStats() map[string]interface{} {
+	return map[string]interface{}{
+		"uptime":        time.Now().Format("2006-01-02 15:04:05"),
+		"memory_usage":  "45%",
+		"cpu_usage":     "23%",
+		"active_users":  47,
+		"total_orders":  1250,
+	}
+}

@@ -13,6 +13,7 @@ import (
 	"github.com/nawthtech/nawthtech/backend/internal/handlers"
 	"github.com/nawthtech/nawthtech/backend/internal/logger"
 	"github.com/nawthtech/nawthtech/backend/internal/middleware"
+	"github.com/nawthtech/nawthtech/backend/internal/services"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -21,20 +22,28 @@ func main() {
 	// تحميل الإعدادات
 	cfg := config.Load()
 
+	// إنشاء الخدمات
+	adminService := services.NewAdminService()
+	// TODO: إنشاء باقي الخدمات عند الحاجة
+	userService := services.NewUserService()
+	authService := services.NewAuthService()
+
+	// تجميع الخدمات
+	appServices := &handlers.Services{
+		Admin: adminService,
+		User:  userService,
+		Auth:  authService,
+		// TODO: إضافة باقي الخدمات
+	}
+
 	// إنشاء الموجه
 	r := chi.NewRouter()
 
 	// تسجيل الوسائط
 	middleware.Register(r)
 
-	// تسجيل المسارات الأساسية
-	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte(`{"status": "healthy", "service": "nawthtech-backend"}`))
-	})
-
-	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte(`{"message": "مرحباً بك في NawthTech API", "version": "1.0.0"}`))
-	})
+	// تسجيل المسارات
+	handlers.Register(r, appServices)
 
 	// إعداد الخادم
 	port := cmp.Or(os.Getenv("PORT"), "3000")

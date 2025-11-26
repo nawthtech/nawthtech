@@ -2,7 +2,6 @@ package logger
 
 import (
 	"os"
-
 	"log/slog"
 )
 
