@@ -3,12 +3,11 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
-	"github.com/nawthtech/backend/internal/models"
-	"github.com/nawthtech/backend/internal/services"
 	"strconv"
 	"time"
 
-	"github.com/gorilla/mux"
+	"github.com/nawthtech/backend/internal/models"
+	"github.com/nawthtech/backend/internal/services"
 )
 
 type AdminHandler struct {
