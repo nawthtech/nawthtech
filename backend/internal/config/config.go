@@ -3,7 +3,7 @@ package config
 import (
 	"os"
 
-	"main/internal/logger"
+	"github.com/nawthtech/backend/internal/logger"
 
 	"github.com/caarlos0/env/v10"
 )
