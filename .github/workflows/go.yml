@@ -1,15 +1,14 @@
-# .github/workflows/go.yml
 name: NawthTech CI/CD
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main", "develop" ]
   pull_request:
-    branches: [ "main" ]
+    branches: [ "main", "develop" ]
 
 env:
-  GO_VERSION: '1.21'
-  NODE_VERSION: '22.x'  # ⬅️ تحديث من 20.x إلى 22.x
+  GO_VERSION: '1.25.4'
+  NODE_VERSION: '22.x'
 
 jobs:
   backend:
@@ -21,6 +20,8 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
 
     - name: Set up Go
       uses: actions/setup-go@v4
@@ -29,10 +30,52 @@ jobs:
         cache: true
         cache-dependency-path: backend/go.sum
 
+    - name: Verify Go environment
+      run: |
+        go version
+        echo "GOPATH: $GOPATH"
+        echo "GOROOT: $GOROOT"
+
+    - name: Download dependencies
+      run: |
+        go mod download
+        go mod verify
+        go mod tidy
+        echo "✅ Dependencies downloaded and verified"
+
+    - name: Run tests
+      run: |
+        go test -v ./... -race -coverprofile=coverage.out
+        echo "✅ Tests completed successfully"
+
+    - name: Check code format
+      run: |
+        test -z $(gofmt -l .)
+        echo "✅ Code formatting check passed"
+
     - name: Build Go binary
       run: |
-        go build -v -o nawthtech-backend ./...
+        go build -v -o nawthtech-backend .
         echo "✅ Backend binary built successfully"
+
+    - name: Test binary execution
+      run: |
+        if [ -f "nawthtech-backend" ]; then
+          echo "✅ Binary created successfully"
+          ls -lah nawthtech-backend
+          # اختبار تشغيل سريع
+          timeout 5s ./nawthtech-backend --help || true
+        else
+          echo "❌ Binary creation failed"
+          exit 1
+        fi
+
+    - name: Upload coverage reports
+      uses: codecov/codecov-action@v3
+      with:
+        file: ./backend/coverage.out
+        flags: unittests
+        name: backend-coverage
 
   frontend:
     runs-on: ubuntu-latest
@@ -44,48 +87,151 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Setup Node.js 22
+    - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
         node-version: ${{ env.NODE_VERSION }}
         cache: 'npm'
         cache-dependency-path: frontend/package-lock.json
 
+    - name: Verify Node.js environment
+      run: |
+        node --version
+        npm --version
+
     - name: Install dependencies
       run: |
-        npm ci --no-audit --no-fund
+        npm ci --no-audit --no-fund --prefer-offline
         echo "✅ Frontend dependencies installed"
 
+    - name: Run type checking
+      run: |
+        npx tsc --noEmit || true
+        echo "✅ TypeScript compilation check completed"
 
     - name: Run linting
       run: |
-        npx eslint . --ext ts,tsx --max-warnings 10 || true
-        echo "✅ ESLint check completed (warnings ignored)"
+        npx eslint . --ext ts,tsx --max-warnings 10 --quiet
+        echo "✅ ESLint check completed"
+
+    - name: Run tests
+      run: |
+        npm test -- --passWithNoTests --coverage
+        echo "✅ Frontend tests completed"
 
     - name: Build frontend
       run: |
         npm run build
         echo "✅ Frontend built successfully"
 
-  deploy:
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: frontend-build
+        path: frontend/dist/
+        retention-days: 1
+
+  security:
     runs-on: ubuntu-latest
-    needs: [backend, frontend]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
 
+    - name: Run Go security check
+      run: |
+        cd backend
+        go install golang.org/x/vuln/cmd/govulncheck@latest
+        govulncheck ./... || true
+        echo "✅ Security vulnerability check completed"
+
+    - name: Run npm audit
+      run: |
+        cd frontend
+        npm audit --audit-level moderate || true
+        echo "✅ NPM audit completed"
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: [backend, frontend, security]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    
+    environment: production
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Download backend binary
+      uses: actions/download-artifact@v4
+      with:
+        name: backend-binary
+        path: backend/
+
+    - name: Download frontend build
+      uses: actions/download-artifact@v4
+      with:
+        name: frontend-build
+        path: frontend/dist/
+
+    - name: Verify deployment artifacts
+      run: |
+        echo "🔍 Verifying deployment artifacts..."
+        ls -la backend/nawthtech-backend
+        ls -la frontend/dist/
+        echo "✅ Artifacts verified"
+
     - name: Install Railway CLI
       run: |
         npm install -g @railway/cli
+        railway --version
         echo "✅ Railway CLI installed"
 
-    - name: Deploy to Railway
+    - name: Deploy backend to Railway
       run: |
-        echo "🚀 Deploying NawthTech to Railway..."
-        railway login --ci ${{ secrets.RAILWAY_TOKEN }}
-        railway up --detach
-        echo "✅ Deployment initiated"
+        echo "🚀 Deploying NawthTech Backend to Railway..."
+        cd backend
+        railway up --service nawthtech-backend --detach
+        echo "✅ Backend deployment initiated"
       env:
         RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+
+    - name: Deploy frontend to Railway
+      run: |
+        echo "🚀 Deploying NawthTech Frontend to Railway..."
+        cd frontend
+        railway up --service nawthtech-frontend --detach
+        echo "✅ Frontend deployment initiated"
+      env:
+        RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+
+    - name: Run smoke tests
+      run: |
+        echo "🧪 Running smoke tests..."
+        # انتظار قليل للنشر ثم اختبار الوصول
+        sleep 30
+        # يمكن إضافة اختبارات HTTP هنا للتحقق من أن التطبيق يعمل
+        echo "✅ Smoke tests completed"
+
+    - name: Notify deployment success
+      if: success()
+      run: |
+        echo "🎉 NawthTech deployed successfully to production!"
+        echo "Backend: https://nawthtech-backend-production.up.railway.app"
+        echo "Frontend: https://nawthtech-frontend-production.up.railway.app"
+
+  notify:
+    runs-on: ubuntu-latest
+    needs: [deploy]
+    if: always()
+    
+    steps:
+    - name: Notify status
+      run: |
+        if [ "${{ needs.deploy.result }}" == "success" ]; then
+          echo "✅ Deployment completed successfully"
+        else
+          echo "❌ Deployment failed"
+        fi

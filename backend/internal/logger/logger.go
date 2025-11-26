@@ -29,3 +29,13 @@ var (
 	// sends logs to stderr with source info
 	StderrWithSource = slog.New(stderrHandlerWithSource)
 )
+
+// ErrAttr دالة مساعدة لإرجاع سمة الخطأ
+func ErrAttr(err error) slog.Attr {
+	return slog.Any("error", err)
+}
+
+// ErrorsAttr دالة مساعدة لإرجاع سمة الأخطاء المتعددة
+func ErrorsAttr(errors ...error) slog.Attr {
+	return slog.Any("errors", errors)
+}

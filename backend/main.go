@@ -3,12 +3,17 @@ package main
 import (
 	"cmp"
 	"context"
+<<<<<<< HEAD
+=======
+	"fmt"
+>>>>>>> 6ae4997234e28055b50691dc8128a6fe491e84d6
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
+<<<<<<< HEAD
 	"github.com/nawthtech/backend/internal/config"
 	"github.com/nawthtech/backend/internal/handlers"
 	"github.com/nawthtech/backend/internal/logger"
@@ -16,10 +21,13 @@ import (
 	"github.com/nawthtech/backend/internal/services"
 	"github.com/nawthtech/backend/internal/utils"
 
+=======
+>>>>>>> 6ae4997234e28055b50691dc8128a6fe491e84d6
 	"github.com/go-chi/chi/v5"
 )
 
 func main() {
+<<<<<<< HEAD
 	// تحميل الإعدادات
 	cfg := config.Load()
 
@@ -40,6 +48,31 @@ func main() {
 
 	// تسجيل المسارات
 	handlers.Register(r, services)
+=======
+	// إنشاء الموجه
+	r := chi.NewRouter()
+
+	// وسائط أساسية
+	r.Use(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			next.ServeHTTP(w, r)
+		})
+	})
+
+	// مسارات أساسية
+	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(`{"message": "مرحباً بك في NawthTech API", "status": "success"}`))
+	})
+
+	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(`{"status": "healthy", "timestamp": "` + time.Now().Format(time.RFC3339) + `"}`))
+	})
+
+	r.Get("/api/version", func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(`{"version": "1.0.0", "name": "NawthTech Backend"}`))
+	})
+>>>>>>> 6ae4997234e28055b50691dc8128a6fe491e84d6
 
 	// إعداد الخادم
 	port := cmp.Or(os.Getenv("PORT"), "3000")
@@ -50,6 +83,7 @@ func main() {
 		WriteTimeout:      5 * time.Minute,
 		ReadHeaderTimeout: 30 * time.Second,
 		IdleTimeout:       120 * time.Second,
+<<<<<<< HEAD
 		MaxHeaderBytes:    1 << 20, // 1MB
 	}
 
@@ -152,4 +186,36 @@ func gracefulShutdown(server *http.Server) {
 
 	// إغلاق اتصالات قاعدة البيانات
 	utils.CloseDatabase()
+=======
+		MaxHeaderBytes:    1 << 20,
+	}
+
+	// بدء الخادم
+	go func() {
+		fmt.Printf("🚀 بدء تشغيل الخادم على port %s\n", port)
+		fmt.Printf("📡 Health check: http://localhost:%s/health\n", port)
+		fmt.Printf("🔗 API: http://localhost:%s/api/version\n", port)
+		
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			fmt.Printf("❌ فشل في بدء الخادم: %v\n", err)
+			os.Exit(1)
+		}
+	}()
+
+	// انتظار إشارة الإغلاق
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+	<-sigChan
+
+	fmt.Println("🛑 استلام إشارة إغلاق، بدء الإغلاق الآمن...")
+	
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	
+	if err := server.Shutdown(ctx); err != nil {
+		fmt.Printf("❌ فشل في إيقاف الخادم: %v\n", err)
+	} else {
+		fmt.Println("✅ تم إيقاف الخادم بنجاح")
+	}
+>>>>>>> 6ae4997234e28055b50691dc8128a6fe491e84d6
 }

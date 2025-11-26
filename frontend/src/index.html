@@ -1,13 +1,980 @@
-<!doctype html>
-<html lang="en">
-  <head>
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Vite + React + TS</title>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="main.tsx"></script>
-  </body>
+    <meta name="theme-color" content="#3A0CA3" />
+    <meta name="description" content="NawthTech - منصة الذكاء الاصطناعي المستقبلية لتطوير الأعمال الرقمية" />
+    
+    <!-- SEO Meta Tags -->
+    <title>NawthTech - منصة الذكاء الاصطناعي المستقبلية</title>
+    <meta name="keywords" content="ذكاء اصطناعي, وسائل تواصل, متابعين, مشاهدات, تحليل, نمو, NawthTech, أعمال رقمية, متجر خدمات, AI, مستقبلية" />
+    
+    <!-- Open Graph -->
+    <meta property="og:title" content="NawthTech - منصة الذكاء الاصطناعي المستقبلية" />
+    <meta property="og:description" content="منصة متكاملة لإدارة وتطوير أعمال وسائل التواصل الاجتماعي باستخدام الذكاء الاصطناعي المتقدم" />
+    <meta property="og:type" content="website" />
+    <meta property="og:locale" content="ar_SA" />
+    <meta property="og:image" content="/assets/og-image.jpg" />
+    
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="NawthTech - منصة الذكاء الاصطناعي المستقبلية" />
+    <meta name="twitter:description" content="منصة متكاملة لتحليل وتطوير استراتيجيات وسائل التواصل الاجتماعي باستخدام الذكاء الاصطناعي" />
+    <meta name="twitter:image" content="/assets/og-image.jpg" />
+    
+    <!-- Preload Critical Resources -->
+    <link rel="preload" href="/fonts/arabic/RB-Bold.woff2" as="font" type="font/woff2" crossorigin>
+    <link rel="preload" href="/fonts/english/Azonix.woff2" as="font" type="font/woff2" crossorigin>
+    
+    <!-- Icons -->
+    <link rel="icon" type="image/x-icon" href="/assets/favicon.ico" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/assets/apple-touch-icon.png" />
+    <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32x32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16x16.png" />
+    
+    <!-- Manifest -->
+    <link rel="manifest" href="/manifest.json" />
+    
+    <!-- Styles -->
+    <style>
+        /* Arabic Font Face */
+        @font-face {
+            font-family: 'RB Bold';
+            src: url('/fonts/arabic/RB-Bold.woff2') format('woff2');
+            font-weight: 700;
+            font-display: swap;
+        }
+        
+        @font-face {
+            font-family: 'RB Regular';
+            src: url('/fonts/arabic/RB-Regular.woff2') format('woff2');
+            font-weight: 400;
+            font-display: swap;
+        }
+        
+        @font-face {
+            font-family: 'Azonix';
+            src: url('/fonts/english/Azonix.woff2') format('woff2');
+            font-weight: 400;
+            font-display: swap;
+        }
+        
+        /* Root Variables - الهوية الجديدة */
+        :root {
+            --deep-purple: #3A0CA3;
+            --neon-cyan: #4BF2FF;
+            --electric-violet: #7209B7;
+            --soft-black: #0D0D0D;
+            --pure-white: #FFFFFF;
+            
+            --gradient-futuristic: linear-gradient(135deg, var(--deep-purple) 0%, var(--electric-violet) 50%, var(--neon-cyan) 100%);
+            --gradient-purple: linear-gradient(135deg, var(--deep-purple) 0%, var(--electric-violet) 100%);
+            --gradient-cyan: linear-gradient(135deg, var(--neon-cyan) 0%, #00D4FF 100%);
+            --gradient-dark: linear-gradient(135deg, var(--soft-black) 0%, #1A1A2E 100%);
+            
+            --shadow-glow: 0 0 20px rgba(75, 242, 255, 0.3);
+            --shadow-glow-strong: 0 0 30px rgba(75, 242, 255, 0.5);
+            --shadow-card: 0 8px 32px rgba(58, 12, 163, 0.15);
+            --shadow-large: 0 15px 50px rgba(58, 12, 163, 0.25);
+        }
+        
+        /* Reset & Base Styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        html {
+            scroll-behavior: smooth;
+        }
+        
+        body {
+            font-family: 'RB Regular', 'Cairo', sans-serif;
+            direction: rtl;
+            text-align: right;
+            margin: 0;
+            padding: 0;
+            background-color: var(--soft-black);
+            color: var(--pure-white);
+            line-height: 1.6;
+            overflow-x: hidden;
+        }
+        
+        /* English Text Styles */
+        .english-text {
+            font-family: 'Azonix', sans-serif;
+        }
+        
+        /* Loading Styles */
+        .loading-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: var(--gradient-dark);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: var(--pure-white);
+            z-index: 9999;
+            font-family: 'RB Bold', sans-serif;
+        }
+        
+        .loading-spinner {
+            width: 70px;
+            height: 70px;
+            border: 3px solid rgba(75, 242, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: var(--neon-cyan);
+            animation: spin 1s ease-in-out infinite;
+            margin-bottom: 30px;
+            box-shadow: var(--shadow-glow);
+        }
+        
+        .loading-screen h2 {
+            font-family: 'RB Bold', sans-serif;
+            font-size: 3rem;
+            margin-bottom: 15px;
+            background: var(--gradient-cyan);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-shadow: 0 0 20px rgba(75, 242, 255, 0.5);
+        }
+        
+        .loading-screen p {
+            font-family: 'RB Bold', sans-serif;
+            font-size: 1.3rem;
+            opacity: 0.9;
+            color: var(--neon-cyan);
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        @keyframes glow {
+            0%, 100% { box-shadow: 0 0 20px rgba(75, 242, 255, 0.3); }
+            50% { box-shadow: 0 0 30px rgba(75, 242, 255, 0.7); }
+        }
+        
+        @keyframes float {
+            0%, 100% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+        }
+        
+        /* Main Content Styles */
+        .main-content {
+            min-height: 100vh;
+            background: var(--soft-black);
+        }
+        
+        /* Header Styles */
+        .main-header {
+            background: var(--gradient-futuristic);
+            color: var(--pure-white);
+            padding: 4rem 0;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .main-header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: 
+                radial-gradient(circle at 20% 80%, rgba(75, 242, 255, 0.1) 0%, transparent 50%),
+                radial-gradient(circle at 80% 20%, rgba(114, 9, 183, 0.1) 0%, transparent 50%);
+            z-index: 1;
+        }
+        
+        .header-content {
+            position: relative;
+            z-index: 2;
+        }
+        
+        .logo-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+        
+        .logo {
+            width: 120px;
+            height: 120px;
+            border-radius: 25px;
+            border: 3px solid rgba(75, 242, 255, 0.3);
+            box-shadow: var(--shadow-glow-strong);
+            animation: glow 2s ease-in-out infinite;
+        }
+        
+        .header-title {
+            font-family: 'RB Bold', sans-serif;
+            font-size: 4rem;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(45deg, var(--pure-white), var(--neon-cyan));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-shadow: 0 0 30px rgba(75, 242, 255, 0.5);
+        }
+        
+        .header-subtitle {
+            font-family: 'Azonix', sans-serif;
+            font-size: 1.8rem;
+            color: var(--neon-cyan);
+            margin-bottom: 1.5rem;
+            letter-spacing: 2px;
+            text-shadow: 0 0 15px rgba(75, 242, 255, 0.5);
+        }
+        
+        .header-tagline {
+            font-family: 'RB Regular', sans-serif;
+            font-size: 1.3rem;
+            max-width: 700px;
+            margin: 0 auto 3rem;
+            opacity: 0.9;
+            line-height: 1.8;
+            color: rgba(255, 255, 255, 0.8);
+        }
+        
+        .header-cta {
+            display: flex;
+            gap: 1.5rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        
+        .cta-button {
+            padding: 15px 35px;
+            border: none;
+            border-radius: 50px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            font-family: 'RB Bold', sans-serif;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .cta-button::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+            transition: left 0.5s;
+        }
+        
+        .cta-button:hover::before {
+            left: 100%;
+        }
+        
+        .cta-primary {
+            background: var(--neon-cyan);
+            color: var(--soft-black);
+            box-shadow: var(--shadow-glow);
+        }
+        
+        .cta-primary:hover {
+            transform: translateY(-3px);
+            box-shadow: var(--shadow-glow-strong);
+            background: #00E5FF;
+        }
+        
+        .cta-secondary {
+            background: transparent;
+            color: var(--pure-white);
+            border: 2px solid var(--neon-cyan);
+            box-shadow: var(--shadow-glow);
+        }
+        
+        .cta-secondary:hover {
+            background: var(--neon-cyan);
+            color: var(--soft-black);
+            transform: translateY(-3px);
+            box-shadow: var(--shadow-glow-strong);
+        }
+        
+        /* Navigation Styles */
+        .main-nav {
+            background: rgba(13, 13, 13, 0.95);
+            backdrop-filter: blur(15px);
+            padding: 1.2rem 2rem;
+            border-bottom: 1px solid rgba(75, 242, 255, 0.2);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+        }
+        
+        .nav-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .nav-logo {
+            font-family: 'RB Bold', sans-serif;
+            font-size: 1.6rem;
+            color: var(--neon-cyan);
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            text-shadow: 0 0 10px rgba(75, 242, 255, 0.5);
+        }
+        
+        .nav-links {
+            display: flex;
+            gap: 2.5rem;
+            align-items: center;
+        }
+        
+        .nav-links a {
+            color: var(--pure-white);
+            text-decoration: none;
+            font-family: 'RB Regular', sans-serif;
+            font-weight: 600;
+            padding: 10px 18px;
+            border-radius: 10px;
+            transition: all 0.3s ease;
+            position: relative;
+            opacity: 0.9;
+        }
+        
+        .nav-links a:hover {
+            color: var(--neon-cyan);
+            background: rgba(75, 242, 255, 0.1);
+            opacity: 1;
+            transform: translateY(-2px);
+        }
+        
+        .nav-links a.active {
+            color: var(--neon-cyan);
+            background: rgba(75, 242, 255, 0.15);
+            box-shadow: 0 0 15px rgba(75, 242, 255, 0.3);
+        }
+        
+        .nav-links a.store-link {
+            background: var(--gradient-cyan);
+            color: var(--soft-black);
+            padding: 12px 25px;
+            border-radius: 25px;
+            font-weight: bold;
+            box-shadow: var(--shadow-glow);
+        }
+        
+        .nav-links a.store-link:hover {
+            background: var(--gradient-purple);
+            color: var(--pure-white);
+            transform: translateY(-3px);
+            box-shadow: var(--shadow-glow-strong);
+        }
+        
+        /* Features Section */
+        .features-section {
+            padding: 6rem 2rem;
+            background: var(--soft-black);
+            position: relative;
+        }
+        
+        .features-section::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, var(--neon-cyan), transparent);
+        }
+        
+        .section-title {
+            text-align: center;
+            font-family: 'RB Bold', sans-serif;
+            font-size: 3.2rem;
+            background: var(--gradient-cyan);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 1.5rem;
+            text-shadow: 0 0 20px rgba(75, 242, 255, 0.3);
+        }
+        
+        .section-subtitle {
+            text-align: center;
+            font-family: 'RB Regular', sans-serif;
+            font-size: 1.3rem;
+            color: rgba(255, 255, 255, 0.7);
+            margin-bottom: 5rem;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+            line-height: 1.8;
+        }
+        
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+            gap: 3rem;
+            max-width: 1300px;
+            margin: 0 auto;
+        }
+        
+        .feature-card {
+            background: rgba(26, 26, 46, 0.6);
+            border-radius: 20px;
+            padding: 3rem 2.5rem;
+            border: 1px solid rgba(75, 242, 255, 0.1);
+            transition: all 0.4s ease;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+            backdrop-filter: blur(10px);
+        }
+        
+        .feature-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: var(--gradient-cyan);
+        }
+        
+        .feature-card::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: radial-gradient(circle at center, rgba(75, 242, 255, 0.1) 0%, transparent 70%);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        
+        .feature-card:hover {
+            transform: translateY(-15px) scale(1.02);
+            box-shadow: var(--shadow-glow-strong);
+            border-color: rgba(75, 242, 255, 0.3);
+        }
+        
+        .feature-card:hover::after {
+            opacity: 1;
+        }
+        
+        .feature-icon {
+            font-size: 4rem;
+            margin-bottom: 2rem;
+            display: inline-block;
+            background: var(--gradient-cyan);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            filter: drop-shadow(0 0 10px rgba(75, 242, 255, 0.5));
+        }
+        
+        .feature-title {
+            font-family: 'RB Bold', sans-serif;
+            font-size: 1.8rem;
+            color: var(--pure-white);
+            margin-bottom: 1.5rem;
+        }
+        
+        .feature-description {
+            font-family: 'RB Regular', sans-serif;
+            color: rgba(255, 255, 255, 0.8);
+            line-height: 1.8;
+            margin-bottom: 2rem;
+            font-size: 1.1rem;
+        }
+        
+        .feature-link {
+            color: var(--neon-cyan);
+            text-decoration: none;
+            font-family: 'RB Bold', sans-serif;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s ease;
+            padding: 8px 16px;
+            border-radius: 8px;
+            background: rgba(75, 242, 255, 0.1);
+        }
+        
+        .feature-link:hover {
+            gap: 12px;
+            background: rgba(75, 242, 255, 0.2);
+            box-shadow: 0 0 15px rgba(75, 242, 255, 0.3);
+        }
+        
+        /* Store Preview Section */
+        .store-preview {
+            padding: 6rem 2rem;
+            background: var(--gradient-dark);
+            color: var(--pure-white);
+            text-align: center;
+            position: relative;
+            border-top: 1px solid rgba(75, 242, 255, 0.2);
+        }
+        
+        .store-preview::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: 
+                radial-gradient(circle at 30% 70%, rgba(58, 12, 163, 0.2) 0%, transparent 50%),
+                radial-gradient(circle at 70% 30%, rgba(114, 9, 183, 0.2) 0%, transparent 50%);
+        }
+        
+        .store-preview .section-title {
+            color: var(--pure-white);
+        }
+        
+        .store-preview .section-subtitle {
+            color: rgba(255, 255, 255, 0.8);
+        }
+        
+        .store-features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 2.5rem;
+            max-width: 1000px;
+            margin: 4rem auto;
+            position: relative;
+            z-index: 2;
+        }
+        
+        .store-feature {
+            background: rgba(255, 255, 255, 0.05);
+            backdrop-filter: blur(10px);
+            padding: 2.5rem 2rem;
+            border-radius: 15px;
+            border: 1px solid rgba(75, 242, 255, 0.1);
+            transition: all 0.3s ease;
+        }
+        
+        .store-feature:hover {
+            transform: translateY(-5px);
+            border-color: rgba(75, 242, 255, 0.3);
+            box-shadow: var(--shadow-glow);
+        }
+        
+        .store-feature h4 {
+            font-family: 'RB Bold', sans-serif;
+            font-size: 1.4rem;
+            margin-bottom: 1.2rem;
+            color: var(--neon-cyan);
+        }
+        
+        .store-feature p {
+            opacity: 0.9;
+            line-height: 1.7;
+            color: rgba(255, 255, 255, 0.8);
+        }
+        
+        /* Footer Styles */
+        .site-footer {
+            background: var(--soft-black);
+            color: var(--pure-white);
+            padding: 5rem 0 2rem;
+            margin-top: 0;
+            font-family: 'RB Regular', sans-serif;
+            border-top: 1px solid rgba(75, 242, 255, 0.1);
+        }
+        
+        .footer-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 2rem;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 4rem;
+        }
+        
+        .footer-section h3 {
+            color: var(--neon-cyan);
+            margin-bottom: 2rem;
+            font-size: 1.5rem;
+            font-family: 'RB Bold', sans-serif;
+            text-shadow: 0 0 10px rgba(75, 242, 255, 0.3);
+        }
+        
+        .footer-section p, 
+        .footer-section a {
+            color: rgba(255, 255, 255, 0.8);
+            text-decoration: none;
+            line-height: 1.8;
+            transition: all 0.3s ease;
+            font-family: 'RB Regular', sans-serif;
+            display: block;
+            margin-bottom: 0.8rem;
+        }
+        
+        .footer-section a:hover {
+            color: var(--neon-cyan);
+            padding-right: 10px;
+            text-shadow: 0 0 8px rgba(75, 242, 255, 0.3);
+        }
+        
+        .social-links {
+            display: flex;
+            gap: 1.2rem;
+            margin-top: 2rem;
+        }
+        
+        .social-links a {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 50px;
+            height: 50px;
+            background: rgba(75, 242, 255, 0.1);
+            border-radius: 50%;
+            text-align: center;
+            transition: all 0.3s ease;
+            font-size: 1.3rem;
+            border: 1px solid rgba(75, 242, 255, 0.2);
+        }
+        
+        .social-links a:hover {
+            background: var(--neon-cyan);
+            color: var(--soft-black);
+            transform: translateY(-3px);
+            box-shadow: var(--shadow-glow);
+        }
+        
+        .footer-bottom {
+            text-align: center;
+            padding-top: 4rem;
+            margin-top: 4rem;
+            border-top: 1px solid rgba(75, 242, 255, 0.1);
+            font-family: 'RB Regular', sans-serif;
+            opacity: 0.7;
+            color: rgba(255, 255, 255, 0.6);
+        }
+        
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .header-title {
+                font-size: 3rem;
+            }
+            
+            .header-subtitle {
+                font-size: 1.4rem;
+            }
+            
+            .section-title {
+                font-size: 2.5rem;
+            }
+            
+            .features-section,
+            .store-preview {
+                padding: 4rem 1rem;
+            }
+            
+            .features-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .feature-card {
+                padding: 2.5rem 2rem;
+            }
+            
+            .header-cta {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .cta-button {
+                width: 250px;
+                justify-content: center;
+            }
+            
+            .nav-container {
+                flex-direction: column;
+                gap: 1.5rem;
+            }
+            
+            .nav-links {
+                gap: 1.2rem;
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+            
+            .footer-content {
+                grid-template-columns: 1fr;
+                gap: 3rem;
+                padding: 0 1rem;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .header-title {
+                font-size: 2.5rem;
+            }
+            
+            .logo {
+                width: 100px;
+                height: 100px;
+            }
+            
+            .section-title {
+                font-size: 2.2rem;
+            }
+            
+            .feature-card {
+                padding: 2rem 1.5rem;
+            }
+            
+            .features-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Loading Screen -->
+    <div class="loading-screen">
+        <div class="loading-spinner"></div>
+        <h2>NawthTech</h2>
+        <p>جاري تحميل المنصة المستقبلية...</p>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <!-- Navigation -->
+        <nav class="main-nav">
+            <div class="nav-container">
+                <a href="/" class="nav-logo">
+                    <img src="/assets/logo.png" alt="NawthTech" style="width: 45px; height: 45px;">
+                    NawthTech
+                </a>
+                <div class="nav-links">
+                    <a href="/" class="active">🏠 الرئيسية</a>
+                    <a href="/services">🚀 الخدمات</a>
+                    <a href="/pricing">💎 الباقات</a>
+                    <a href="/about">ℹ️ عن الشركة</a>
+                    <a href="/contact">📞 اتصل بنا</a>
+                    <a href="/store" class="store-link">🛍️ المتجر</a>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Header Section -->
+        <header class="main-header">
+            <div class="header-content">
+                <div class="logo-container">
+                    <img src="/assets/logo.png" alt="NawthTech Logo" class="logo">
+                    <div>
+                        <h1 class="header-title">NawthTech</h1>
+                        <p class="header-subtitle english-text">FUTURISTIC AI PLATFORM</p>
+                    </div>
+                </div>
+                <p class="header-tagline">منصة الذكاء الاصطناعي المستقبلية لتطوير الأعمال الرقمية وبناء المستقبل بتقنيات متقدمة</p>
+                <div class="header-cta">
+                    <a href="/store" class="cta-button cta-primary">
+                        🛍️ ابدأ الرحلة الآن
+                    </a>
+                    <a href="/services" class="cta-button cta-secondary">
+                        🤖 استكشف الذكاء الاصطناعي
+                    </a>
+                </div>
+            </div>
+        </header>
+
+        <!-- Features Section -->
+        <section class="features-section">
+            <h2 class="section-title">✨ المميزات المتقدمة</h2>
+            <p class="section-subtitle">اكتشف القوة المستقبلية لمنصتنا المتكاملة للذكاء الاصطناعي وتطوير الأعمال الرقمية</p>
+            
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">🎯</div>
+                    <h3 class="feature-title">تجربة مستقبلية متكاملة</h3>
+                    <p class="feature-description">واجهة مستخدم حديثة مع تقنيات الواقع المعزز ولوحة تحكم ذكية متقدمة لإدارة جميع جوانب عملك الرقمي</p>
+                    <a href="/dashboard" class="feature-link">استكشف اللوحة المتقدمة →</a>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-icon">🤖</div>
+                    <h3 class="feature-title">ذكاء اصطناعي مستقبلي</h3>
+                    <p class="feature-description">توليد محتوى ذكي متقدم، تحليل أداء باستخدام التعلم العميق، واقتراح استراتيجيات نمو باستخدام أحدث تقنيات الذكاء الاصطناعي</p>
+                    <a href="/ai-features" class="feature-link">اكتشف التقنيات →</a>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-icon">🛍️</div>
+                    <h3 class="feature-title">متجر خدمات مستقبلي</h3>
+                    <p class="feature-description">متجر متكامل ذكي لخدمات الترويج، زيادة المتابعين، وتحليل الأداء مع توصيات ذكية متقدمة وعروض حصرية</p>
+                    <a href="/store" class="feature-link">تصفح المتجر الذكي →</a>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-icon">💳</div>
+                    <h3 class="feature-title">نظام دفع مستقبلي</h3>
+                    <p class="feature-description">تكامل مع أحدث تقنيات الدفع العالمية مع إدارة محافظ رقمية وأرصدة وحماية متقدمة باستخدام البلوك تشين</p>
+                    <a href="/payment" class="feature-link">تعرف على التقنيات →</a>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-icon">🎨</div>
+                    <h3 class="feature-title">تخصيص ذكي متقدم</h3>
+                    <p class="feature-description">محرر مواقع ويب ذكي مع تخصيص الألوان والثيمات والهيكل ديناميكياً باستخدام الذكاء الاصطناعي</p>
+                    <a href="/customization" class="feature-link">جرب التخصيص الذكي →</a>
+                </div>
+                
+                <div class="feature-card">
+                    <div class="feature-icon">🛡️</div>
+                    <h3 class="feature-title">نظام أمان مستقبلي</h3>
+                    <p class="feature-description">مصادقة حيوية متقدمة، تشفير كمي للبيانات، ومراقبة ذكية للأنشطة المشبوهة باستخدام الذكاء الاصطناعي</p>
+                    <a href="/security" class="feature-link">تعرف على الأمان المتقدم →</a>
+                </div>
+            </div>
+        </section>
+
+        <!-- Store Preview Section -->
+        <section class="store-preview">
+            <h2 class="section-title">🛍️ متجر NawthTech المستقبلي</h2>
+            <p class="section-subtitle">اكتشف مجموعة واسعة من الخدمات الرقمية المدعومة بالذكاء الاصطناعي المتقدم</p>
+            
+            <div class="store-features">
+                <div class="store-feature">
+                    <h4>خدمات الوسائل الاجتماعية المتقدمة</h4>
+                    <p>زيادة المتابعين، التفاعل، والمشاهدات باستخدام خوارزميات ذكاء اصطناعي متطورة</p>
+                </div>
+                <div class="store-feature">
+                    <h4>تحليل المحتوى الذكي</h4>
+                    <p>تحليل أداء المحتوى باستخدام التعلم العميق واقتراح تحسينات ذكية متقدمة</p>
+                </div>
+                <div class="store-feature">
+                    <h4>استشارات النمو المستقبلية</h4>
+                    <p>استشارات متخصصة باستخدام الذكاء الاصطناعي لتحسين استراتيجيات النمو الرقمي</p>
+                </div>
+            </div>
+            
+            <a href="/store" class="cta-button cta-primary" style="background: var(--neon-cyan); color: var(--soft-black);">
+                🛒 ابدأ التسوق المستقبلي
+            </a>
+        </section>
+    </div>
+
+    <!-- Footer Section -->
+    <footer class="site-footer">
+        <div class="footer-content">
+            <div class="footer-section">
+                <h3>عن NawthTech</h3>
+                <p>منصة الذكاء الاصطناعي المستقبلية لتطوير الأعمال الرقمية وبناء المستقبل بتقنيات متقدمة وذكاء اصطناعي متطور.</p>
+            </div>
+            
+            <div class="footer-section">
+                <h3>روابط سريعة</h3>
+                <a href="/services">🚀 الخدمات</a>
+                <a href="/pricing">💎 الباقات</a>
+                <a href="/about">ℹ️ عن الشركة</a>
+                <a href="/contact">📞 اتصل بنا</a>
+                <a href="/store">🛍️ المتجر</a>
+            </div>
+            
+            <div class="footer-section">
+                <h3>خدمات المتجر</h3>
+                <a href="/store?category=social">خدمات الوسائل الاجتماعية</a>
+                <a href="/store?category=content">تحليل المحتوى</a>
+                <a href="/store?category=growth">استشارات النمو</a>
+                <a href="/store?category=ai">خدمات الذكاء الاصطناعي</a>
+            </div>
+            
+            <div class="footer-section">
+                <h3>اتصل بنا</h3>
+                <p>📧 support@nawthtech.com</p>
+                <p>🌐 www.nawthtech.com</p>
+                <div class="social-links">
+                    <a href="https://instagram.com/nawthtech" title="إنستغرام">📱</a>
+                    <a href="https://twitter.com/nawthtech" title="تويتر">🐦</a>
+                    <a href="https://linkedin.com/company/nawthtech" title="لينكد إن">💼</a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="footer-bottom">
+            <p>© 2024 NawthTech. جميع الحقوق محفوظة | منصة الذكاء الاصطناعي المستقبلية</p>
+        </div>
+    </footer>
+
+    <script>
+        // Remove loading screen when page is loaded
+        window.addEventListener('load', function() {
+            setTimeout(() => {
+                const loadingScreen = document.querySelector('.loading-screen');
+                if (loadingScreen) {
+                    loadingScreen.style.opacity = '0';
+                    loadingScreen.style.transition = 'opacity 0.5s ease';
+                    setTimeout(() => {
+                        loadingScreen.style.display = 'none';
+                    }, 500);
+                }
+            }, 1500);
+        });
+
+        // Add floating animation to feature cards
+        document.addEventListener('DOMContentLoaded', function() {
+            const featureCards = document.querySelectorAll('.feature-card');
+            featureCards.forEach((card, index) => {
+                card.style.animationDelay = `${index * 0.1}s`;
+                card.style.animation = 'float 3s ease-in-out infinite';
+            });
+        });
+
+        // Smooth scroll for anchor links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    target.scrollIntoView({
+                        behavior: 'smooth',
+                        block: 'start'
+                    });
+                }
+            });
+        });
+
+        // Highlight active navigation link
+        document.addEventListener('DOMContentLoaded', function() {
+            const currentPage = window.location.pathname;
+            const navLinks = document.querySelectorAll('.nav-links a');
+            
+            navLinks.forEach(link => {
+                if (link.getAttribute('href') === currentPage) {
+                    link.classList.add('active');
+                } else {
+                    link.classList.remove('active');
+                }
+            });
+        });
+    </script>
+</body>
 </html>
