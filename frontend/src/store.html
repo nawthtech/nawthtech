@@ -1,0 +1,1266 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>المتجر - NawthTech | خدمات الذكاء الاصطناعي المتقدمة</title>
+    <meta name="description" content="NawthTech - متجر الخدمات الرقمية المدعوم بالذكاء الاصطناعي المتقدم. اكتشف خدمات المتابعين، الإعجابات، التحليلات والمزيد">
+    
+    <!-- Open Graph -->
+    <meta property="og:title" content="المتجر - NawthTech | خدمات الذكاء الاصطناعي المتقدمة">
+    <meta property="og:description" content="اكتشف خدمات الذكاء الاصطناعي المتقدمة للمنصات الاجتماعية بتجربة مستخدم مستقبلية">
+    
+    <style>
+        :root {
+            --deep-purple: #3A0CA3;
+            --neon-cyan: #4BF2FF;
+            --electric-violet: #7209B7;
+            --soft-black: #0D0D0D;
+            --dark-gray: #1A1A2E;
+            --pure-white: #FFFFFF;
+            --success: #00E676;
+            --warning: #FFD600;
+            --gradient-futuristic: linear-gradient(135deg, var(--deep-purple) 0%, var(--electric-violet) 50%, var(--neon-cyan) 100%);
+            --gradient-cyan: linear-gradient(135deg, var(--neon-cyan) 0%, #00D4FF 100%);
+            --gradient-dark: linear-gradient(135deg, var(--soft-black) 0%, #1A1A2E 100%);
+            --shadow-glow: 0 0 20px rgba(75, 242, 255, 0.3);
+            --shadow-glow-strong: 0 0 30px rgba(75, 242, 255, 0.5);
+            --shadow-card: 0 8px 32px rgba(58, 12, 163, 0.15);
+            --sidebar-width: 300px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: var(--soft-black);
+            color: var(--pure-white);
+            direction: rtl;
+            overflow-x: hidden;
+        }
+
+        /* Layout */
+        .store-container {
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* Sidebar */
+        .store-sidebar {
+            width: var(--sidebar-width);
+            background: var(--dark-gray);
+            border-left: 1px solid rgba(75, 242, 255, 0.1);
+            padding: 1.5rem;
+            transition: all 0.3s ease;
+            overflow-y: auto;
+        }
+
+        .sidebar-header {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid rgba(75, 242, 255, 0.1);
+        }
+
+        .sidebar-logo {
+            width: 40px;
+            height: 40px;
+            border-radius: 10px;
+            border: 2px solid rgba(75, 242, 255, 0.3);
+        }
+
+        .sidebar-title {
+            font-size: 1.2rem;
+            font-weight: bold;
+            background: var(--gradient-cyan);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        /* Main Content */
+        .store-main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* Header */
+        .store-header {
+            background: rgba(26, 26, 46, 0.8);
+            backdrop-filter: blur(10px);
+            padding: 1rem 2rem;
+            border-bottom: 1px solid rgba(75, 242, 255, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 2rem;
+        }
+
+        .header-search {
+            flex: 1;
+            max-width: 500px;
+            position: relative;
+        }
+
+        .search-input {
+            width: 100%;
+            padding: 0.75rem 3rem 0.75rem 1rem;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(75, 242, 255, 0.2);
+            border-radius: 25px;
+            color: var(--pure-white);
+            font-size: 1rem;
+            transition: all 0.3s ease;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: var(--neon-cyan);
+            box-shadow: var(--shadow-glow);
+        }
+
+        .search-icon {
+            position: absolute;
+            left: 1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--neon-cyan);
+        }
+
+        .header-actions {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
+
+        .action-btn {
+            background: rgba(75, 242, 255, 0.1);
+            border: 1px solid rgba(75, 242, 255, 0.2);
+            color: var(--pure-white);
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .action-btn:hover {
+            background: rgba(75, 242, 255, 0.2);
+            border-color: var(--neon-cyan);
+        }
+
+        /* Workspace */
+        .store-workspace {
+            flex: 1;
+            padding: 2rem;
+            overflow-y: auto;
+        }
+
+        /* Views System */
+        .views-container {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+        }
+
+        .view-tab {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(75, 242, 255, 0.1);
+            color: var(--pure-white);
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .view-tab.active {
+            background: var(--gradient-cyan);
+            color: var(--soft-black);
+            border-color: var(--neon-cyan);
+        }
+
+        .view-tab:hover:not(.active) {
+            border-color: var(--neon-cyan);
+        }
+
+        /* Services Grid */
+        .services-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 3rem;
+        }
+
+        .service-card {
+            background: rgba(26, 26, 46, 0.6);
+            border: 1px solid rgba(75, 242, 255, 0.1);
+            border-radius: 16px;
+            padding: 1.5rem;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+            backdrop-filter: blur(10px);
+        }
+
+        .service-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: var(--gradient-cyan);
+        }
+
+        .service-card:hover {
+            transform: translateY(-5px);
+            border-color: rgba(75, 242, 255, 0.3);
+            box-shadow: var(--shadow-glow);
+        }
+
+        .service-card.featured {
+            border-color: var(--neon-cyan);
+        }
+
+        .service-badges {
+            position: absolute;
+            top: 1rem;
+            left: 1rem;
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .service-badge {
+            padding: 0.25rem 0.75rem;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+
+        .badge-featured {
+            background: var(--neon-cyan);
+            color: var(--soft-black);
+        }
+
+        .badge-ai {
+            background: var(--electric-violet);
+            color: var(--pure-white);
+        }
+
+        .service-header {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .service-platform {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-weight: bold;
+            color: var(--neon-cyan);
+        }
+
+        .platform-icon {
+            font-size: 1.5rem;
+        }
+
+        .service-title {
+            font-size: 1.3rem;
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+            color: var(--pure-white);
+        }
+
+        .service-description {
+            color: rgba(255, 255, 255, 0.7);
+            margin-bottom: 1rem;
+            line-height: 1.5;
+        }
+
+        .service-features {
+            list-style: none;
+            margin: 1rem 0;
+        }
+
+        .service-features li {
+            padding: 0.5rem 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            position: relative;
+            padding-right: 1.5rem;
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        .service-features li::before {
+            content: '✓';
+            position: absolute;
+            right: 0;
+            color: var(--neon-cyan);
+            font-weight: bold;
+        }
+
+        .service-stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1rem;
+            margin: 1rem 0;
+            padding: 1rem;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+        }
+
+        .stat {
+            text-align: center;
+        }
+
+        .stat-value {
+            font-weight: bold;
+            font-size: 1.1rem;
+            display: block;
+            color: var(--neon-cyan);
+        }
+
+        .stat-label {
+            font-size: 0.8rem;
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .service-pricing {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 1.5rem 0;
+            padding-top: 1rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .price-section {
+            text-align: right;
+        }
+
+        .price {
+            font-weight: bold;
+            font-size: 1.8rem;
+            color: var(--neon-cyan);
+        }
+
+        .price-unit {
+            font-size: 0.9rem;
+            color: rgba(255, 255, 255, 0.6);
+            display: block;
+        }
+
+        .quantity-controls {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .quantity-btn {
+            width: 35px;
+            height: 35px;
+            border: 1px solid rgba(75, 242, 255, 0.3);
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--pure-white);
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+        }
+
+        .quantity-btn:hover {
+            border-color: var(--neon-cyan);
+            background: var(--neon-cyan);
+            color: var(--soft-black);
+        }
+
+        .quantity-input {
+            width: 60px;
+            text-align: center;
+            padding: 0.5rem;
+            border: 1px solid rgba(75, 242, 255, 0.3);
+            background: rgba(255, 255, 255, 0.05);
+            color: var(--pure-white);
+            border-radius: 8px;
+            font-weight: bold;
+        }
+
+        .service-actions {
+            display: flex;
+            gap: 0.75rem;
+        }
+
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            flex: 1;
+        }
+
+        .btn-outline {
+            background: transparent;
+            border: 1px solid var(--neon-cyan);
+            color: var(--neon-cyan);
+        }
+
+        .btn-primary {
+            background: var(--gradient-cyan);
+            color: var(--soft-black);
+            border: 1px solid var(--neon-cyan);
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-glow);
+        }
+
+        /* Categories Section */
+        .categories-section {
+            margin: 3rem 0;
+        }
+
+        .section-title {
+            font-size: 1.8rem;
+            font-weight: bold;
+            margin-bottom: 2rem;
+            background: var(--gradient-cyan);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .categories-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+        }
+
+        .category-card {
+            background: rgba(26, 26, 46, 0.6);
+            padding: 1.5rem;
+            border-radius: 12px;
+            border: 1px solid rgba(75, 242, 255, 0.1);
+            text-align: center;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            backdrop-filter: blur(10px);
+        }
+
+        .category-card:hover {
+            border-color: var(--neon-cyan);
+            transform: translateY(-3px);
+        }
+
+        .category-icon {
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .category-name {
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+            color: var(--pure-white);
+        }
+
+        .category-count {
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 0.9rem;
+        }
+
+        /* AI Section */
+        .ai-section {
+            background: var(--gradient-dark);
+            padding: 3rem;
+            border-radius: 16px;
+            margin: 3rem 0;
+            border: 1px solid rgba(75, 242, 255, 0.1);
+        }
+
+        .ai-title {
+            font-size: 2rem;
+            font-weight: bold;
+            margin-bottom: 1rem;
+            text-align: center;
+            background: var(--gradient-cyan);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .ai-description {
+            text-align: center;
+            margin-bottom: 2rem;
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 1.1rem;
+        }
+
+        .ai-features {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 2rem;
+        }
+
+        .ai-feature {
+            text-align: center;
+            padding: 1.5rem;
+        }
+
+        .ai-feature-icon {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+
+        .ai-feature-title {
+            font-weight: bold;
+            margin-bottom: 1rem;
+            color: var(--pure-white);
+        }
+
+        .ai-feature-desc {
+            color: rgba(255, 255, 255, 0.7);
+            line-height: 1.5;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .store-container {
+                flex-direction: column;
+            }
+            
+            .store-sidebar {
+                width: 100%;
+                border-left: none;
+                border-bottom: 1px solid rgba(75, 242, 255, 0.1);
+            }
+            
+            .services-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .header-actions {
+                display: none;
+            }
+            
+            .service-actions {
+                flex-direction: column;
+            }
+        }
+
+        /* Animations */
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .slide-in {
+            animation: slideIn 0.3s ease;
+        }
+
+        /* Context Menu */
+        .context-menu {
+            position: fixed;
+            background: var(--dark-gray);
+            border: 1px solid rgba(75, 242, 255, 0.2);
+            border-radius: 8px;
+            padding: 0.5rem;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            animation: slideIn 0.15s ease;
+        }
+
+        .context-menu-item {
+            padding: 0.75rem 1rem;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: background 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .context-menu-item:hover {
+            background: rgba(75, 242, 255, 0.1);
+        }
+    </style>
+</head>
+<body>
+    <div class="store-container">
+        <!-- Sidebar -->
+        <aside class="store-sidebar">
+            <div class="sidebar-header">
+                <img src="/assets/logo.png" alt="NawthTech" class="sidebar-logo">
+                <div class="sidebar-title">متجر NawthTech</div>
+            </div>
+
+            <div class="sidebar-section">
+                <h3>🔍 التصنيفات</h3>
+                <div class="categories-list">
+                    <div class="category-item active" data-category="all">📱 جميع الخدمات</div>
+                    <div class="category-item" data-category="instagram">📷 إنستغرام</div>
+                    <div class="category-item" data-category="tiktok">🎵 تيك توك</div>
+                    <div class="category-item" data-category="twitter">🐦 تويتر</div>
+                    <div class="category-item" data-category="youtube">📺 يوتيوب</div>
+                    <div class="category-item" data-category="facebook">📘 فيسبوك</div>
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <h3>🚀 التوصيات الذكية</h3>
+                <div class="ai-recommendations">
+                    <div class="recommendation-item">
+                        <div class="rec-icon">🎯</div>
+                        <div class="rec-content">
+                            <div class="rec-title">مخصص لك</div>
+                            <div class="rec-desc">خدمات تناسب أهدافك</div>
+                        </div>
+                    </div>
+                    <div class="recommendation-item">
+                        <div class="rec-icon">📈</div>
+                        <div class="rec-content">
+                            <div class="rec-title">الأكثر طلباً</div>
+                            <div class="rec-desc">خدمات شائعة بين العملاء</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="store-main">
+            <!-- Header -->
+            <header class="store-header">
+                <div class="header-search">
+                    <input type="text" class="search-input" placeholder="ابحث في الخدمات...">
+                    <span class="search-icon">🔍</span>
+                </div>
+                
+                <div class="header-actions">
+                    <button class="action-btn">
+                        <span>🛒</span>
+                        <span>السلة</span>
+                    </button>
+                    <button class="action-btn">
+                        <span>👤</span>
+                        <span>حسابي</span>
+                    </button>
+                </div>
+            </header>
+
+            <!-- Workspace -->
+            <div class="store-workspace">
+                <!-- Views Tabs -->
+                <div class="views-container">
+                    <div class="view-tab active" data-view="all">
+                        <span>📦</span>
+                        <span>جميع الخدمات</span>
+                    </div>
+                    <div class="view-tab" data-view="featured">
+                        <span>⭐</span>
+                        <span>المميزة</span>
+                    </div>
+                    <div class="view-tab" data-view="ai">
+                        <span>🤖</span>
+                        <span>الذكاء الاصطناعي</span>
+                    </div>
+                    <div class="view-tab" data-view="trending">
+                        <span>📈</span>
+                        <span>الرائجة</span>
+                    </div>
+                </div>
+
+                <!-- Services Grid -->
+                <div class="services-grid">
+                    <!-- Service 1 -->
+                    <div class="service-card featured slide-in">
+                        <div class="service-badges">
+                            <div class="service-badge badge-featured">مميز ⭐</div>
+                            <div class="service-badge badge-ai">🤖 موصى به</div>
+                        </div>
+                        
+                        <div class="service-header">
+                            <div class="service-platform">
+                                <span class="platform-icon">📷</span>
+                                <span>إنستغرام</span>
+                            </div>
+                        </div>
+                        
+                        <h3 class="service-title">متابعين حقيقيين عالي الجودة</h3>
+                        <p class="service-description">
+                            احصل على متابعين حقيقيين ونشطين لتعزيز وجودك على إنستغرام. خدمة آمنة وموثوقة مدعومة بالذكاء الاصطناعي.
+                        </p>
+                        
+                        <ul class="service-features">
+                            <li>متابعين حقيقيين 100%</li>
+                            <li>تفعيل فوري بعد الطلب</li>
+                            <li>ضمان استرجاع الأموال</li>
+                            <li>دعم فني 24/7</li>
+                        </ul>
+                        
+                        <div class="service-stats">
+                            <div class="stat">
+                                <span class="stat-value">2,540</span>
+                                <span class="stat-label">طلبات</span>
+                            </div>
+                            <div class="stat">
+                                <span class="stat-value">98%</span>
+                                <span class="stat-label">نجاح</span>
+                            </div>
+                            <div class="stat">
+                                <span class="stat-value">24h</span>
+                                <span class="stat-label">توصيل</span>
+                            </div>
+                        </div>
+                        
+                        <div class="service-pricing">
+                            <div class="price-section">
+                                <span class="price">5 ر.س</span>
+                                <span class="price-unit">لكل 100 متابع</span>
+                            </div>
+                            
+                            <div class="quantity-controls">
+                                <button class="quantity-btn">-</button>
+                                <input type="number" class="quantity-input" value="100" min="100" max="10000">
+                                <button class="quantity-btn">+</button>
+                            </div>
+                        </div>
+                        
+                        <div class="service-actions">
+                            <button class="btn btn-outline">عرض التفاصيل</button>
+                            <button class="btn btn-primary">أضف إلى السلة</button>
+                        </div>
+                    </div>
+
+                    <!-- Service 2 -->
+                    <div class="service-card slide-in">
+                        <div class="service-badges">
+                            <div class="service-badge badge-ai">🤖 ذكي</div>
+                        </div>
+                        
+                        <div class="service-header">
+                            <div class="service-platform">
+                                <span class="platform-icon">🎵</span>
+                                <span>تيك توك</span>
+                            </div>
+                        </div>
+                        
+                        <h3 class="service-title">إعجابات ومشاهدات ذكية</h3>
+                        <p class="service-description">
+                            زد تفاعل فيديوهاتك بإعجابات ومشاهدات ذكية من مستخدمين نشطين. نظام توصيل ذكي متطور.
+                        </p>
+                        
+                        <ul class="service-features">
+                            <li>إعجابات حقيقية</li>
+                            <li>مشاهدات عالية الجودة</li>
+                            <li>بدون حاجة لكلمة مرور</li>
+                            <li>تفعيل فوري</li>
+                        </ul>
+                        
+                        <div class="service-stats">
+                            <div class="stat">
+                                <span class="stat-value">1,850</span>
+                                <span class="stat-label">طلبات</span>
+                            </div>
+                            <div class="stat">
+                                <span class="stat-value">99%</span>
+                                <span class="stat-label">نجاح</span>
+                            </div>
+                            <div class="stat">
+                                <span class="stat-value">1h</span>
+                                <span class="stat-label">توصيل</span>
+                            </div>
+                        </div>
+                        
+                        <div class="service-pricing">
+                            <div class="price-section">
+                                <span class="price">3 ر.س</span>
+                                <span class="price-unit">لكل 100 إعجاب</span>
+                            </div>
+                            
+                            <div class="quantity-controls">
+                                <button class="quantity-btn">-</button>
+                                <input type="number" class="quantity-input" value="100" min="100" max="50000">
+                                <button class="quantity-btn">+</button>
+                            </div>
+                        </div>
+                        
+                        <div class="service-actions">
+                            <button class="btn btn-outline">عرض التفاصيل</button>
+                            <button class="btn btn-primary">أضف إلى السلة</button>
+                        </div>
+                    </div>
+
+                    <!-- Service 3 -->
+                    <div class="service-card slide-in">
+                        <div class="service-header">
+                            <div class="service-platform">
+                                <span class="platform-icon">📊</span>
+                                <span>تحليلات متقدمة</span>
+                            </div>
+                        </div>
+                        
+                        <h3 class="service-title">تحليل أداء شامل</h3>
+                        <p class="service-description">
+                            احصل على تحليلات شاملة لأداء حساباتك باستخدام الذكاء الاصطناعي المتقدم. رؤى واستراتيجيات نمو مخصصة.
+                        </p>
+                        
+                        <ul class="service-features">
+                            <li>تحليل متعمق للأداء</li>
+                            <li>توصيات نمو ذكية</li>
+                            <li>تقارير أسبوعية</li>
+                            <li>استشارات مخصصة</li>
+                        </ul>
+                        
+                        <div class="service-stats">
+                            <div class="stat">
+                                <span class="stat-value">720</span>
+                                <span class="stat-label">طلبات</span>
+                            </div>
+                            <div class="stat">
+                                <span class="stat-value">95%</span>
+                                <span class="stat-label">نجاح</span>
+                            </div>
+                            <div class="stat">
+                                <span class="stat-value">فوري</span>
+                                <span class="stat-label">توصيل</span>
+                            </div>
+                        </div>
+                        
+                        <div class="service-pricing">
+                            <div class="price-section">
+                                <span class="price">15 ر.س</span>
+                                <span class="price-unit">تقرير شامل</span>
+                            </div>
+                            
+                            <div class="quantity-controls">
+                                <button class="quantity-btn">-</button>
+                                <input type="number" class="quantity-input" value="1" min="1" max="10">
+                                <button class="quantity-btn">+</button>
+                            </div>
+                        </div>
+                        
+                        <div class="service-actions">
+                            <button class="btn btn-outline">عرض التفاصيل</button>
+                            <button class="btn btn-primary">أضف إلى السلة</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Categories Section -->
+                <section class="categories-section">
+                    <h2 class="section-title">📂 التصنيفات الرئيسية</h2>
+                    <div class="categories-grid">
+                        <div class="category-card" data-category="followers">
+                            <div class="category-icon">👥</div>
+                            <h3 class="category-name">المتابعين</h3>
+                            <div class="category-count">250+ خدمة</div>
+                        </div>
+
+                        <div class="category-card" data-category="likes">
+                            <div class="category-icon">❤️</div>
+                            <h3 class="category-name">الإعجابات</h3>
+                            <div class="category-count">180+ خدمة</div>
+                        </div>
+
+                        <div class="category-card" data-category="comments">
+                            <div class="category-icon">💬</div>
+                            <h3 class="category-name">التعليقات</h3>
+                            <div class="category-count">120+ خدمة</div>
+                        </div>
+
+                        <div class="category-card" data-category="analytics">
+                            <div class="category-icon">📊</div>
+                            <h3 class="category-name">التحليلات</h3>
+                            <div class="category-count">45+ خدمة</div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- AI Section -->
+                <section class="ai-section">
+                    <h2 class="ai-title">🤖 توصيات الذكاء الاصطناعي المتقدم</h2>
+                    <p class="ai-description">
+                        استفد من ذكائنا الاصطناعي المتطور للحصول على تجربة تسوق مخصصة وتوصيات ذكية
+                    </p>
+                    
+                    <div class="ai-features">
+                        <div class="ai-feature">
+                            <div class="ai-feature-icon">🎯</div>
+                            <h3 class="ai-feature-title">توصيات مخصصة</h3>
+                            <p class="ai-feature-desc">
+                                احصل على توصيات ذكية بناءً على أهدافك وتفضيلاتك وسلوك الشراء
+                            </p>
+                        </div>
+
+                        <div class="ai-feature">
+                            <div class="ai-feature-icon">📈</div>
+                            <h3 class="ai-feature-title">تحليلات النمو</h3>
+                            <p class="ai-feature-desc">
+                                تتبع أداء خدماتك واحصل على رؤى استراتيجية لتحسين نتائجك
+                            </p>
+                        </div>
+
+                        <div class="ai-feature">
+                            <div class="ai-feature-icon">🛡️</div>
+                            <h3 class="ai-feature-title">فحص الأمان</h3>
+                            <p class="ai-feature-desc">
+                                تأكد من أمان طلباتك باستخدام تقنيات الذكاء الاصطناعي المتقدمة
+                            </p>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        class StoreApp {
+            constructor() {
+                this.currentView = 'all';
+                this.cart = [];
+                this.init();
+            }
+
+            init() {
+                this.setupEventListeners();
+                this.setupDragAndDrop();
+                this.loadRecommendations();
+            }
+
+            setupEventListeners() {
+                // View tabs
+                document.querySelectorAll('.view-tab').forEach(tab => {
+                    tab.addEventListener('click', () => {
+                        document.querySelectorAll('.view-tab').forEach(t => t.classList.remove('active'));
+                        tab.classList.add('active');
+                        this.switchView(tab.dataset.view);
+                    });
+                });
+
+                // Category filters
+                document.querySelectorAll('.category-item').forEach(item => {
+                    item.addEventListener('click', () => {
+                        document.querySelectorAll('.category-item').forEach(i => i.classList.remove('active'));
+                        item.classList.add('active');
+                        this.filterByCategory(item.dataset.category);
+                    });
+                });
+
+                // Search functionality
+                const searchInput = document.querySelector('.search-input');
+                searchInput.addEventListener('input', (e) => {
+                    this.searchServices(e.target.value);
+                });
+
+                // Quantity controls
+                document.querySelectorAll('.quantity-controls').forEach(control => {
+                    const minusBtn = control.querySelector('.quantity-btn:first-child');
+                    const plusBtn = control.querySelector('.quantity-btn:last-child');
+                    const input = control.querySelector('.quantity-input');
+                    
+                    minusBtn.addEventListener('click', () => {
+                        const min = parseInt(input.min);
+                        const current = parseInt(input.value);
+                        if (current > min) {
+                            input.value = current - (input.dataset.step || 100);
+                        }
+                    });
+                    
+                    plusBtn.addEventListener('click', () => {
+                        const max = parseInt(input.max);
+                        const current = parseInt(input.value);
+                        if (current < max) {
+                            input.value = current + (input.dataset.step || 100);
+                        }
+                    });
+                });
+
+                // Add to cart buttons
+                document.querySelectorAll('.btn-primary').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        const serviceCard = e.target.closest('.service-card');
+                        this.addToCart(serviceCard);
+                    });
+                });
+
+                // Context menu
+                document.addEventListener('contextmenu', (e) => {
+                    if (e.target.closest('.service-card')) {
+                        e.preventDefault();
+                        this.showContextMenu(e, e.target.closest('.service-card'));
+                    }
+                });
+
+                document.addEventListener('click', () => {
+                    this.hideContextMenu();
+                });
+            }
+
+            setupDragAndDrop() {
+                // Setup draggable service cards for potential reordering or cart adding
+                const serviceCards = document.querySelectorAll('.service-card');
+                
+                serviceCards.forEach(card => {
+                    card.setAttribute('draggable', 'true');
+                    
+                    card.addEventListener('dragstart', (e) => {
+                        e.dataTransfer.setData('text/plain', card.dataset.serviceId);
+                        card.classList.add('dragging');
+                    });
+
+                    card.addEventListener('dragend', () => {
+                        card.classList.remove('dragging');
+                    });
+                });
+
+                // Cart drop zone
+                const cartBtn = document.querySelector('.action-btn');
+                cartBtn.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    cartBtn.style.background = 'rgba(75, 242, 255, 0.2)';
+                });
+
+                cartBtn.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    const serviceId = e.dataTransfer.getData('text/plain');
+                    this.addToCartById(serviceId);
+                    cartBtn.style.background = '';
+                });
+            }
+
+            switchView(view) {
+                this.currentView = view;
+                const services = document.querySelectorAll('.service-card');
+                
+                services.forEach(service => {
+                    switch(view) {
+                        case 'featured':
+                            service.style.display = service.classList.contains('featured') ? 'block' : 'none';
+                            break;
+                        case 'ai':
+                            service.style.display = service.querySelector('.badge-ai') ? 'block' : 'none';
+                            break;
+                        case 'trending':
+                            // Simulate trending based on order count
+                            const orders = parseInt(service.querySelector('.stat-value').textContent);
+                            service.style.display = orders > 1000 ? 'block' : 'none';
+                            break;
+                        default:
+                            service.style.display = 'block';
+                    }
+                });
+
+                this.showNotification(`عرض: ${this.getViewTitle(view)}`);
+            }
+
+            getViewTitle(view) {
+                const titles = {
+                    'all': 'جميع الخدمات',
+                    'featured': 'الخدمات المميزة',
+                    'ai': 'خدمات الذكاء الاصطناعي',
+                    'trending': 'الخدمات الرائجة'
+                };
+                return titles[view] || 'جميع الخدمات';
+            }
+
+            filterByCategory(category) {
+                const services = document.querySelectorAll('.service-card');
+                
+                services.forEach(service => {
+                    const servicePlatform = service.querySelector('.service-platform span:last-child').textContent.toLowerCase();
+                    
+                    if (category === 'all' || servicePlatform.includes(category)) {
+                        service.style.display = 'block';
+                    } else {
+                        service.style.display = 'none';
+                    }
+                });
+
+                this.showNotification(`تصفية حسب: ${category}`);
+            }
+
+            searchServices(term) {
+                const services = document.querySelectorAll('.service-card');
+                const searchTerm = term.toLowerCase();
+                
+                services.forEach(service => {
+                    const serviceName = service.querySelector('.service-title').textContent.toLowerCase();
+                    const serviceDesc = service.querySelector('.service-description').textContent.toLowerCase();
+                    
+                    if (serviceName.includes(searchTerm) || serviceDesc.includes(searchTerm)) {
+                        service.style.display = 'block';
+                    } else {
+                        service.style.display = 'none';
+                    }
+                });
+            }
+
+            addToCart(serviceCard) {
+                const serviceName = serviceCard.querySelector('.service-title').textContent;
+                const quantity = serviceCard.querySelector('.quantity-input').value;
+                const price = serviceCard.querySelector('.price').textContent;
+                
+                this.cart.push({
+                    name: serviceName,
+                    quantity: quantity,
+                    price: price
+                });
+
+                this.showNotification(`تم إضافة ${quantity} من ${serviceName} إلى السلة`);
+                this.updateCartBadge();
+            }
+
+            addToCartById(serviceId) {
+                // In a real app, this would fetch service data by ID
+                this.showNotification('تم إضافة الخدمة إلى السلة');
+                this.updateCartBadge();
+            }
+
+            updateCartBadge() {
+                const cartBtn = document.querySelector('.action-btn');
+                const badge = cartBtn.querySelector('.cart-badge') || document.createElement('span');
+                
+                if (!badge.classList.contains('cart-badge')) {
+                    badge.className = 'cart-badge';
+                    badge.style.cssText = `
+                        background: var(--neon-cyan);
+                        color: var(--soft-black);
+                        border-radius: 50%;
+                        width: 20px;
+                        height: 20px;
+                        font-size: 0.8rem;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        position: absolute;
+                        top: -5px;
+                        right: -5px;
+                    `;
+                    cartBtn.style.position = 'relative';
+                    cartBtn.appendChild(badge);
+                }
+                
+                badge.textContent = this.cart.length;
+            }
+
+            showContextMenu(e, serviceCard) {
+                this.hideContextMenu();
+
+                const menu = document.createElement('div');
+                menu.className = 'context-menu';
+                menu.style.top = `${e.pageY}px`;
+                menu.style.left = `${e.pageX}px`;
+
+                const menuItems = [
+                    { icon: '👁️', label: 'معاينة سريعة', action: () => this.quickPreview(serviceCard) },
+                    { icon: '⭐', label: 'إضافة للمفضلة', action: () => this.addToFavorites(serviceCard) },
+                    { icon: '📤', label: 'مشاركة الخدمة', action: () => this.shareService(serviceCard) },
+                    { icon: '📊', label: 'مقارنة الأسعار', action: () => this.comparePrices(serviceCard) }
+                ];
+
+                menuItems.forEach(item => {
+                    const menuItem = document.createElement('div');
+                    menuItem.className = 'context-menu-item';
+                    menuItem.innerHTML = `${item.icon} ${item.label}`;
+                    menuItem.addEventListener('click', item.action);
+                    menu.appendChild(menuItem);
+                });
+
+                document.body.appendChild(menu);
+            }
+
+            hideContextMenu() {
+                const existingMenu = document.querySelector('.context-menu');
+                if (existingMenu) {
+                    existingMenu.remove();
+                }
+            }
+
+            quickPreview(serviceCard) {
+                const serviceName = serviceCard.querySelector('.service-title').textContent;
+                this.showNotification(`معاينة: ${serviceName}`);
+            }
+
+            addToFavorites(serviceCard) {
+                const serviceName = serviceCard.querySelector('.service-title').textContent;
+                this.showNotification(`تمت إضافة ${serviceName} إلى المفضلة`);
+            }
+
+            shareService(serviceCard) {
+                const serviceName = serviceCard.querySelector('.service-title').textContent;
+                this.showNotification(`مشاركة: ${serviceName}`);
+            }
+
+            comparePrices(serviceCard) {
+                this.showNotification('فتح مقارنة الأسعار...');
+            }
+
+            loadRecommendations() {
+                // Simulate AI recommendations loading
+                setTimeout(() => {
+                    this.showNotification('🤖 تم تحميل التوصيات المخصصة لك');
+                }, 2000);
+            }
+
+            showNotification(message) {
+                // Create notification element
+                const notification = document.createElement('div');
+                notification.style.cssText = `
+                    position: fixed;
+                    top: 20px;
+                    right: 20px;
+                    background: var(--dark-gray);
+                    color: var(--pure-white);
+                    padding: 1rem 2rem;
+                    border-radius: 10px;
+                    border: 1px solid var(--neon-cyan);
+                    font-weight: bold;
+                    z-index: 1000;
+                    box-shadow: var(--shadow-glow);
+                    animation: slideIn 0.3s ease;
+                `;
+                notification.textContent = message;
+                
+                document.body.appendChild(notification);
+                
+                // Remove after 3 seconds
+                setTimeout(() => {
+                    notification.remove();
+                }, 3000);
+            }
+        }
+
+        // Initialize the store app
+        document.addEventListener('DOMContentLoaded', () => {
+            window.storeApp = new StoreApp();
+        });
+    </script>
+</body>
+</html>
