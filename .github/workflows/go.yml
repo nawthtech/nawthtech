@@ -98,7 +98,6 @@ jobs:
     - name: Deploy to Railway
       run: |
         echo "🚀 Deploying NawthTech to Railway..."
-        railway login --ci
         railway up --service nawthtech-backend --detach
         echo "✅ Backend deployment initiated"
       env:
