@@ -1,8 +1,8 @@
 package middleware
 
 import (
-	"main/internal/config"
-	"main/internal/logger"
+	"github.com/nawthtech/backend/internal/config"
+	"github.com/nawthtech/backend/internal/logger"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
