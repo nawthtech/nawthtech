@@ -80,4 +80,25 @@ func main() {
 	} else {
 		logger.Stdout.Info("تم إيقاف الخادم بنجاح")
 	}
+
+func main() {
+	// تهيئة قاعدة البيانات (مثال)
+	var db *gorm.DB
+	
+	// إنشاء المستودع والخدمة
+	repo := services.NewServicesRepository(db)
+	service := services.NewServicesService(repo)
+	
+	// تهيئة Router
+	router := gin.Default()
+	
+	// تسجيل المسارات
+	api := router.Group("/api/v1")
+	services.RegisterRoutes(api, service)
+	
+	// تشغيل الخادم
+	log.Println("Starting server on :8080")
+	if err := router.Run(":8080"); err != nil {
+		log.Fatal("Failed to start server:", err)
+	}
 }
