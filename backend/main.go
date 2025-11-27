@@ -8,6 +8,7 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+"log"
 
 	"github.com/nawthtech/nawthtech/backend/internal/config"
 	"github.com/nawthtech/nawthtech/backend/internal/handlers"
@@ -17,6 +18,37 @@ import (
 
 	"github.com/go-chi/chi/v5"
 )
+
+
+func main() {
+	// تكوين خدمة التخزين المؤقت
+	cacheConfig := services.DefaultCacheConfig()
+	cacheService := services.NewCacheService(cacheConfig)
+
+	// تهيئة الخدمة
+	ctx := context.Background()
+	if err := cacheService.Initialize(ctx); err != nil {
+		log.Printf("⚠️  فشل في تهيئة خدمة التخزين المؤقت: %v", err)
+	}
+
+	// استخدام الخدمة
+	err := cacheService.Set(ctx, "user:123", map[string]interface{}{
+		"name":  "أحمد",
+		"email": "ahmed@example.com",
+	}, 30*time.Minute)
+	
+	if err != nil {
+		log.Printf("❌ خطأ في التخزين المؤقت: %v", err)
+	}
+
+	// فحص الصحة
+	health, err := cacheService.HealthCheck(ctx)
+	if err != nil {
+		log.Printf("❌ خطأ في فحص الصحة: %v", err)
+	} else {
+		log.Printf("📊 حالة التخزين المؤقت: %s", health.Status)
+	}
+}
 
 func main() {
 	// تحميل الإعدادات
