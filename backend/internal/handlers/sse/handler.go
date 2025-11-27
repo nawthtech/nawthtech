@@ -2,86 +2,382 @@ package sse
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"net/http"
+	"sync"
 	"time"
 
+	"github.com/gin-gonic/gin"
 	"github.com/nawthtech/nawthtech/backend/internal/logger"
-	"github.com/nawthtech/nawthtech/backend/internal/quote"
+	"github.com/nawthtech/nawthtech/backend/internal/models"
+	"github.com/nawthtech/nawthtech/backend/internal/services"
 )
 
-// Handler معالج SSE (Server-Sent Events)
-func Handler(w http.ResponseWriter, r *http.Request) {
-	// التحقق من دعم الـ SSE
-	flusher, ok := w.(http.Flusher)
-	if !ok {
-		http.Error(w, "streaming unsupported", http.StatusBadRequest)
-		return
+// SSEManager مدير اتصالات SSE
+type SSEManager struct {
+	clients    map[string]map[string]chan []byte
+	mutex      sync.RWMutex
+	broadcast  chan BroadcastMessage
+	register   chan Client
+	unregister chan Client
+}
+
+// Client عميل SSE
+type Client struct {
+	ID       string
+	UserID   string
+	Channels []string
+	Messages chan []byte
+}
+
+// BroadcastMessage رسالة بث
+type BroadcastMessage struct {
+	Channels []string
+	UserIDs  []string
+	Data     interface{}
+	Event    string
+}
+
+// Event هيكل الحدث
+type Event struct {
+	Type    string      `json:"type"`
+	Data    interface{} `json:"data"`
+	Channel string      `json:"channel,omitempty"`
+	Time    time.Time   `json:"time"`
+}
+
+var (
+	manager *SSEManager
+	once    sync.Once
+)
+
+// NewSSEManager إنشاء مدير SSE جديد
+func NewSSEManager() *SSEManager {
+	once.Do(func() {
+		manager = &SSEManager{
+			clients:    make(map[string]map[string]chan []byte),
+			broadcast:  make(chan BroadcastMessage, 100),
+			register:   make(chan Client, 100),
+			unregister: make(chan Client, 100),
+		}
+		go manager.run()
+	})
+	return manager
+}
+
+// GetManager الحصول على مدير SSE
+func GetManager() *SSEManager {
+	if manager == nil {
+		return NewSSEManager()
 	}
+	return manager
+}
 
-	// إعداد الاتصال لـ SSE
-	w.Header().Set("Content-Type", "text/event-stream; charset=UTF-8")
-	w.Header().Set("Cache-Control", "no-cache")
-	w.Header().Set("Connection", "keep-alive")
-	w.Header().Set("Access-Control-Allow-Origin", "*")
-
-	// إرسال الرؤوس إلى العميل
-	w.WriteHeader(http.StatusOK)
-	flusher.Flush()
-
-	// إعداد المسجل
-	requestID := getRequestID(r.Context())
-	eventLogger := logger.Stdout.With(slog.String("request_id", requestID))
-
-	var eventCount uint64
-
-	// دالة ملائمة للاستدعاء عند الاتصال وفي الحلقة
-	sendData := func() {
-		quoteData := quote.GetRandom()
-		fmt.Fprintf(w, "data: %s\n\n", quoteData)
-
-		flusher.Flush()
-
-		eventCount++
-		eventLogger.Debug("sent sse event", "quote", quoteData, "event_count", eventCount)
-	}
-
-	// تسجيل طلب SSE
-	eventLogger.Info("عميل SSE متصل")
-
-	// إرسال بيانات عند الاتصال
-	sendData()
-
-	// إعداد المجدول لإرسال بيانات كل ثانية
-	ticker := time.NewTicker(1 * time.Second)
-	defer ticker.Stop()
-
-	done := make(chan struct{}, 1)
-
-	// انتظار انقطاع العميل ثم إغلاق قناة done
-	go func() {
-		<-r.Context().Done()
-
-		eventLogger.Info("عميل SSE انقطع", slog.Uint64("event_count", eventCount))
-		close(done)
-	}()
-
-	// انتظار tick أو قناة done، إرسال بيانات كل tick
+// تشغيل مدير SSE
+func (m *SSEManager) run() {
 	for {
 		select {
-		case <-ticker.C:
-			sendData()
-		case <-done:
-			return
+		case client := <-m.register:
+			m.mutex.Lock()
+			for _, channel := range client.Channels {
+				if m.clients[channel] == nil {
+					m.clients[channel] = make(map[string]chan []byte)
+				}
+				m.clients[channel][client.ID] = client.Messages
+			}
+			m.mutex.Unlock()
+
+		case client := <-m.unregister:
+			m.mutex.Lock()
+			for _, channel := range client.Channels {
+				if channelClients, exists := m.clients[channel]; exists {
+					delete(channelClients, client.ID)
+					if len(channelClients) == 0 {
+						delete(m.clients, channel)
+					}
+				}
+			}
+			close(client.Messages)
+			m.mutex.Unlock()
+
+		case message := <-m.broadcast:
+			m.broadcastMessage(message)
 		}
 	}
 }
 
-// getRequestID استخراج معرف الطلب من السياق
+// بث الرسالة
+func (m *SSEManager) broadcastMessage(msg BroadcastMessage) {
+	jsonData, err := json.Marshal(Event{
+		Type:    msg.Event,
+		Data:    msg.Data,
+		Time:    time.Now(),
+		Channel: msg.Event,
+	})
+	if err != nil {
+		slog.Error("فشل في ترميز رسالة البث", "error", err)
+		return
+	}
+
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
+
+	// البث للقنوات المحددة
+	for _, channel := range msg.Channels {
+		if channelClients, exists := m.clients[channel]; exists {
+			for clientID, messageChan := range channelClients {
+				// إذا تم تحديد مستخدمين معينين، تحقق من أن العميل هو أحدهم
+				if len(msg.UserIDs) > 0 {
+					clientUserID := extractUserID(clientID)
+					if !contains(msg.UserIDs, clientUserID) {
+						continue
+					}
+				}
+
+				select {
+				case messageChan <- jsonData:
+				default:
+					// تجنب الانسداد - تجاهل إذا كانت القناة ممتلئة
+					slog.Warn("قناة العميل ممتلئة، تجاهل الرسالة", "client_id", clientID)
+				}
+			}
+		}
+	}
+}
+
+// Broadcast بث رسالة للقنوات
+func (m *SSEManager) Broadcast(channels []string, userIDs []string, data interface{}, eventType string) {
+	message := BroadcastMessage{
+		Channels: channels,
+		UserIDs:  userIDs,
+		Data:     data,
+		Event:    eventType,
+	}
+
+	select {
+	case m.broadcast <- message:
+	default:
+		slog.Warn("قناة البث ممتلئة، تجاهل الرسالة")
+	}
+}
+
+// Handler معالج SSE الرئيسي
+func Handler(c *gin.Context) {
+	// التحقق من دعم الـ SSE
+	flusher, ok := c.Writer.(http.Flusher)
+	if !ok {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "التدفق غير مدعوم",
+			"success": false,
+		})
+		return
+	}
+
+	// إعداد الاتصال لـ SSE
+	c.Writer.Header().Set("Content-Type", "text/event-stream; charset=UTF-8")
+	c.Writer.Header().Set("Cache-Control", "no-cache")
+	c.Writer.Header().Set("Connection", "keep-alive")
+	c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
+	c.Writer.Header().Set("Access-Control-Allow-Headers", "Cache-Control")
+	c.Writer.Header().Set("Access-Control-Expose-Headers", "Content-Type")
+
+	// إرسال الرؤوس إلى العميل
+	c.Writer.WriteHeader(http.StatusOK)
+	flusher.Flush()
+
+	// الحصول على معرف المستخدم من السياق
+	userID, _ := c.Get("userID")
+	userIDStr := ""
+	if userID != nil {
+		userIDStr = userID.(string)
+	}
+
+	// الحصول على القنوات المطلوبة
+	channels := c.QueryArray("channels")
+	if len(channels) == 0 {
+		channels = []string{"notifications", "updates"}
+	}
+
+	// إنشاء عميل جديد
+	client := Client{
+		ID:       generateClientID(userIDStr),
+		UserID:   userIDStr,
+		Channels: channels,
+		Messages: make(chan []byte, 10),
+	}
+
+	// تسجيل العميل
+	manager := GetManager()
+	manager.register <- client
+	defer func() {
+		manager.unregister <- client
+	}()
+
+	// إعداد المسجل
+	requestID := getRequestID(c.Request.Context())
+	eventLogger := logger.Stdout.With(slog.String("request_id", requestID))
+
+	// تسجيل طلب SSE
+	eventLogger.Info("عميل SSE متصل", 
+		"user_id", userIDStr, 
+		"client_id", client.ID, 
+		"channels", channels)
+
+	// إرسال حدث الاتصال
+	sendEvent(c.Writer, flusher, Event{
+		Type: "connected",
+		Data: gin.H{
+			"message":   "تم الاتصال بنجاح",
+			"client_id": client.ID,
+			"channels":  channels,
+			"timestamp": time.Now(),
+		},
+		Time: time.Now(),
+	})
+
+	// حلقة الاستماع للرسائل
+	for {
+		select {
+		case message, ok := <-client.Messages:
+			if !ok {
+				eventLogger.Info("قناة العميل مغلقة", "client_id", client.ID)
+				return
+			}
+
+			// إرسال الرسالة إلى العميل
+			fmt.Fprintf(c.Writer, "data: %s\n\n", string(message))
+			flusher.Flush()
+
+			eventLogger.Debug("تم إرسال حدث SSE", "client_id", client.ID)
+
+		case <-c.Request.Context().Done():
+			eventLogger.Info("عميل SSE انقطع", 
+				"client_id", client.ID, 
+				"user_id", userIDStr)
+			return
+
+		case <-time.After(30 * time.Second):
+			// إرسال نبضة قلب للحفاظ على الاتصال
+			sendEvent(c.Writer, flusher, Event{
+				Type: "heartbeat",
+				Data: gin.H{
+					"timestamp": time.Now(),
+				},
+				Time: time.Now(),
+			})
+		}
+	}
+}
+
+// NotificationHandler معالج الإشعارات عبر SSE
+func NotificationHandler(c *gin.Context) {
+	// هذا يمكن دمجه مع المعالج الرئيسي أو استخدامه بشكل منفصل
+	Handler(c)
+}
+
+// AdminHandler معالج SSE للمسؤولين
+func AdminHandler(c *gin.Context) {
+	// التحقق من صلاحيات المسؤول
+	userRole, exists := c.Get("userRole")
+	if !exists || userRole != "admin" {
+		c.JSON(http.StatusForbidden, gin.H{
+			"error":   "غير مصرح",
+			"success": false,
+		})
+		return
+	}
+
+	// إضافة قنوات المسؤول
+	c.Request.URL.RawQuery += "&channels=admin&channels=system&channels=monitoring"
+	Handler(c)
+}
+
+// إرسال حدث فردي
+func sendEvent(w http.ResponseWriter, flusher http.Flusher, event Event) {
+	jsonData, err := json.Marshal(event)
+	if err != nil {
+		slog.Error("فشل في ترميز الحدث", "error", err)
+		return
+	}
+
+	fmt.Fprintf(w, "data: %s\n\n", string(jsonData))
+	flusher.Flush()
+}
+
+// الدوال المساعدة
+
+func generateClientID(userID string) string {
+	if userID == "" {
+		return fmt.Sprintf("anonymous_%d", time.Now().UnixNano())
+	}
+	return fmt.Sprintf("%s_%d", userID, time.Now().UnixNano())
+}
+
+func extractUserID(clientID string) string {
+	// استخراج معرف المستخدم من معرف العميل
+	// التنسيق: userID_timestamp
+	for i := len(clientID) - 1; i >= 0; i-- {
+		if clientID[i] == '_' {
+			return clientID[:i]
+		}
+	}
+	return clientID
+}
+
+func contains(slice []string, item string) bool {
+	for _, s := range slice {
+		if s == item {
+			return true
+		}
+	}
+	return false
+}
+
 func getRequestID(ctx context.Context) string {
 	if reqID, ok := ctx.Value("requestID").(string); ok {
 		return reqID
 	}
-	return "unknown"
+	return fmt.Sprintf("req_%d", time.Now().UnixNano())
+}
+
+// ================================
+// دوال البث الجاهزة
+// ================================
+
+// BroadcastNotification بث إشعار
+func BroadcastNotification(notification models.Notification, userIDs []string) {
+	manager := GetManager()
+	manager.Broadcast([]string{"notifications"}, userIDs, notification, "notification")
+}
+
+// BroadcastSystemAlert بث تنبيه نظام
+func BroadcastSystemAlert(alert models.SystemAlert, channels []string) {
+	manager := GetManager()
+	if len(channels) == 0 {
+		channels = []string{"system", "admin"}
+	}
+	manager.Broadcast(channels, []string{}, alert, "system_alert")
+}
+
+// BroadcastOrderUpdate بث تحديث طلب
+func BroadcastOrderUpdate(order models.Order, userID string) {
+	manager := GetManager()
+	manager.Broadcast([]string{"orders"}, []string{userID}, order, "order_update")
+}
+
+// BroadcastServiceUpdate بث تحديث خدمة
+func BroadcastServiceUpdate(service models.Service, channels []string) {
+	manager := GetManager()
+	if len(channels) == 0 {
+		channels = []string{"services", "updates"}
+	}
+	manager.Broadcast(channels, []string{}, service, "service_update")
+}
+
+// BroadcastAdminStats بث إحصائيات للمسؤولين
+func BroadcastAdminStats(stats models.DashboardStats) {
+	manager := GetManager()
+	manager.Broadcast([]string{"admin", "stats"}, []string{}, stats, "admin_stats")
 }
