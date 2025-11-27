@@ -42,6 +42,8 @@ analyticsService := services.NewAnalyticsService()
 analyticsHandler := handlers.NewAnalyticsHandler(analyticsService, authService)
 handlers.RegisterAnalyticsRoutes(api, analyticsHandler, authMiddleware, adminMiddleware)
 reportsService := services.NewReportsService()
+RegisterSSERoutes (router *gin. RouterGroup, authMiddleware gin. HandlerFunc, adminMiddleware
+gin. HandlerFune) {sseRoutes := router. Group("/sse")
 servicesRepo := services.NewServicesRepository(db)
 servicesService := services.NewServicesService(servicesRepo)
 RegisterHealthRoutes(router, db, healthService, config.Version, config.Environment, adminMiddleware)
