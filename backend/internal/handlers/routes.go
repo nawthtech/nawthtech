@@ -33,6 +33,12 @@ RegisterUserRoutes(router, services.User, services.Admin)
 RegisterStoreRoutes(router, services.Store, services.Cart)
 RegisterCategoryRoutes(router, services.Category)
 RegisterAIRoutes(router, services.AI)
+NewCacheService(config CacheConfig)
+CacheService {
+logger :=
+slog.New(slog.NewJSONHandler(os.Stdout,
+&slog HandlerOptions{
+Level: slog.LevelInfo,
 RegisterAuthRoutes(router, services.Auth)
 RegisterAdminRoutes(router, services.Admin)
 websiteService := services.NewWebsiteService()
