@@ -115,6 +115,7 @@ func NewServicesService(repo ServicesRepository) ServicesService {
 	}
 }
 
+
 func (s *servicesServiceImpl) GetServices(ctx context.Context, params GetServicesParams) ([]models.Service, *utils.Pagination, error) {
 	// التحقق من الصلاحيات والمعاملات
 	if params.Page < 1 {
