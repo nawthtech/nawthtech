@@ -44,7 +44,7 @@ handlers.RegisterAnalyticsRoutes(api, analyticsHandler, authMiddleware, adminMid
 reportsService := services.NewReportsService()
 servicesRepo := services.NewServicesRepository(db)
 servicesService := services.NewServicesService(servicesRepo)
-
+RegisterHealthRoutes(router, db, healthService, config.Version, config.Environment, adminMiddleware)
 handlers.RegisterServicesRoutes(apiGroup, servicesService)
 reportsHandler := handlers.NewReportsHandler(reportsService, authService)
 handlers.RegisterReportsRoutes(api, reportsHandler, authMiddleware, adminMiddleware)
