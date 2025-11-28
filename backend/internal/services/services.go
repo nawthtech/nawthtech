@@ -11,11 +11,81 @@ import (
 )
 
 // ================================
-// الواجهات الرئيسية (Main Interfaces) - المكتملة
+// الواجهات الرئيسية (Main Interfaces) - المحدثة
 // ================================
 
 type (
-	// ... الواجهات السابقة (AnalyticsService, AdminService, ContentService, NotificationService, UserService, ServiceService, CacheService)
+	// AnalyticsService واجهة خدمة التحليلات
+	AnalyticsService interface {
+		TrackEvent(ctx context.Context, event models.Analytics) error
+		GetUserAnalytics(ctx context.Context, userID string, timeframe string) (*UserAnalytics, error)
+		GetServiceAnalytics(ctx context.Context, serviceID string, timeframe string) (*ServiceAnalytics, error)
+		GetPlatformAnalytics(ctx context.Context, timeframe string) (*PlatformAnalytics, error)
+	}
+
+	// AdminService واجهة خدمة الإدارة
+	AdminService interface {
+		GetDashboardStats(ctx context.Context) (*DashboardStats, error)
+		GetUsers(ctx context.Context, params UserQueryParams) ([]models.User, *utils.Pagination, error)
+		GetSystemLogs(ctx context.Context, params SystemLogQuery) ([]models.SystemLog, *utils.Pagination, error)
+		UpdateSystemSettings(ctx context.Context, settings []models.Setting) error
+		BanUser(ctx context.Context, userID string, reason string) error
+		UnbanUser(ctx context.Context, userID string) error
+	}
+
+	// ContentService واجهة خدمة المحتوى
+	ContentService interface {
+		CreateContent(ctx context.Context, req ContentCreateRequest) (*models.Content, error)
+		GetContentByID(ctx context.Context, contentID string) (*models.Content, error)
+		GetContentBySlug(ctx context.Context, slug string) (*models.Content, error)
+		UpdateContent(ctx context.Context, contentID string, req ContentUpdateRequest) (*models.Content, error)
+		DeleteContent(ctx context.Context, contentID string) error
+		GetContentList(ctx context.Context, params ContentQueryParams) ([]models.Content, *utils.Pagination, error)
+		PublishContent(ctx context.Context, contentID string) error
+		UnpublishContent(ctx context.Context, contentID string) error
+	}
+
+	// NotificationService واجهة خدمة الإشعارات
+	NotificationService interface {
+		CreateNotification(ctx context.Context, req NotificationCreateRequest) (*models.Notification, error)
+		GetUserNotifications(ctx context.Context, userID string, params NotificationQueryParams) ([]models.Notification, *utils.Pagination, error)
+		MarkAsRead(ctx context.Context, notificationID string) error
+		MarkAllAsRead(ctx context.Context, userID string) error
+		DeleteNotification(ctx context.Context, notificationID string) error
+		GetUnreadCount(ctx context.Context, userID string) (int64, error)
+		SendBulkNotification(ctx context.Context, req BulkNotificationRequest) error
+	}
+
+	// UserService واجهة خدمة المستخدمين
+	UserService interface {
+		GetProfile(ctx context.Context, userID string) (*models.User, error)
+		UpdateProfile(ctx context.Context, userID string, req UserUpdateRequest) (*models.User, error)
+		UpdateAvatar(ctx context.Context, userID string, avatarURL string) error
+		DeleteAccount(ctx context.Context, userID string) error
+		SearchUsers(ctx context.Context, query string, params UserQueryParams) ([]models.User, *utils.Pagination, error)
+		GetUserStats(ctx context.Context, userID string) (*UserStats, error)
+	}
+
+	// ServiceService واجهة خدمة الخدمات
+	ServiceService interface {
+		CreateService(ctx context.Context, req ServiceCreateRequest) (*models.Service, error)
+		GetServiceByID(ctx context.Context, serviceID string) (*models.Service, error)
+		UpdateService(ctx context.Context, serviceID string, req ServiceUpdateRequest) (*models.Service, error)
+		DeleteService(ctx context.Context, serviceID string) error
+		GetServices(ctx context.Context, params ServiceQueryParams) ([]models.Service, *utils.Pagination, error)
+		SearchServices(ctx context.Context, query string, params ServiceQueryParams) ([]models.Service, *utils.Pagination, error)
+		GetFeaturedServices(ctx context.Context) ([]models.Service, error)
+		GetSimilarServices(ctx context.Context, serviceID string) ([]models.Service, error)
+	}
+
+	// CacheService واجهة خدمة التخزين المؤقت
+	CacheService interface {
+		Get(key string) (interface{}, error)
+		Set(key string, value interface{}, expiration time.Duration) error
+		Delete(key string) error
+		Exists(key string) (bool, error)
+		Flush() error
+	}
 
 	// AIService واجهة خدمة الذكاء الاصطناعي
 	AIService interface {
@@ -68,7 +138,7 @@ type (
 	// OrderService واجهة خدمة الطلبات
 	OrderService interface {
 		CreateOrder(ctx context.Context, req OrderCreateRequest) (*models.Order, error)
-		GetOrderByID(ctx context.Context, orderID string) (*models.OrderDetails, error)
+		GetOrderByID(ctx context.Context, orderID string) (*models.Order, error)
 		GetUserOrders(ctx context.Context, userID string, params OrderQueryParams) ([]models.Order, *utils.Pagination, error)
 		UpdateOrderStatus(ctx context.Context, orderID string, status string, notes string) (*models.Order, error)
 		CancelOrder(ctx context.Context, orderID string, reason string) (*models.Order, error)
@@ -85,7 +155,7 @@ type (
 		GetPaymentMethods(ctx context.Context, userID string) ([]PaymentMethod, error)
 		AddPaymentMethod(ctx context.Context, userID string, method PaymentMethod) error
 		RemovePaymentMethod(ctx context.Context, userID string, methodID string) error
-		GetPaymentHistory(ctx context.Context, userID string, params PaymentQueryParams) ([]PaymentRecord, *utils.Pagination, error)
+		GetPaymentHistory(ctx context.Context, userID string, params PaymentQueryParams) ([]models.Payment, *utils.Pagination, error)
 		ValidatePayment(ctx context.Context, paymentData map[string]interface{}) (*PaymentValidation, error)
 	}
 
@@ -130,10 +200,10 @@ type (
 	UploadService interface {
 		UploadFile(ctx context.Context, req UploadRequest) (*UploadResult, error)
 		DeleteFile(ctx context.Context, fileID string) error
-		GetFile(ctx context.Context, fileID string) (*FileInfo, error)
-		GetUserFiles(ctx context.Context, userID string, params FileQueryParams) ([]FileInfo, *utils.Pagination, error)
+		GetFile(ctx context.Context, fileID string) (*models.File, error)
+		GetUserFiles(ctx context.Context, userID string, params FileQueryParams) ([]models.File, *utils.Pagination, error)
 		GeneratePresignedURL(ctx context.Context, req PresignedURLRequest) (*PresignedURL, error)
-		ValidateFile(ctx context.Context, fileInfo FileInfo) (*FileValidation, error)
+		ValidateFile(ctx context.Context, fileInfo models.File) (*FileValidation, error)
 		GetUploadQuota(ctx context.Context, userID string) (*UploadQuota, error)
 	}
 
@@ -147,10 +217,40 @@ type (
 		Count(ctx context.Context, query interface{}) (int64, error)
 		Exists(ctx context.Context, query interface{}) (bool, error)
 	}
+
+	// CouponService واجهة خدمة الكوبونات
+	CouponService interface {
+		CreateCoupon(ctx context.Context, req CouponCreateRequest) (*models.Coupon, error)
+		GetCouponByID(ctx context.Context, couponID string) (*models.Coupon, error)
+		GetCouponByCode(ctx context.Context, code string) (*models.Coupon, error)
+		UpdateCoupon(ctx context.Context, couponID string, req CouponUpdateRequest) (*models.Coupon, error)
+		DeleteCoupon(ctx context.Context, couponID string) error
+		ValidateCoupon(ctx context.Context, code string, amount float64) (*CouponValidation, error)
+		GetCoupons(ctx context.Context, params CouponQueryParams) ([]models.Coupon, *utils.Pagination, error)
+	}
+
+	// WishlistService واجهة خدمة قائمة الرغبات
+	WishlistService interface {
+		AddToWishlist(ctx context.Context, userID string, serviceID string) error
+		RemoveFromWishlist(ctx context.Context, userID string, serviceID string) error
+		GetUserWishlist(ctx context.Context, userID string, params WishlistQueryParams) ([]models.Service, *utils.Pagination, error)
+		IsInWishlist(ctx context.Context, userID string, serviceID string) (bool, error)
+		GetWishlistCount(ctx context.Context, userID string) (int64, error)
+	}
+
+	// SubscriptionService واجهة خدمة الاشتراكات
+	SubscriptionService interface {
+		CreateSubscription(ctx context.Context, req SubscriptionCreateRequest) (*models.Subscription, error)
+		GetSubscriptionByID(ctx context.Context, subscriptionID string) (*models.Subscription, error)
+		GetUserSubscription(ctx context.Context, userID string) (*models.Subscription, error)
+		CancelSubscription(ctx context.Context, subscriptionID string) error
+		RenewSubscription(ctx context.Context, subscriptionID string) (*models.Subscription, error)
+		GetSubscriptionPlans(ctx context.Context) ([]SubscriptionPlan, error)
+	}
 )
 
 // ================================
-// هياكل المعاملات الجديدة
+// هياكل المعاملات المحدثة
 // ================================
 
 type (
@@ -183,6 +283,7 @@ type (
 		Password  string `json:"password" binding:"required,min=6"`
 		FirstName string `json:"first_name" binding:"required"`
 		LastName  string `json:"last_name" binding:"required"`
+		Phone     string `json:"phone,omitempty"`
 	}
 
 	AuthLoginRequest struct {
@@ -211,6 +312,7 @@ type (
 		Limit    int    `json:"limit"`
 		ParentID string `json:"parent_id"`
 		Active   *bool  `json:"active"`
+		SortBy   string `json:"sort_by"`
 	}
 
 	CategoryCreateRequest struct {
@@ -219,6 +321,8 @@ type (
 		ParentID    string `json:"parent_id"`
 		Icon        string `json:"icon"`
 		Color       string `json:"color"`
+		Image       string `json:"image,omitempty"`
+		SortOrder   int    `json:"sort_order"`
 	}
 
 	CategoryUpdateRequest struct {
@@ -226,6 +330,8 @@ type (
 		Description string `json:"description"`
 		Icon        string `json:"icon"`
 		Color       string `json:"color"`
+		Image       string `json:"image"`
+		SortOrder   int    `json:"sort_order"`
 		Active      *bool  `json:"active"`
 	}
 
@@ -234,12 +340,26 @@ type (
 		Children []CategoryNode  `json:"children"`
 	}
 
+	CategoryStats struct {
+		TotalCategories int            `json:"total_categories"`
+		ActiveCategories int           `json:"active_categories"`
+		TopCategories   []CategoryStat `json:"top_categories"`
+	}
+
+	CategoryStat struct {
+		CategoryID   string `json:"category_id"`
+		CategoryName string `json:"category_name"`
+		ServiceCount int    `json:"service_count"`
+		TotalSales   int    `json:"total_sales"`
+	}
+
 	// Order Structures
 	OrderCreateRequest struct {
-		Items       []OrderItem `json:"items" binding:"required"`
-		Shipping    ShippingInfo `json:"shipping"`
-		Payment     PaymentInfo  `json:"payment"`
-		CustomerNotes string    `json:"customer_notes"`
+		Items         []OrderItem   `json:"items" binding:"required"`
+		ShippingInfo  ShippingInfo  `json:"shipping_info"`
+		PaymentMethod string        `json:"payment_method" binding:"required"`
+		CustomerNotes string        `json:"customer_notes"`
+		CouponCode    string        `json:"coupon_code,omitempty"`
 	}
 
 	OrderQueryParams struct {
@@ -247,20 +367,42 @@ type (
 		Limit  int    `json:"limit"`
 		Status string `json:"status"`
 		SortBy string `json:"sort_by"`
+		UserID string `json:"user_id"`
 	}
 
 	OrderItem struct {
-		ServiceID string  `json:"service_id"`
-		Quantity  int     `json:"quantity"`
-		Price     float64 `json:"price"`
+		ServiceID   string  `json:"service_id" binding:"required"`
+		ServiceName string  `json:"service_name" binding:"required"`
+		Quantity    int     `json:"quantity" binding:"required,min=1"`
+		Price       float64 `json:"price" binding:"required,min=0"`
+		Image       string  `json:"image,omitempty"`
+	}
+
+	ShippingInfo struct {
+		FirstName      string `json:"first_name" binding:"required"`
+		LastName       string `json:"last_name" binding:"required"`
+		Email          string `json:"email" binding:"required,email"`
+		Phone          string `json:"phone" binding:"required"`
+		Address        string `json:"address" binding:"required"`
+		City           string `json:"city" binding:"required"`
+		Country        string `json:"country" binding:"required"`
+		PostalCode     string `json:"postal_code" binding:"required"`
+		ShippingMethod string `json:"shipping_method" binding:"required"`
+	}
+
+	PaymentInfo struct {
+		PaymentMethodID string                 `json:"payment_method_id"`
+		PaymentIntent   string                 `json:"payment_intent"`
+		Metadata        map[string]interface{} `json:"metadata"`
 	}
 
 	// Payment Structures
 	PaymentIntentRequest struct {
-		Amount      float64 `json:"amount" binding:"required"`
-		Currency    string  `json:"currency" binding:"required"`
-		Description string  `json:"description"`
+		Amount      float64                `json:"amount" binding:"required"`
+		Currency    string                 `json:"currency" binding:"required"`
+		Description string                 `json:"description"`
 		Metadata    map[string]interface{} `json:"metadata"`
+		UserID      string                 `json:"user_id" binding:"required"`
 	}
 
 	PaymentMethod struct {
@@ -273,12 +415,19 @@ type (
 		IsDefault   bool   `json:"is_default"`
 	}
 
+	PaymentQueryParams struct {
+		Page   int    `json:"page"`
+		Limit  int    `json:"limit"`
+		Status string `json:"status"`
+		UserID string `json:"user_id"`
+	}
+
 	// Report Structures
 	ReportParams struct {
-		StartDate  time.Time `json:"start_date"`
-		EndDate    time.Time `json:"end_date"`
-		Format     string    `json:"format"`
-		Filters    map[string]interface{} `json:"filters"`
+		StartDate time.Time              `json:"start_date"`
+		EndDate   time.Time              `json:"end_date"`
+		Format    string                 `json:"format"`
+		Filters   map[string]interface{} `json:"filters"`
 	}
 
 	// Upload Structures
@@ -289,6 +438,7 @@ type (
 		Size        int64             `json:"size"`
 		Metadata    map[string]string `json:"metadata"`
 		UserID      string            `json:"user_id"`
+		IsPublic    bool              `json:"is_public"`
 	}
 
 	FileQueryParams struct {
@@ -296,6 +446,15 @@ type (
 		Limit  int    `json:"limit"`
 		Type   string `json:"type"`
 		SortBy string `json:"sort_by"`
+		UserID string `json:"user_id"`
+	}
+
+	PresignedURLRequest struct {
+		Filename    string            `json:"filename"`
+		ContentType string            `json:"content_type"`
+		Size        int64             `json:"size"`
+		Metadata    map[string]string `json:"metadata"`
+		UserID      string            `json:"user_id"`
 	}
 
 	// Strategy Structures
@@ -305,6 +464,7 @@ type (
 		Type        string                 `json:"type" binding:"required"`
 		Parameters  map[string]interface{} `json:"parameters"`
 		Rules       []StrategyRule         `json:"rules"`
+		CreatedBy   string                 `json:"created_by" binding:"required"`
 	}
 
 	StrategyUpdateRequest struct {
@@ -315,9 +475,11 @@ type (
 	}
 
 	StrategyRule struct {
+		ID        string      `json:"id"`
 		Condition string      `json:"condition"`
 		Action    string      `json:"action"`
 		Value     interface{} `json:"value"`
+		Priority  int         `json:"priority"`
 	}
 
 	BacktestRequest struct {
@@ -326,19 +488,246 @@ type (
 		EndDate    time.Time              `json:"end_date"`
 		Parameters map[string]interface{} `json:"parameters"`
 	}
+
+	// Store Structures
+	StoreCreateRequest struct {
+		Name         string `json:"name" binding:"required"`
+		Slug         string `json:"slug" binding:"required"`
+		Description  string `json:"description"`
+		ContactEmail string `json:"contact_email" binding:"required,email"`
+		Phone        string `json:"phone,omitempty"`
+		Address      string `json:"address,omitempty"`
+		Banner       string `json:"banner,omitempty"`
+		Logo         string `json:"logo,omitempty"`
+		OwnerID      string `json:"owner_id" binding:"required"`
+	}
+
+	StoreUpdateRequest struct {
+		Name         string `json:"name"`
+		Description  string `json:"description"`
+		ContactEmail string `json:"contact_email"`
+		Phone        string `json:"phone"`
+		Address      string `json:"address"`
+		Banner       string `json:"banner"`
+		Logo         string `json:"logo"`
+		IsActive     *bool  `json:"is_active"`
+	}
+
+	// Coupon Structures
+	CouponCreateRequest struct {
+		Code          string    `json:"code" binding:"required"`
+		Description   string    `json:"description"`
+		DiscountType  string    `json:"discount_type" binding:"required"`
+		DiscountValue float64   `json:"discount_value" binding:"required"`
+		MinAmount     float64   `json:"min_amount"`
+		MaxDiscount   float64   `json:"max_discount"`
+		UsageLimit    int       `json:"usage_limit"`
+		StartDate     time.Time `json:"start_date" binding:"required"`
+		EndDate       time.Time `json:"end_date" binding:"required"`
+	}
+
+	CouponUpdateRequest struct {
+		Description string    `json:"description"`
+		UsageLimit  int       `json:"usage_limit"`
+		StartDate   time.Time `json:"start_date"`
+		EndDate     time.Time `json:"end_date"`
+		IsActive    *bool     `json:"is_active"`
+	}
+
+	CouponQueryParams struct {
+		Page   int    `json:"page"`
+		Limit  int    `json:"limit"`
+		Active *bool  `json:"active"`
+	}
+
+	// Wishlist Structures
+	WishlistQueryParams struct {
+		Page  int    `json:"page"`
+		Limit int    `json:"limit"`
+		SortBy string `json:"sort_by"`
+	}
+
+	// Subscription Structures
+	SubscriptionCreateRequest struct {
+		UserID   string    `json:"user_id" binding:"required"`
+		PlanID   string    `json:"plan_id" binding:"required"`
+		StartDate time.Time `json:"start_date" binding:"required"`
+		EndDate   time.Time `json:"end_date" binding:"required"`
+	}
+
+	// Service Structures
+	ServiceCreateRequest struct {
+		Title       string   `json:"title" binding:"required"`
+		Description string   `json:"description" binding:"required"`
+		Price       float64  `json:"price" binding:"required"`
+		Duration    int      `json:"duration" binding:"required"`
+		CategoryID  string   `json:"category_id" binding:"required"`
+		ProviderID  string   `json:"provider_id" binding:"required"`
+		Images      []string `json:"images"`
+		Tags        []string `json:"tags"`
+	}
+
+	ServiceUpdateRequest struct {
+		Title       string   `json:"title"`
+		Description string   `json:"description"`
+		Price       float64  `json:"price"`
+		Duration    int      `json:"duration"`
+		CategoryID  string   `json:"category_id"`
+		Images      []string `json:"images"`
+		Tags        []string `json:"tags"`
+		IsActive    *bool    `json:"is_active"`
+		IsFeatured  *bool    `json:"is_featured"`
+	}
+
+	ServiceQueryParams struct {
+		Page       int      `json:"page"`
+		Limit      int      `json:"limit"`
+		CategoryID string   `json:"category_id"`
+		ProviderID string   `json:"provider_id"`
+		MinPrice   float64  `json:"min_price"`
+		MaxPrice   float64  `json:"max_price"`
+		Tags       []string `json:"tags"`
+		Featured   *bool    `json:"featured"`
+		Active     *bool    `json:"active"`
+		SortBy     string   `json:"sort_by"`
+	}
+
+	// User Structures
+	UserUpdateRequest struct {
+		FirstName string `json:"first_name"`
+		LastName  string `json:"last_name"`
+		Phone     string `json:"phone"`
+		Avatar    string `json:"avatar"`
+	}
+
+	UserQueryParams struct {
+		Page   int    `json:"page"`
+		Limit  int    `json:"limit"`
+		Role   string `json:"role"`
+		Status string `json:"status"`
+		Search string `json:"search"`
+	}
+
+	// Content Structures
+	ContentCreateRequest struct {
+		Title   string   `json:"title" binding:"required"`
+		Content string   `json:"content" binding:"required"`
+		Type    string   `json:"type" binding:"required"`
+		AuthorID string  `json:"author_id" binding:"required"`
+		Slug    string   `json:"slug" binding:"required"`
+		Image   string   `json:"image,omitempty"`
+		Tags    []string `json:"tags"`
+	}
+
+	ContentUpdateRequest struct {
+		Title   string   `json:"title"`
+		Content string   `json:"content"`
+		Image   string   `json:"image"`
+		Tags    []string `json:"tags"`
+	}
+
+	ContentQueryParams struct {
+		Page     int    `json:"page"`
+		Limit    int    `json:"limit"`
+		Type     string `json:"type"`
+		AuthorID string `json:"author_id"`
+		Published *bool  `json:"published"`
+		SortBy   string `json:"sort_by"`
+	}
+
+	// Notification Structures
+	NotificationCreateRequest struct {
+		UserID  string                 `json:"user_id" binding:"required"`
+		Title   string                 `json:"title" binding:"required"`
+		Message string                 `json:"message" binding:"required"`
+		Type    string                 `json:"type" binding:"required"`
+		Data    map[string]interface{} `json:"data"`
+	}
+
+	NotificationQueryParams struct {
+		Page   int    `json:"page"`
+		Limit  int    `json:"limit"`
+		Type   string `json:"type"`
+		Unread *bool  `json:"unread"`
+	}
+
+	BulkNotificationRequest struct {
+		UserIDs []string               `json:"user_ids" binding:"required"`
+		Title   string                 `json:"title" binding:"required"`
+		Message string                 `json:"message" binding:"required"`
+		Type    string                 `json:"type" binding:"required"`
+		Data    map[string]interface{} `json:"data"`
+	}
+
+	// System Structures
+	SystemLogQuery struct {
+		Page   int    `json:"page"`
+		Limit  int    `json:"limit"`
+		Level  string `json:"level"`
+		Module string `json:"module"`
+		UserID string `json:"user_id"`
+	}
 )
 
 // ================================
-// هياكل النتائج
+// هياكل النتائج المحدثة
 // ================================
 
 type (
 	AIGenerationResult struct {
-		Text        string    `json:"text"`
-		Tokens      int       `json:"tokens"`
-		Model       string    `json:"model"`
-		FinishReason string   `json:"finish_reason"`
-		GeneratedAt time.Time `json:"generated_at"`
+		Text         string    `json:"text"`
+		Tokens       int       `json:"tokens"`
+		Model        string    `json:"model"`
+		FinishReason string    `json:"finish_reason"`
+		GeneratedAt  time.Time `json:"generated_at"`
+	}
+
+	SentimentAnalysis struct {
+		Sentiment  string  `json:"sentiment"`
+		Confidence float64 `json:"confidence"`
+		Positive   float64 `json:"positive"`
+		Negative   float64 `json:"negative"`
+		Neutral    float64 `json:"neutral"`
+	}
+
+	ContentClassification struct {
+		Category    string  `json:"category"`
+		Confidence  float64 `json:"confidence"`
+		Categories  []Class `json:"categories"`
+	}
+
+	Class struct {
+		Name       string  `json:"name"`
+		Confidence float64 `json:"confidence"`
+	}
+
+	KeywordExtraction struct {
+		Keywords []Keyword `json:"keywords"`
+	}
+
+	Keyword struct {
+		Word       string  `json:"word"`
+		Score      float64 `json:"score"`
+		Frequency  int     `json:"frequency"`
+	}
+
+	TextSummary struct {
+		Summary    string `json:"summary"`
+		OriginalLength int `json:"original_length"`
+		SummaryLength  int `json:"summary_length"`
+		CompressionRatio float64 `json:"compression_ratio"`
+	}
+
+	TranslationResult struct {
+		Text         string `json:"text"`
+		SourceLang   string `json:"source_lang"`
+		TargetLang   string `json:"target_lang"`
+		Translations []Translation `json:"translations"`
+	}
+
+	Translation struct {
+		Text string `json:"text"`
+		Confidence float64 `json:"confidence"`
 	}
 
 	AIImageResult struct {
@@ -361,6 +750,7 @@ type (
 		AccessToken  string       `json:"access_token"`
 		RefreshToken string       `json:"refresh_token"`
 		ExpiresAt    time.Time    `json:"expires_at"`
+		Session      *models.Session `json:"session,omitempty"`
 	}
 
 	TokenClaims struct {
@@ -375,6 +765,7 @@ type (
 		UserID    string    `json:"user_id"`
 		ExpiresAt time.Time `json:"expires_at"`
 		IPAddress string    `json:"ip_address"`
+		UserAgent string    `json:"user_agent"`
 	}
 
 	PaymentIntent struct {
@@ -394,6 +785,20 @@ type (
 		PaidAt    time.Time `json:"paid_at"`
 	}
 
+	RefundResult struct {
+		ID        string    `json:"id"`
+		Status    string    `json:"status"`
+		Amount    float64   `json:"amount"`
+		Currency  string    `json:"currency"`
+		RefundedAt time.Time `json:"refunded_at"`
+	}
+
+	PaymentValidation struct {
+		IsValid bool   `json:"is_valid"`
+		Message string `json:"message"`
+		Errors  []string `json:"errors"`
+	}
+
 	UploadResult struct {
 		ID          string            `json:"id"`
 		URL         string            `json:"url"`
@@ -404,6 +809,24 @@ type (
 		UploadedAt  time.Time         `json:"uploaded_at"`
 	}
 
+	PresignedURL struct {
+		URL         string    `json:"url"`
+		Method      string    `json:"method"`
+		ExpiresAt   time.Time `json:"expires_at"`
+	}
+
+	FileValidation struct {
+		IsValid  bool     `json:"is_valid"`
+		Errors   []string `json:"errors"`
+		Warnings []string `json:"warnings"`
+	}
+
+	UploadQuota struct {
+		Used      int64 `json:"used"`
+		Total     int64 `json:"total"`
+		Remaining int64 `json:"remaining"`
+	}
+
 	StrategyExecutionResult struct {
 		StrategyID string                 `json:"strategy_id"`
 		Success    bool                   `json:"success"`
@@ -411,10 +834,215 @@ type (
 		Metrics    map[string]float64     `json:"metrics"`
 		ExecutedAt time.Time              `json:"executed_at"`
 	}
+
+	StrategyPerformance struct {
+		StrategyID     string            `json:"strategy_id"`
+		TotalExecutions int              `json:"total_executions"`
+		SuccessRate    float64           `json:"success_rate"`
+		AverageMetrics map[string]float64 `json:"average_metrics"`
+		LastExecuted   time.Time         `json:"last_executed"`
+	}
+
+	BacktestResult struct {
+		StrategyID  string            `json:"strategy_id"`
+		Period      string            `json:"period"`
+		TotalTrades int               `json:"total_trades"`
+		WinRate     float64           `json:"win_rate"`
+		ProfitLoss  float64           `json:"profit_loss"`
+		Metrics     map[string]float64 `json:"metrics"`
+		ExecutedAt  time.Time         `json:"executed_at"`
+	}
+
+	StrategyTemplate struct {
+		ID          string                 `json:"id"`
+		Name        string                 `json:"name"`
+		Description string                 `json:"description"`
+		Type        string                 `json:"type"`
+		Parameters  map[string]interface{} `json:"parameters"`
+		Rules       []StrategyRule         `json:"rules"`
+	}
+
+	StoreStats struct {
+		TotalSales    int     `json:"total_sales"`
+		TotalRevenue  float64 `json:"total_revenue"`
+		AverageRating float64 `json:"average_rating"`
+		TotalReviews  int     `json:"total_reviews"`
+		ActiveServices int    `json:"active_services"`
+	}
+
+	OrderStats struct {
+		TotalOrders    int     `json:"total_orders"`
+		PendingOrders  int     `json:"pending_orders"`
+		CompletedOrders int    `json:"completed_orders"`
+		CanceledOrders int     `json:"canceled_orders"`
+		TotalRevenue   float64 `json:"total_revenue"`
+		AverageOrderValue float64 `json:"average_order_value"`
+	}
+
+	OrderPaymentResult struct {
+		OrderID   string    `json:"order_id"`
+		PaymentID string    `json:"payment_id"`
+		Status    string    `json:"status"`
+		PaidAt    time.Time `json:"paid_at"`
+	}
+
+	OrderTracking struct {
+		OrderID       string           `json:"order_id"`
+		Status        string           `json:"status"`
+		TrackingNumber string          `json:"tracking_number"`
+		Events        []TrackingEvent  `json:"events"`
+		EstimatedDelivery time.Time    `json:"estimated_delivery"`
+	}
+
+	TrackingEvent struct {
+		Timestamp time.Time `json:"timestamp"`
+		Status    string    `json:"status"`
+		Location  string    `json:"location"`
+		Message   string    `json:"message"`
+	}
+
+	CouponValidation struct {
+		IsValid      bool    `json:"is_valid"`
+		DiscountType string  `json:"discount_type"`
+		DiscountValue float64 `json:"discount_value"`
+		Message      string  `json:"message"`
+	}
+
+	SubscriptionPlan struct {
+		ID          string    `json:"id"`
+		Name        string    `json:"name"`
+		Description string    `json:"description"`
+		Price       float64   `json:"price"`
+		Duration    int       `json:"duration"`
+		Features    []string  `json:"features"`
+		IsActive    bool      `json:"is_active"`
+	}
+
+	UserStats struct {
+		TotalOrders    int     `json:"total_orders"`
+		TotalSpent     float64 `json:"total_spent"`
+		JoinedDate     time.Time `json:"joined_date"`
+		LastOrderDate  time.Time `json:"last_order_date"`
+		WishlistCount  int     `json:"wishlist_count"`
+	}
+
+	UserAnalytics struct {
+		UserID         string            `json:"user_id"`
+		SessionCount   int               `json:"session_count"`
+		PageViews      int               `json:"page_views"`
+		ConversionRate float64           `json:"conversion_rate"`
+		FavoriteCategories []string       `json:"favorite_categories"`
+	}
+
+	ServiceAnalytics struct {
+		ServiceID      string            `json:"service_id"`
+		Views          int               `json:"views"`
+		Conversions    int               `json:"conversions"`
+		Revenue        float64           `json:"revenue"`
+		Rating         float64           `json:"rating"`
+		PopularTimes   map[string]int    `json:"popular_times"`
+	}
+
+	PlatformAnalytics struct {
+		TotalUsers     int               `json:"total_users"`
+		ActiveUsers    int               `json:"active_users"`
+		TotalOrders    int               `json:"total_orders"`
+		TotalRevenue   float64           `json:"total_revenue"`
+		PopularServices []ServiceStat    `json:"popular_services"`
+	}
+
+	ServiceStat struct {
+		ServiceID   string  `json:"service_id"`
+		ServiceName string  `json:"service_name"`
+		Orders      int     `json:"orders"`
+		Revenue     float64 `json:"revenue"`
+	}
+
+	DashboardStats struct {
+		TotalUsers      int     `json:"total_users"`
+		TotalServices   int     `json:"total_services"`
+		TotalOrders     int     `json:"total_orders"`
+		TotalRevenue    float64 `json:"total_revenue"`
+		PendingOrders   int     `json:"pending_orders"`
+		ActiveStores    int     `json:"active_stores"`
+	}
+
+	SalesReport struct {
+		Period         string           `json:"period"`
+		TotalSales     int              `json:"total_sales"`
+		TotalRevenue   float64          `json:"total_revenue"`
+		TopServices    []ServiceStat    `json:"top_services"`
+		SalesByDay     map[string]int   `json:"sales_by_day"`
+		RevenueByDay   map[string]float64 `json:"revenue_by_day"`
+	}
+
+	UserReport struct {
+		Period         string          `json:"period"`
+		NewUsers       int             `json:"new_users"`
+		ActiveUsers    int             `json:"active_users"`
+		UserGrowth     float64         `json:"user_growth"`
+		UserDemographics map[string]int `json:"user_demographics"`
+	}
+
+	ServiceReport struct {
+		Period          string           `json:"period"`
+		TotalServices   int              `json:"total_services"`
+		NewServices     int              `json:"new_services"`
+		PopularServices []ServiceStat    `json:"popular_services"`
+		ServiceCategories map[string]int `json:"service_categories"`
+	}
+
+	FinancialReport struct {
+		Period         string           `json:"period"`
+		TotalRevenue   float64          `json:"total_revenue"`
+		TotalExpenses  float64          `json:"total_expenses"`
+		NetProfit      float64          `json:"net_profit"`
+		RevenueSources map[string]float64 `json:"revenue_sources"`
+		ExpenseBreakdown map[string]float64 `json:"expense_breakdown"`
+	}
+
+	SystemReport struct {
+		Period          string           `json:"period"`
+		SystemUptime    float64          `json:"system_uptime"`
+		ErrorCount      int              `json:"error_count"`
+		ActiveSessions  int              `json:"active_sessions"`
+		PerformanceMetrics map[string]float64 `json:"performance_metrics"`
+	}
+
+	ReportTemplate struct {
+		ID          string    `json:"id"`
+		Name        string    `json:"name"`
+		Description string    `json:"description"`
+		Type        string    `json:"type"`
+		Format      string    `json:"format"`
+		Fields      []string  `json:"fields"`
+	}
+
+	ScheduleReportRequest struct {
+		TemplateID  string    `json:"template_id" binding:"required"`
+		Recipients  []string  `json:"recipients" binding:"required"`
+		Schedule    string    `json:"schedule" binding:"required"`
+		Parameters  ReportParams `json:"parameters"`
+	}
+
+	ScheduledReport struct {
+		ID          string      `json:"id"`
+		TemplateID  string      `json:"template_id"`
+		Status      string      `json:"status"`
+		NextRun     time.Time   `json:"next_run"`
+		LastRun     time.Time   `json:"last_run"`
+		CreatedAt   time.Time   `json:"created_at"`
+	}
+
+	ScheduledReportQuery struct {
+		Page   int    `json:"page"`
+		Limit  int    `json:"limit"`
+		Status string `json:"status"`
+	}
 )
 
 // ================================
-// التطبيقات الفعلية الجديدة
+// التطبيقات الفعلية المحدثة
 // ================================
 
 type (
@@ -461,10 +1089,50 @@ type (
 	repositoryServiceImpl struct {
 		db *gorm.DB
 	}
+
+	couponServiceImpl struct {
+		db *gorm.DB
+	}
+
+	wishlistServiceImpl struct {
+		db *gorm.DB
+	}
+
+	subscriptionServiceImpl struct {
+		db *gorm.DB
+	}
+
+	analyticsServiceImpl struct {
+		db *gorm.DB
+	}
+
+	adminServiceImpl struct {
+		db *gorm.DB
+	}
+
+	contentServiceImpl struct {
+		db *gorm.DB
+	}
+
+	notificationServiceImpl struct {
+		db *gorm.DB
+	}
+
+	userServiceImpl struct {
+		db *gorm.DB
+	}
+
+	serviceServiceImpl struct {
+		db *gorm.DB
+	}
+
+	cacheServiceImpl struct {
+		// implementation details
+	}
 )
 
 // ================================
-// دوال الإنشاء الجديدة
+// دوال الإنشاء المحدثة
 // ================================
 
 func NewAIService(db *gorm.DB) AIService {
@@ -511,56 +1179,102 @@ func NewRepositoryService(db *gorm.DB) RepositoryService {
 	return &repositoryServiceImpl{db: db}
 }
 
+func NewCouponService(db *gorm.DB) CouponService {
+	return &couponServiceImpl{db: db}
+}
+
+func NewWishlistService(db *gorm.DB) WishlistService {
+	return &wishlistServiceImpl{db: db}
+}
+
+func NewSubscriptionService(db *gorm.DB) SubscriptionService {
+	return &subscriptionServiceImpl{db: db}
+}
+
+func NewAnalyticsService(db *gorm.DB) AnalyticsService {
+	return &analyticsServiceImpl{db: db}
+}
+
+func NewAdminService(db *gorm.DB) AdminService {
+	return &adminServiceImpl{db: db}
+}
+
+func NewContentService(db *gorm.DB) ContentService {
+	return &contentServiceImpl{db: db}
+}
+
+func NewNotificationService(db *gorm.DB) NotificationService {
+	return &notificationServiceImpl{db: db}
+}
+
+func NewUserService(db *gorm.DB) UserService {
+	return &userServiceImpl{db: db}
+}
+
+func NewServiceService(db *gorm.DB) ServiceService {
+	return &serviceServiceImpl{db: db}
+}
+
+func NewCacheService(/* parameters */) CacheService {
+	return &cacheServiceImpl{}
+}
+
 // ================================
 // Service Container المحدث
 // ================================
 
 type ServiceContainer struct {
-	Analytics   AnalyticsService
-	Admin       AdminService
-	Content     ContentService
-	Notification NotificationService
-	User        UserService
-	Service     ServiceService
-	AI          AIService
-	Auth        AuthService
-	Cart        CartService
-	Category    CategoryService
-	Order       OrderService
-	Payment     PaymentService
-	Report      ReportService
-	Store       StoreService
-	Strategy    StrategyService
-	Upload      UploadService
-	Repository  RepositoryService
-	Cache       CacheService
+	Analytics     AnalyticsService
+	Admin         AdminService
+	Content       ContentService
+	Notification  NotificationService
+	User          UserService
+	Service       ServiceService
+	AI            AIService
+	Auth          AuthService
+	Cart          CartService
+	Category      CategoryService
+	Order         OrderService
+	Payment       PaymentService
+	Report        ReportService
+	Store         StoreService
+	Strategy      StrategyService
+	Upload        UploadService
+	Repository    RepositoryService
+	Cache         CacheService
+	Coupon        CouponService
+	Wishlist      WishlistService
+	Subscription  SubscriptionService
 }
 
 func NewServiceContainer(db *gorm.DB) *ServiceContainer {
 	return &ServiceContainer{
-		Analytics:   NewAnalyticsService(db),
-		Admin:       NewAdminService(db),
-		Content:     NewContentService(db),
-		Notification: NewNotificationService(db),
-		User:        NewUserService(db),
-		Service:     NewServiceService(db),
-		AI:          NewAIService(db),
-		Auth:        NewAuthService(db),
-		Cart:        NewCartService(db),
-		Category:    NewCategoryService(db),
-		Order:       NewOrderService(db),
-		Payment:     NewPaymentService(db),
-		Report:      NewReportService(db),
-		Store:       NewStoreService(db),
-		Strategy:    NewStrategyService(db),
-		Upload:      NewUploadService(db),
-		Repository:  NewRepositoryService(db),
-		Cache:       NewCacheService(nil),
+		Analytics:     NewAnalyticsService(db),
+		Admin:         NewAdminService(db),
+		Content:       NewContentService(db),
+		Notification:  NewNotificationService(db),
+		User:          NewUserService(db),
+		Service:       NewServiceService(db),
+		AI:            NewAIService(db),
+		Auth:          NewAuthService(db),
+		Cart:          NewCartService(db),
+		Category:      NewCategoryService(db),
+		Order:         NewOrderService(db),
+		Payment:       NewPaymentService(db),
+		Report:        NewReportService(db),
+		Store:         NewStoreService(db),
+		Strategy:      NewStrategyService(db),
+		Upload:        NewUploadService(db),
+		Repository:    NewRepositoryService(db),
+		Cache:         NewCacheService(),
+		Coupon:        NewCouponService(db),
+		Wishlist:      NewWishlistService(db),
+		Subscription:  NewSubscriptionService(db),
 	}
 }
 
 // ================================
-// تطبيقات أساسية للخدمات الجديدة
+// تطبيقات أساسية للخدمات المحدثة
 // ================================
 
 func (s *aiServiceImpl) GenerateText(ctx context.Context, params AIGenerateParams) (*AIGenerationResult, error) {
@@ -574,43 +1288,76 @@ func (s *aiServiceImpl) GenerateText(ctx context.Context, params AIGenerateParam
 
 func (s *authServiceImpl) Register(ctx context.Context, req AuthRegisterRequest) (*AuthResponse, error) {
 	user := &models.User{
-		ID:        fmt.Sprintf("user_%d", time.Now().Unix()),
-		Email:     req.Email,
-		Username:  req.Username,
-		FirstName: req.FirstName,
-		LastName:  req.LastName,
-		Role:      "user",
-		Status:    "active",
+		ID:           fmt.Sprintf("user_%d", time.Now().Unix()),
+		Email:        req.Email,
+		Username:     req.Username,
+		Password:     "hashed_password", // يجب تشفير كلمة المرور
+		FirstName:    req.FirstName,
+		LastName:     req.LastName,
+		Phone:        req.Phone,
+		Role:         "user",
+		Status:       "active",
+		EmailVerified: false,
+		CreatedAt:    time.Now(),
+		UpdatedAt:    time.Now(),
+	}
+
+	session := &models.Session{
+		ID:        fmt.Sprintf("session_%d", time.Now().Unix()),
+		UserID:    user.ID,
+		Token:     "session_token_" + fmt.Sprintf("%d", time.Now().Unix()),
+		ExpiresAt: time.Now().Add(24 * time.Hour),
 		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
 	}
 
 	return &AuthResponse{
-		User:        user,
-		AccessToken: "access_token_" + fmt.Sprintf("%d", time.Now().Unix()),
+		User:         user,
+		AccessToken:  "access_token_" + fmt.Sprintf("%d", time.Now().Unix()),
 		RefreshToken: "refresh_token_" + fmt.Sprintf("%d", time.Now().Unix()),
-		ExpiresAt:   time.Now().Add(24 * time.Hour),
+		ExpiresAt:    time.Now().Add(24 * time.Hour),
+		Session:      session,
 	}, nil
 }
 
 func (s *cartServiceImpl) GetCart(ctx context.Context, userID string) (*models.Cart, error) {
 	return &models.Cart{
-		ID:        "cart_" + userID,
-		UserID:    userID,
-		Items:     []models.CartItem{},
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
+		ID:          "cart_" + userID,
+		UserID:      userID,
+		Items:       []models.CartItem{},
+		TotalAmount: 0,
+		Discount:    0,
+		Tax:         0,
+		Shipping:    0,
+		FinalAmount: 0,
+		CreatedAt:   time.Now(),
+		UpdatedAt:   time.Now(),
 	}, nil
 }
 
 func (s *orderServiceImpl) CreateOrder(ctx context.Context, req OrderCreateRequest) (*models.Order, error) {
+	// حساب المبلغ الإجمالي
+	var totalAmount float64
+	for _, item := range req.Items {
+		totalAmount += item.Price * float64(item.Quantity)
+	}
+
 	return &models.Order{
-		ID:          fmt.Sprintf("order_%d", time.Now().Unix()),
-		UserID:      "user_id", // سيتم تعيينه من السياق
-		Status:      "pending",
-		TotalAmount: 100.0, // سيتم حسابه من العناصر
-		CreatedAt:   time.Now(),
-		UpdatedAt:   time.Now(),
+		ID:           fmt.Sprintf("order_%d", time.Now().Unix()),
+		UserID:       "user_id_from_context", // سيتم تعيينه من السياق
+		SellerID:     "seller_id_from_items", // سيتم استخلاصه من العناصر
+		Items:        req.Items,
+		Status:       "pending",
+		TotalAmount:  totalAmount,
+		Discount:     0,
+		Tax:          0,
+		Shipping:     0,
+		FinalAmount:  totalAmount,
+		PaymentStatus: "pending",
+		PaymentMethod: req.PaymentMethod,
+		ShippingInfo: req.ShippingInfo,
+		CustomerNotes: req.CustomerNotes,
+		CreatedAt:    time.Now(),
+		UpdatedAt:    time.Now(),
 	}, nil
 }
 
@@ -626,3 +1373,42 @@ func (s *paymentServiceImpl) CreatePaymentIntent(ctx context.Context, req Paymen
 }
 
 // ... تطبيقات مماثلة للخدمات الأخرى
+
+// تطبيقات أساسية للخدمات الجديدة
+func (s *couponServiceImpl) CreateCoupon(ctx context.Context, req CouponCreateRequest) (*models.Coupon, error) {
+	return &models.Coupon{
+		ID:           fmt.Sprintf("coupon_%d", time.Now().Unix()),
+		Code:         req.Code,
+		Description:  req.Description,
+		DiscountType: req.DiscountType,
+		DiscountValue: req.DiscountValue,
+		MinAmount:    req.MinAmount,
+		MaxDiscount:  req.MaxDiscount,
+		UsageLimit:   req.UsageLimit,
+		UsedCount:    0,
+		StartDate:    req.StartDate,
+		EndDate:      req.EndDate,
+		IsActive:     true,
+		CreatedAt:    time.Now(),
+		UpdatedAt:    time.Now(),
+	}, nil
+}
+
+func (s *wishlistServiceImpl) AddToWishlist(ctx context.Context, userID string, serviceID string) error {
+	// تنفيذ إضافة إلى قائمة الرغبات
+	return nil
+}
+
+func (s *subscriptionServiceImpl) CreateSubscription(ctx context.Context, req SubscriptionCreateRequest) (*models.Subscription, error) {
+	return &models.Subscription{
+		ID:          fmt.Sprintf("sub_%d", time.Now().Unix()),
+		UserID:      req.UserID,
+		PlanID:      req.PlanID,
+		Status:      "active",
+		StartDate:   req.StartDate,
+		EndDate:     req.EndDate,
+		RenewalDate: req.EndDate.AddDate(0, 1, 0), // تجديد بعد شهر
+		CreatedAt:   time.Now(),
+		UpdatedAt:   time.Now(),
+	}, nil
+}
