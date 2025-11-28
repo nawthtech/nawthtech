@@ -1,7 +1,6 @@
 package logger
 
 import (
-	"log"
 	"log/slog"
 	"os"
 	"time"
@@ -208,63 +207,6 @@ func RedisConnectionAttr(status string, environment string, retryCount int) slog
 	)
 }
 
-// ========== دوال مساعدة للخدمات ==========
-
-// ServiceOperationAttr سمات عملية الخدمة
-func ServiceOperationAttr(operation, serviceID, sellerID string) slog.Attr {
-	return slog.Group("service",
-		slog.String("operation", operation),
-		slog.String("service_id", serviceID),
-		slog.String("seller_id", sellerID),
-		TimestampAttr(),
-	)
-}
-
-// ServiceCreationAttr سمة إنشاء خدمة
-func ServiceCreationAttr(serviceID, title, category string, price float64) slog.Attr {
-	return slog.Group("service_creation",
-		slog.String("service_id", serviceID),
-		slog.String("title", title),
-		slog.String("category", category),
-		slog.Float64("price", price),
-		TimestampAttr(),
-	)
-}
-
-// ServiceSearchAttr سمة بحث الخدمات
-func ServiceSearchAttr(query, category string, resultsCount int, duration time.Duration) slog.Attr {
-	return slog.Group("service_search",
-		slog.String("query", query),
-		slog.String("category", category),
-		slog.Int("results_count", resultsCount),
-		slog.Duration("duration", duration),
-		TimestampAttr(),
-	)
-}
-
-// ServiceRatingAttr سمة تقييم الخدمة
-func ServiceRatingAttr(serviceID, userID string, rating int, previousRating float64) slog.Attr {
-	return slog.Group("service_rating",
-		slog.String("service_id", serviceID),
-		slog.String("user_id", userID),
-		slog.Int("rating", rating),
-		slog.Float64("previous_rating", previousRating),
-		TimestampAttr(),
-	)
-}
-
-// ServiceAnalyticsAttr سمة تحليلات الخدمة
-func ServiceAnalyticsAttr(serviceID, period string, views, orders int, revenue float64) slog.Attr {
-	return slog.Group("service_analytics",
-		slog.String("service_id", serviceID),
-		slog.String("period", period),
-		slog.Int("views", views),
-		slog.Int("orders", orders),
-		slog.Float64("revenue", revenue),
-		TimestampAttr(),
-	)
-}
-
 // ========== دوال مساعدة للطلبات والشبكة ==========
 
 // RequestAttr سمات الطلب
@@ -337,22 +279,6 @@ func LogCacheOperation(operation, key string, duration time.Duration, success bo
 	}
 }
 
-// LogServiceCreation تسجيل إنشاء خدمة
-func LogServiceCreation(serviceID, title, category string, price float64, sellerID string) {
-	Stdout.Info("تم إنشاء خدمة جديدة",
-		ServiceCreationAttr(serviceID, title, category, price),
-		slog.String("seller_id", sellerID),
-	)
-}
-
-// LogServiceSearch تسجيل بحث الخدمات
-func LogServiceSearch(query, category string, resultsCount int, duration time.Duration, userID string) {
-	Stdout.Info("بحث في الخدمات",
-		ServiceSearchAttr(query, category, resultsCount, duration),
-		slog.String("user_id", userID),
-	)
-}
-
 // LogRedisConnection تسجيل اتصال Redis
 func LogRedisConnection(status, environment string, retryCount int, err error) {
 	if err != nil {
@@ -395,57 +321,6 @@ func LogCORSRequest(origin, method, path string, allowed bool) {
 		CORSAttr(origin, method, allowed),
 		slog.String("path", path),
 	)
-}
-
-// ========== دوال للمستويات المختلفة ==========
-
-// DebugCache تسجيل تصحيح للتخزين المؤقت
-func DebugCache(message string, key string, value interface{}) {
-	Stdout.Debug(message,
-		slog.String("key", key),
-		slog.Any("value", value),
-		TimestampAttr(),
-	)
-}
-
-// InfoService تسجيل معلومات الخدمة
-func InfoService(message, serviceID string, additionalAttrs ...slog.Attr) {
-	attrs := make([]any, 0, len(additionalAttrs)+2)
-	attrs = append(attrs,
-		slog.String("service_id", serviceID),
-		TimestampAttr(),
-	)
-	
-	for _, attr := range additionalAttrs {
-		attrs = append(attrs, attr)
-	}
-	
-	Stdout.Info(message, attrs...)
-}
-
-// WarnCache تسجيل تحذير للتخزين المؤقت
-func WarnCache(message, key string, reason string) {
-	Stderr.Warn(message,
-		slog.String("key", key),
-		slog.String("reason", reason),
-		TimestampAttr(),
-	)
-}
-
-// ErrorService تسجيل خطأ في الخدمة
-func ErrorService(message, serviceID string, err error, additionalAttrs ...slog.Attr) {
-	attrs := make([]any, 0, len(additionalAttrs)+3)
-	attrs = append(attrs,
-		slog.String("service_id", serviceID),
-		ErrAttr(err),
-		TimestampAttr(),
-	)
-	
-	for _, attr := range additionalAttrs {
-		attrs = append(attrs, attr)
-	}
-	
-	Stderr.Error(message, attrs...)
 }
 
 // ========== دوال للمراقبة والصحة ==========
