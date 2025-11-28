@@ -73,7 +73,7 @@ func main() {
 	registerMiddlewares(app, cfg)
 
 	// تسجيل جميع المسارات باستخدام حاوية الخدمات
-	registerAllRoutes(app, serviceContainer, cfg, cacheService)
+	registerAllRoutes(app, serviceContainer, cfg, cacheService, db)
 
 	// بدء الخادم
 	startServer(app, cfg, cacheService)
