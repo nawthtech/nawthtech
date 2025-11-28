@@ -29,7 +29,7 @@ func main() {
 	app.Use(CORSMiddleware())
 
 	// تسجيل جميع المسارات
-	handlers.RegisterAllRoutes(app, db, cfg)
+	handlers.RegisterAllRoutes(app, db, config, router, serviceContainer )
 
 	// بدء الخادم
 	log.Printf("🚀 بدء الخادم على المنفذ %s", cfg.Port)
