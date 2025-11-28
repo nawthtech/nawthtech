@@ -13,6 +13,7 @@ import (
 	"github.com/nawthtech/nawthtech/backend/internal/config"
 	"github.com/nawthtech/nawthtech/backend/internal/handlers"
 	"github.com/nawthtech/nawthtech/backend/internal/logger"
+	"github.com/nawthtech/nawthtech/backend/internal/middleware"
 	"github.com/nawthtech/nawthtech/backend/internal/services"
 	"github.com/nawthtech/nawthtech/backend/internal/utils"
 	"gorm.io/driver/postgres"
@@ -27,6 +28,13 @@ func main() {
 		"version", cfg.Version,
 	)
 
+	// عرض إحصائيات CORS عند البدء
+	corsStats := config.GetCORSStats()
+	logger.Stdout.Info("🌐 إعدادات CORS", 
+		"total_allowed_origins", corsStats["totalAllowedOrigins"],
+		"environment", corsStats["environment"],
+	)
+
 	// تهيئة قاعدة البيانات
 	db, err := initDatabase(cfg)
 	if err != nil {
@@ -35,11 +43,27 @@ func main() {
 	}
 	defer closeDatabase(db)
 
+	// تشغيل ترحيلات قاعدة البيانات
+	if err := runMigrations(db); err != nil {
+		logger.Stderr.Error("❌ فشل في تشغيل ترحيلات قاعدة البيانات", logger.ErrAttr(err))
+		if cfg.IsProduction() {
+			os.Exit(1)
+		}
+	}
+
 	// تهيئة خدمة التخزين المؤقت
 	cacheService, err := initCacheService(cfg)
 	if err != nil {
 		logger.Stderr.Error("❌ فشل في تهيئة خدمة التخزين المؤقت", logger.ErrAttr(err))
 		// نستمر بدون تخزين مؤقت في بيئة التطوير
+		if cfg.IsProduction() {
+			os.Exit(1)
+		}
+	}
+
+	// فحص صحة التطبيق
+	if !healthCheck(cfg, db, cacheService) {
+		logger.Stderr.Error("❌ فحص الصحة فشل - التطبيق غير جاهز")
 		if cfg.IsProduction() {
 			os.Exit(1)
 		}
@@ -145,54 +169,68 @@ func initGinApp(cfg *config.Config) *gin.Engine {
 
 	// إعدادات Gin الأساسية
 	app.ForwardedByClientIP = true
-	app.SetTrustedProxies([]string{"127.0.0.1", "::1"})
+	
+	// تعيين الوكائل الموثوق بها بناءً على البيئة
+	if cfg.IsProduction() {
+		app.SetTrustedProxies([]string{
+			"127.0.0.1",
+			"::1",
+			"10.0.0.0/8",
+			"172.16.0.0/12", 
+			"192.168.0.0/16",
+		})
+	} else {
+		app.SetTrustedProxies([]string{"127.0.0.1", "::1"})
+	}
 
 	return app
 }
 
 // registerMiddlewares تسجيل الوسائط
 func registerMiddlewares(app *gin.Engine, cfg *config.Config) {
-	// الوسائط الأساسية
+	// ✅ وسيط CORS المحدث - يتم تطبيقه أولاً
+	app.Use(middleware.CORS())
+
+	// ✅ وسيط رؤوس الأمان
+	app.Use(middleware.SecurityHeaders())
+
+	// ✅ وسيط التسجيل
 	app.Use(gin.LoggerWithFormatter(func(param gin.LogFormatterParams) string {
-		logger.Stdout.Info("طلب HTTP",
-			"method", param.Method,
-			"path", param.Path,
-			"status", param.StatusCode,
-			"latency", param.Latency,
-			"client_ip", param.ClientIP,
-			"user_agent", param.Request.UserAgent(),
-		)
+		// تسجيل طلبات CORS بشكل خاص
+		if param.Method == "OPTIONS" {
+			logger.Stdout.Info("طلب CORS Preflight",
+				"method", param.Method,
+				"path", param.Path,
+				"status", param.StatusCode,
+				"latency", param.Latency,
+				"client_ip", param.ClientIP,
+				"origin", param.Request.Header.Get("Origin"),
+			)
+		} else {
+			logger.Stdout.Info("طلب HTTP",
+				"method", param.Method,
+				"path", param.Path,
+				"status", param.StatusCode,
+				"latency", param.Latency,
+				"client_ip", param.ClientIP,
+				"user_agent", param.Request.UserAgent(),
+				"origin", param.Request.Header.Get("Origin"),
+			)
+		}
 		return ""
 	}))
 
+	// ✅ وسيط الاستعادة من الأخطاء
 	app.Use(gin.Recovery())
 
-	// وسيط CORS
-	app.Use(func(c *gin.Context) {
-		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
-		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
-		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, accept, origin, Cache-Control, X-Requested-With")
-		c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS, GET, PUT, DELETE, PATCH")
+	// ✅ وسيط تحديد المعدل
+	app.Use(middleware.RateLimit())
 
-		if c.Request.Method == "OPTIONS" {
-			c.AbortWithStatus(204)
-			return
-		}
-
-		c.Next()
-	})
-
-	// وسيط الأمان الأساسي
-	app.Use(func(c *gin.Context) {
-		c.Writer.Header().Set("X-Content-Type-Options", "nosniff")
-		c.Writer.Header().Set("X-Frame-Options", "DENY")
-		c.Writer.Header().Set("X-XSS-Protection", "1; mode=block")
-		c.Writer.Header().Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
-		
-		c.Next()
-	})
-
-	logger.Stdout.Info("✅ تم تسجيل الوسائط الأساسية")
+	logger.Stdout.Info("✅ تم تسجيل الوسائط الأساسية",
+		"cors_enabled", true,
+		"security_headers", true,
+		"rate_limiting", true,
+	)
 }
 
 // registerAllRoutes تسجيل جميع المسارات
@@ -200,8 +238,58 @@ func registerAllRoutes(app *gin.Engine, db *gorm.DB, cfg *config.Config, cacheSe
 	// استخدام الدالة الجديدة من handlers
 	handlers.RegisterAllRoutes(app, db, cfg)
 
+	// ✅ تسجيل مسار لفحص إحصائيات CORS (للتطوير فقط)
+	if cfg.IsDevelopment() {
+		app.GET("/api/debug/cors-stats", func(c *gin.Context) {
+			stats := config.GetCORSStats()
+			c.JSON(200, gin.H{
+				"cors_stats": stats,
+				"timestamp":  time.Now().Format(time.RFC3339),
+			})
+		})
+	}
+
+	// ✅ مسار للصحة الموسعة
+	app.GET("/health/detailed", func(c *gin.Context) {
+		corsStats := config.GetCORSStats()
+		
+		response := gin.H{
+			"status":    "healthy",
+			"service":   "nawthtech-backend",
+			"timestamp": time.Now().Format(time.RFC3339),
+			"version":   cfg.Version,
+			"cors": gin.H{
+				"total_allowed_origins": corsStats["totalAllowedOrigins"],
+				"environment":          corsStats["environment"],
+			},
+			"system": gin.H{
+				"goroutines": utils.GetGoroutineCount(),
+				"memory_mb":  utils.GetMemoryUsageMB(),
+			},
+		}
+		c.JSON(200, response)
+	})
+
+	// ✅ معالج للمسارات غير المعروفة
+	app.NoRoute(func(c *gin.Context) {
+		origin := c.Request.Header.Get("Origin")
+		logger.Stdout.Warn("مسار غير معروف", 
+			"path", c.Request.URL.Path,
+			"method", c.Request.Method,
+			"origin", origin,
+			"client_ip", c.ClientIP(),
+		)
+		
+		c.JSON(404, gin.H{
+			"error":   "مسار غير موجود",
+			"path":    c.Request.URL.Path,
+			"message": "الرجاء التحقق من المسار والمحاولة مرة أخرى",
+		})
+	})
+
 	logger.Stdout.Info("✅ تم تسجيل جميع المسارات",
 		"total_routes", countRoutes(app),
+		"cors_debug_enabled", cfg.IsDevelopment(),
 	)
 }
 
@@ -231,7 +319,7 @@ func startServer(app *gin.Engine, cfg *config.Config) {
 
 	// قناة لاستقبال إشارات النظام
 	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 
 	// بدء الخادم في goroutine
 	go func() {
@@ -239,6 +327,14 @@ func startServer(app *gin.Engine, cfg *config.Config) {
 			"port", cfg.Port,
 			"environment", cfg.Environment,
 			"version", cfg.Version,
+			"cors_enabled", true,
+		)
+
+		// ✅ عرض إحصائيات CORS النهائية
+		corsStats := config.GetCORSStats()
+		logger.Stdout.Info("🔧 إعدادات CORS النهائية",
+			"total_origins", corsStats["totalAllowedOrigins"],
+			"services", corsStats["services"],
 		)
 
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
@@ -249,7 +345,10 @@ func startServer(app *gin.Engine, cfg *config.Config) {
 
 	// انتظار إشارة الإغلاق
 	sig := <-sigChan
-	logger.Stdout.Info("🛑 استلام إشارة إغلاق", "signal", sig.String())
+	logger.Stdout.Info("🛑 استلام إشارة إغلاق", 
+		"signal", sig.String(),
+		"timestamp", time.Now().Format(time.RFC3339),
+	)
 
 	// إيقاف الخادم بشكل أنيق
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -329,6 +428,14 @@ func healthCheck(cfg *config.Config, db *gorm.DB, cacheService services.CacheSer
 		}
 	}
 
-	logger.Stdout.Info("✅ فحص الصحة مكتمل - التطبيق جاهز")
+	// ✅ فحص إعدادات CORS
+	corsStats := config.GetCORSStats()
+	if corsStats["totalAllowedOrigins"].(int) == 0 {
+		logger.Stderr.Warn("⚠️  لا توجد نطاقات مسموح بها في إعدادات CORS")
+	}
+
+	logger.Stdout.Info("✅ فحص الصحة مكتمل - التطبيق جاهز",
+		"cors_origins", corsStats["totalAllowedOrigins"],
+	)
 	return true
 }
