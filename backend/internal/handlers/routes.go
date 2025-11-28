@@ -9,10 +9,11 @@ import (
 	"github.com/nawthtech/nawthtech/backend/internal/handlers/sse"
 	"github.com/nawthtech/nawthtech/backend/internal/middleware"
 	"github.com/nawthtech/nawthtech/backend/internal/services"
+	"gorm.io/gorm"
 )
 
 // RegisterAllRoutes تسجيل جميع المسارات
-func RegisterAllRoutes(router *gin.Engine, serviceContainer *services.ServiceContainer, config *config.Config) {
+func RegisterAllRoutes(router *gin.Engine, serviceContainer *services.ServiceContainer, config *config.Config, db *gorm.DB) {
 	// تطبيق middleware العام على مستوى التطبيق
 	applyGlobalMiddleware(router, config)
 	
@@ -23,7 +24,7 @@ func RegisterAllRoutes(router *gin.Engine, serviceContainer *services.ServiceCon
 	api := router.Group("/api/v1")
 	
 	// ========== مسارات الصحة ==========
-	registerHealthRoutes(router, serviceContainer, config)
+	registerHealthRoutes(router, serviceContainer, config, db)
 	
 	// ========== المسارات العامة (لا تتطلب مصادقة) ==========
 	registerPublicRoutes(api, serviceContainer, middlewares)
@@ -68,9 +69,9 @@ func initializeMiddlewares(services *services.ServiceContainer, config *config.C
 }
 
 // registerHealthRoutes تسجيل مسارات الصحة
-func registerHealthRoutes(router *gin.Engine, services *services.ServiceContainer, config *config.Config) {
+func registerHealthRoutes(router *gin.Engine, services *services.ServiceContainer, config *config.Config, db *gorm.DB) {
 	// إنشاء معالج الصحة
-	healthHandler := health.NewHealthHandler(services.Repository.DB(), services.Cache, config)
+	healthHandler := health.NewHealthHandler(db, services.Cache, config)
 	
 	// مسارات الصحة العامة (بدون بادئة api/v1)
 	router.GET("/health", healthHandler.Check)
@@ -121,7 +122,7 @@ func registerPublicRoutes(api *gin.RouterGroup, services *services.ServiceContai
 	api.POST("/auth/register", authHandler.Register)
 	api.POST("/auth/login", authHandler.Login)
 	api.POST("/auth/refresh", authHandler.RefreshToken)
-	api.POST("/auth/forgot-password", authHandler.ForgotPassword)
+	api.POST("/auth/forgot-password", authHandler.FgotPassword)
 	api.POST("/auth/reset-password", authHandler.ResetPassword)
 	
 	// معالج الخدمات (العامة)
