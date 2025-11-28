@@ -12,7 +12,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/nawthtech/nawthtech/backend/internal/logger"
 	"github.com/nawthtech/nawthtech/backend/internal/models"
-	"github.com/nawthtech/nawthtech/backend/internal/services"
 )
 
 // SSEManager مدير اتصالات SSE
@@ -187,11 +186,12 @@ func Handler(c *gin.Context) {
 	c.Writer.WriteHeader(http.StatusOK)
 	flusher.Flush()
 
-	// الحصول على معرف المستخدم من السياق
-	userID, _ := c.Get("userID")
-	userIDStr := ""
-	if userID != nil {
-		userIDStr = userID.(string)
+	// الحصول على معرف المستخدم من السياق (مباشرة من gin)
+	userID := ""
+	if userIDVal, exists := c.Get("userID"); exists {
+		if id, ok := userIDVal.(string); ok {
+			userID = id
+		}
 	}
 
 	// الحصول على القنوات المطلوبة
@@ -202,8 +202,8 @@ func Handler(c *gin.Context) {
 
 	// إنشاء عميل جديد
 	client := Client{
-		ID:       generateClientID(userIDStr),
-		UserID:   userIDStr,
+		ID:       generateClientID(userID),
+		UserID:   userID,
 		Channels: channels,
 		Messages: make(chan []byte, 10),
 	}
@@ -221,7 +221,7 @@ func Handler(c *gin.Context) {
 
 	// تسجيل طلب SSE
 	eventLogger.Info("عميل SSE متصل", 
-		"user_id", userIDStr, 
+		"user_id", userID, 
 		"client_id", client.ID, 
 		"channels", channels)
 
@@ -255,7 +255,7 @@ func Handler(c *gin.Context) {
 		case <-c.Request.Context().Done():
 			eventLogger.Info("عميل SSE انقطع", 
 				"client_id", client.ID, 
-				"user_id", userIDStr)
+				"user_id", userID)
 			return
 
 		case <-time.After(30 * time.Second):
@@ -280,8 +280,14 @@ func NotificationHandler(c *gin.Context) {
 // AdminHandler معالج SSE للمسؤولين
 func AdminHandler(c *gin.Context) {
 	// التحقق من صلاحيات المسؤول
-	userRole, exists := c.Get("userRole")
-	if !exists || userRole != "admin" {
+	userRole := ""
+	if roleVal, exists := c.Get("userRole"); exists {
+		if role, ok := roleVal.(string); ok {
+			userRole = role
+		}
+	}
+	
+	if userRole != "admin" {
 		c.JSON(http.StatusForbidden, gin.H{
 			"error":   "غير مصرح",
 			"success": false,
@@ -290,7 +296,16 @@ func AdminHandler(c *gin.Context) {
 	}
 
 	// إضافة قنوات المسؤول
-	c.Request.URL.RawQuery += "&channels=admin&channels=system&channels=monitoring"
+	channels := c.QueryArray("channels")
+	channels = append(channels, "admin", "system", "monitoring")
+	c.Request.URL.RawQuery = "channels="
+	for i, channel := range channels {
+		if i > 0 {
+			c.Request.URL.RawQuery += "&channels="
+		}
+		c.Request.URL.RawQuery += channel
+	}
+	
 	Handler(c)
 }
 
@@ -353,7 +368,7 @@ func BroadcastNotification(notification models.Notification, userIDs []string) {
 }
 
 // BroadcastSystemAlert بث تنبيه نظام
-func BroadcastSystemAlert(alert models.SystemAlert, channels []string) {
+func BroadcastSystemAlert(alert SystemAlert, channels []string) {
 	manager := GetManager()
 	if len(channels) == 0 {
 		channels = []string{"system", "admin"}
@@ -377,7 +392,100 @@ func BroadcastServiceUpdate(service models.Service, channels []string) {
 }
 
 // BroadcastAdminStats بث إحصائيات للمسؤولين
-func BroadcastAdminStats(stats models.DashboardStats) {
+func BroadcastAdminStats(stats DashboardStats) {
 	manager := GetManager()
 	manager.Broadcast([]string{"admin", "stats"}, []string{}, stats, "admin_stats")
+}
+
+// BroadcastUserStatus بث حالة المستخدم
+func BroadcastUserStatus(userID string, status string) {
+	manager := GetManager()
+	manager.Broadcast([]string{"users", "status"}, []string{userID}, gin.H{
+		"user_id": userID,
+		"status":  status,
+		"timestamp": time.Now(),
+	}, "user_status")
+}
+
+// BroadcastPaymentUpdate بث تحديث دفع
+func BroadcastPaymentUpdate(payment models.Payment, userID string) {
+	manager := GetManager()
+	manager.Broadcast([]string{"payments"}, []string{userID}, payment, "payment_update")
+}
+
+// BroadcastCartUpdate بث تحديث سلة التسوق
+func BroadcastCartUpdate(cart models.Cart, userID string) {
+	manager := GetManager()
+	manager.Broadcast([]string{"cart"}, []string{userID}, cart, "cart_update")
+}
+
+// ================================
+// هياكل البيانات الإضافية
+// ================================
+
+// SystemAlert تنبيه النظام
+type SystemAlert struct {
+	ID        string    `json:"id"`
+	Type      string    `json:"type"` // error, warning, info
+	Title     string    `json:"title"`
+	Message   string    `json:"message"`
+	Severity  string    `json:"severity"` // low, medium, high, critical
+	Timestamp time.Time `json:"timestamp"`
+	Data      gin.H     `json:"data,omitempty"`
+}
+
+// DashboardStats إحصائيات لوحة التحكم
+type DashboardStats struct {
+	TotalUsers     int       `json:"total_users"`
+	TotalOrders    int       `json:"total_orders"`
+	TotalRevenue   float64   `json:"total_revenue"`
+	ActiveServices int       `json:"active_services"`
+	PendingOrders  int       `json:"pending_orders"`
+	Timestamp      time.Time `json:"timestamp"`
+}
+
+// ConnectionInfo معلومات الاتصال
+type ConnectionInfo struct {
+	ClientID  string   `json:"client_id"`
+	UserID    string   `json:"user_id"`
+	Channels  []string `json:"channels"`
+	Connected bool     `json:"connected"`
+	Timestamp time.Time `json:"timestamp"`
+}
+
+// GetConnectionStats الحصول على إحصائيات الاتصال
+func GetConnectionStats() gin.H {
+	manager := GetManager()
+	manager.mutex.RLock()
+	defer manager.mutex.RUnlock()
+
+	stats := gin.H{
+		"total_channels": len(manager.clients),
+		"total_clients":  0,
+		"channels":       gin.H{},
+		"timestamp":      time.Now(),
+	}
+
+	for channel, clients := range manager.clients {
+		stats["total_clients"] = stats["total_clients"].(int) + len(clients)
+		stats["channels"].(gin.H)[channel] = len(clients)
+	}
+
+	return stats
+}
+
+// DisconnectClient فصل عميل
+func DisconnectClient(clientID string) {
+	manager := GetManager()
+	manager.mutex.Lock()
+	defer manager.mutex.Unlock()
+
+	for channel, clients := range manager.clients {
+		if _, exists := clients[clientID]; exists {
+			delete(clients, clientID)
+			if len(clients) == 0 {
+				delete(manager.clients, channel)
+			}
+		}
+	}
 }
