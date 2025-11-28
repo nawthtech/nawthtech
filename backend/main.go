@@ -51,6 +51,9 @@ func main() {
 		}
 	}
 
+	// إنشاء حاوية الخدمات
+	serviceContainer := services.NewServiceContainer(db)
+
 	// تهيئة خدمة التخزين المؤقت
 	cacheService, err := initCacheService(cfg)
 	if err != nil {
@@ -75,11 +78,11 @@ func main() {
 	// تسجيل جميع الوسائط
 	registerMiddlewares(app, cfg)
 
-	// تسجيل جميع المسارات
-	registerAllRoutes(app, db, cfg, cacheService)
+	// تسجيل جميع المسارات باستخدام حاوية الخدمات
+	registerAllRoutes(app, serviceContainer, cfg, cacheService)
 
 	// بدء الخادم
-	startServer(app, cfg)
+	startServer(app, cfg, cacheService)
 }
 
 // initDatabase تهيئة قاعدة البيانات
@@ -234,9 +237,9 @@ func registerMiddlewares(app *gin.Engine, cfg *config.Config) {
 }
 
 // registerAllRoutes تسجيل جميع المسارات
-func registerAllRoutes(app *gin.Engine, db *gorm.DB, cfg *config.Config, cacheService services.CacheService) {
-	// استخدام الدالة الجديدة من handlers
-	handlers.RegisterAllRoutes(app, db, cfg)
+func registerAllRoutes(app *gin.Engine, services *services.ServiceContainer, cfg *config.Config, cacheService services.CacheService) {
+	// استخدام الدالة الجديدة من handlers مع حاوية الخدمات
+	handlers.RegisterAllRoutes(app, services, cfg)
 
 	// ✅ تسجيل مسار لفحص إحصائيات CORS (للتطوير فقط)
 	if cfg.IsDevelopment() {
@@ -305,7 +308,7 @@ func countRoutes(app *gin.Engine) int {
 }
 
 // startServer بدء الخادم
-func startServer(app *gin.Engine, cfg *config.Config) {
+func startServer(app *gin.Engine, cfg *config.Config, cacheService services.CacheService) {
 	// إعداد الخادم
 	server := &http.Server{
 		Addr:              ":" + cfg.Port,
@@ -371,20 +374,6 @@ func startServer(app *gin.Engine, cfg *config.Config) {
 }
 
 // ========== دوال مساعدة للاختبار ==========
-
-// initTestData تهيئة بيانات الاختبار (للتطوير فقط)
-func initTestData(db *gorm.DB, cfg *config.Config) {
-	if !cfg.IsDevelopment() {
-		return
-	}
-
-	logger.Stdout.Info("🧪 تهيئة بيانات الاختبار...")
-
-	// يمكن إضافة بيانات اختبار هنا
-	// مثال: إنشاء مستخدمين، خدمات، إلخ.
-
-	logger.Stdout.Info("✅ تم تهيئة بيانات الاختبار")
-}
 
 // runMigrations تشغيل ترحيلات قاعدة البيانات
 func runMigrations(db *gorm.DB) error {
