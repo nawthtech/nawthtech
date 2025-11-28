@@ -122,7 +122,7 @@ func registerPublicRoutes(api *gin.RouterGroup, services *services.ServiceContai
 	api.POST("/auth/register", authHandler.Register)
 	api.POST("/auth/login", authHandler.Login)
 	api.POST("/auth/refresh", authHandler.RefreshToken)
-	api.POST("/auth/forgot-password", authHandler.FgotPassword)
+	api.POST("/auth/forgot-password", authHandler.ForgotPassword) // تم التصحيح هنا
 	api.POST("/auth/reset-password", authHandler.ResetPassword)
 	
 	// معالج الخدمات (العامة)
