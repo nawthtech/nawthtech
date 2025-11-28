@@ -49,7 +49,7 @@ type DashboardData struct {
 	UserActivity  []UserActivity      `json:"user_activity"`
 	SystemAlerts  []SystemAlert       `json:"system_alerts"`
 	SalesTrends   []SalesPerformance  `json:"sales_trends"`
-	Performance   []PerformanceMetric `json:"performance"` // من shared_models
+	Performance   []PerformanceMetric `json:"performance"`
 }
 
 // ================================
