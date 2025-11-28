@@ -129,7 +129,7 @@ type (
 	// CartService واجهة خدمة عربة التسوق
 	CartService interface {
 		GetCart(ctx context.Context, userID string) (*models.Cart, error)
-		AddToCart(ctx context.Context, userID string, item models.CartItem) (*models.Cart, error)
+		AddToCart(ctx context.Context, userID string, item CartItem) (*models.Cart, error)
 		UpdateCartItem(ctx context.Context, userID string, itemID string, quantity int) (*models.Cart, error)
 		RemoveFromCart(ctx context.Context, userID string, itemID string) (*models.Cart, error)
 		ClearCart(ctx context.Context, userID string) error
@@ -1353,11 +1353,20 @@ func (s *cartServiceImpl) GetCart(ctx context.Context, userID string) (*models.C
 	}, nil
 }
 
-func (s *cartServiceImpl) AddToCart(ctx context.Context, userID string, item models.CartItem) (*models.Cart, error) {
+func (s *cartServiceImpl) AddToCart(ctx context.Context, userID string, item CartItem) (*models.Cart, error) {
+	cartItem := models.CartItem{
+		ID:        fmt.Sprintf("cart_item_%d", time.Now().Unix()),
+		ServiceID: item.ServiceID,
+		Quantity:  item.Quantity,
+		Price:     item.Price,
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+
 	return &models.Cart{
 		ID:          "cart_" + userID,
 		UserID:      userID,
-		Items:       []models.CartItem{item},
+		Items:       []models.CartItem{cartItem},
 		TotalAmount: item.Price * float64(item.Quantity),
 		Discount:    0,
 		Tax:         0,
@@ -1520,11 +1529,39 @@ func (s *orderServiceImpl) CreateOrder(ctx context.Context, req OrderCreateReque
 		totalAmount += item.Price * float64(item.Quantity)
 	}
 
+	// تحويل OrderItem إلى models.OrderItem
+	orderItems := make([]models.OrderItem, len(req.Items))
+	for i, item := range req.Items {
+		orderItems[i] = models.OrderItem{
+			ID:          fmt.Sprintf("order_item_%d_%d", time.Now().Unix(), i),
+			ServiceID:   item.ServiceID,
+			ServiceName: item.ServiceName,
+			Quantity:    item.Quantity,
+			Price:       item.Price,
+			Image:       item.Image,
+			CreatedAt:   time.Now(),
+			UpdatedAt:   time.Now(),
+		}
+	}
+
+	// تحويل ShippingInfo إلى models.ShippingInfo
+	shippingInfo := models.ShippingInfo{
+		FirstName:      req.ShippingInfo.FirstName,
+		LastName:       req.ShippingInfo.LastName,
+		Email:          req.ShippingInfo.Email,
+		Phone:          req.ShippingInfo.Phone,
+		Address:        req.ShippingInfo.Address,
+		City:           req.ShippingInfo.City,
+		Country:        req.ShippingInfo.Country,
+		PostalCode:     req.ShippingInfo.PostalCode,
+		ShippingMethod: req.ShippingInfo.ShippingMethod,
+	}
+
 	return &models.Order{
 		ID:           fmt.Sprintf("order_%d", time.Now().Unix()),
 		UserID:       "user_id_from_context", // سيتم تعيينه من السياق
 		SellerID:     "seller_id_from_items", // سيتم استخلاصه من العناصر
-		Items:        req.Items,
+		Items:        orderItems,
 		Status:       "pending",
 		TotalAmount:  totalAmount,
 		Discount:     0,
@@ -1533,7 +1570,7 @@ func (s *orderServiceImpl) CreateOrder(ctx context.Context, req OrderCreateReque
 		FinalAmount:  totalAmount,
 		PaymentStatus: "pending",
 		PaymentMethod: req.PaymentMethod,
-		ShippingInfo: req.ShippingInfo,
+		ShippingInfo: shippingInfo,
 		CustomerNotes: req.CustomerNotes,
 		CreatedAt:    time.Now(),
 		UpdatedAt:    time.Now(),
@@ -1952,13 +1989,11 @@ func (s *uploadServiceImpl) DeleteFile(ctx context.Context, fileID string) error
 
 func (s *uploadServiceImpl) GetFile(ctx context.Context, fileID string) (*models.File, error) {
 	return &models.File{
-		ID:          fileID,
-		Filename:    "example.jpg",
-		Size:        1024,
-		ContentType: "image/jpeg",
-		URL:         "https://example.com/file.jpg",
-		UserID:      "user_123",
-		CreatedAt:   time.Now(),
+		ID:       fileID,
+		Filename: "example.jpg",
+		Size:     1024,
+		URL:      "https://example.com/file.jpg",
+		UserID:   "user_123",
 	}, nil
 }
 
