@@ -103,8 +103,8 @@ type ServiceAnalytics struct {
 	Date           time.Time `json:"date"`
 }
 
-// ServiceReview نموذج تقييم الخدمة
-type ServiceReview struct {
+// Review نموذج التقييم (تم تغيير الاسم من ServiceReview لمنع التعارض)
+type Review struct {
 	ID          string    `json:"id" gorm:"primaryKey"`
 	ServiceID   string    `json:"service_id" gorm:"not null;index"`
 	UserID      string    `json:"user_id" gorm:"not null;index"`
@@ -282,4 +282,27 @@ type ServiceExport struct {
 	EndDate   time.Time              `json:"end_date"`
 	Fields    []string               `json:"fields"`
 	Filters   map[string]interface{} `json:"filters"`
+}
+
+// ================================
+// النماذج المطلوبة لـ admin_service.go
+// ================================
+
+// ServiceStats إحصائيات الخدمات
+type ServiceStats struct {
+	TotalServices     int     `json:"total_services"`
+	ActiveServices    int     `json:"active_services"`
+	InactiveServices  int     `json:"inactive_services"`
+	SuspendedServices int     `json:"suspended_services"`
+	TotalRevenue      float64 `json:"total_revenue"`
+	AverageRating     float64 `json:"average_rating"`
+	TotalOrders       int     `json:"total_orders"`
+	PopularCategory   string  `json:"popular_category"`
+}
+
+// ServicesReport تقرير الخدمات
+type ServicesReport struct {
+	Timeframe string                 `json:"timeframe"`
+	Summary   map[string]interface{} `json:"summary"`
+	Metrics   []map[string]interface{} `json:"metrics"`
 }
