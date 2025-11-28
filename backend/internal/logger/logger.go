@@ -285,7 +285,7 @@ func MemoryUsageAttr() slog.Attr {
 		slog.String("alloc", formatMemory(m.Alloc)),
 		slog.String("total_alloc", formatMemory(m.TotalAlloc)),
 		slog.String("sys", formatMemory(m.Sys)),
-		slog.Uint64("num_gc", m.NumGC),
+		slog.Uint64("num_gc", uint64(m.NumGC)),
 	)
 }
 
