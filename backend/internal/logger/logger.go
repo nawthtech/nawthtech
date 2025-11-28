@@ -6,6 +6,59 @@ import (
 	"time"
 )
 
+// Logger واجهة للسجلات
+type Logger interface {
+	Info(message string, fields map[string]interface{})
+	Warn(message string, fields map[string]interface{})
+	Error(message string, fields map[string]interface{})
+}
+
+// DefaultLogger تطبيق افتراضي للسجلات
+type DefaultLogger struct{}
+
+// Info تسجيل معلومات
+func (l *DefaultLogger) Info(message string, fields map[string]interface{}) {
+	log.Printf("INFO: %s %v", message, fields)
+}
+
+// Warn تسجيل تحذير
+func (l *DefaultLogger) Warn(message string, fields map[string]interface{}) {
+	log.Printf("WARN: %s %v", message, fields)
+}
+
+// Error تسجيل خطأ
+func (l *DefaultLogger) Error(message string, fields map[string]interface{}) {
+	log.Printf("ERROR: %s %v", message, fields)
+}
+
+// متغير عام للسجل
+var logInstance Logger = &DefaultLogger{}
+
+// Init تهيئة السجل
+func Init(env string) {
+	if env == "production" {
+		// هنا يمكنك استخدام سجل أكثر تطوراً مثل zerolog أو logrus
+		logInstance = &DefaultLogger{}
+	} else {
+		logInstance = &DefaultLogger{}
+	}
+}
+
+// Info تسجيل معلومات
+func Info(message string, fields map[string]interface{}) {
+	logInstance.Info(message, fields)
+}
+
+// Warn تسجيل تحذير
+func Warn(message string, fields map[string]interface{}) {
+	logInstance.Warn(message, fields)
+}
+
+// Error تسجيل خطأ
+func Error(message string, fields map[string]interface{}) {
+	logInstance.Error(message, fields)
+}
+
 var (
 	stdoutHandler = slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
 		Level: slog.LevelInfo,
