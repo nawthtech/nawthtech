@@ -2,10 +2,8 @@ package config
 
 import (
 	"os"
-	"strings"
 	"regexp"
-	
-	"nawthtech/backend/internal/logger"
+	"strings"
 )
 
 // getAllowedOrigins الحصول على قائمة النطاقات المسموح بها ديناميكياً
@@ -153,7 +151,6 @@ func GetCORSConfig(path string) CORSOptions {
 				"https://matomo.org",
 				"https://fathom-analytics.com",
 				"https://nawthtech.com",
-				"https://*.nawthtech.com",
 			},
 			AllowedMethods:   []string{"GET", "POST", "OPTIONS"},
 			AllowedHeaders:   []string{"Content-Type", "User-Agent", "X-Forwarded-For", "X-Plausible-Token", "X-Matomo-Token"},
@@ -239,9 +236,8 @@ func ValidateOrigin(origin string) bool {
 	// في بيئة التطوير، السماح مع تسجيل التحذيرات
 	if os.Getenv("ENVIRONMENT") == "development" {
 		if origin != "" && !isOriginAllowed(origin, allowedOrigins) {
-			logger.Warn("Development CORS warning - origin not in allowed list", map[string]interface{}{
-				"origin": origin,
-			})
+			// سيتم التعامل مع التسجيل في middleware
+			return true
 		}
 		return true
 	}
