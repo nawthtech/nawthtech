@@ -1,25 +1,23 @@
 package main
 
-import (
-	"context"
-	"net/http"
-	"os"
-	"os/signal"
-	"syscall"
-	"time"
+// هذا الملف موجود فقط لتسهيل التشغيل بـ `go run .`
+// نقطة الدخول الرئيسية موجودة في cmd/server/main.go
 
-	"github.com/gin-gonic/gin"
-	"github.com/nawthtech/nawthtech/backend/internal/config"
-	"github.com/nawthtech/nawthtech/backend/internal/handlers"
-	"github.com/nawthtech/nawthtech/backend/internal/logger"
-	"github.com/nawthtech/nawthtech/backend/internal/middleware"
-	"github.com/nawthtech/nawthtech/backend/internal/models"
-	"github.com/nawthtech/nawthtech/backend/internal/services"
-	"github.com/nawthtech/nawthtech/backend/internal/utils"
-	"gorm.io/driver/postgres"
-	"gorm.io/gorm"
+import (
+	"log"
+	"os"
+	"os/exec"
 )
 
+func main() {
+	cmd := exec.Command("go", "run", "./cmd/server/main.go")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Stdin = os.Stdin
+
+	if err := cmd.Run(); err != nil {
+		log.Fatal("فشل في تشغيل الخادم:", err)
+	)
 func main() {
 	// تحميل الإعدادات
 	cfg := config.Load()
