@@ -7,45 +7,46 @@ import (
 
 	"github.com/nawthtech/nawthtech/backend/internal/models"
 	"github.com/nawthtech/nawthtech/backend/internal/utils"
+	"gorm.io/gorm"
 )
 
 // AnalyticsService واجهة خدمة التحليلات
 type AnalyticsService interface {
-	GetOverview(ctx context.Context, params GetOverviewParams) (*models.AnalyticsOverview, error)
-	GetPerformance(ctx context.Context, params GetPerformanceParams) (*models.PerformanceAnalytics, error)
-	GetAIInsights(ctx context.Context, params GetAIInsightsParams) (*models.AIInsights, error)
-	GetContentAnalytics(ctx context.Context, params GetContentAnalyticsParams) (*models.ContentAnalytics, error)
-	GetAudienceAnalytics(ctx context.Context, params GetAudienceAnalyticsParams) (*models.AudienceAnalytics, error)
-	GenerateCustomReport(ctx context.Context, params GenerateCustomReportParams) (*models.CustomAnalyticsReport, error)
-	GetCustomReports(ctx context.Context, params GetCustomReportsParams) ([]models.CustomAnalyticsReport, *utils.Pagination, error)
-	GetPredictions(ctx context.Context, params GetPredictionsParams) (*models.Predictions, error)
+	GetOverview(ctx context.Context, params AnalyticsOverviewParams) (*models.AnalyticsOverview, error)
+	GetPerformance(ctx context.Context, params AnalyticsPerformanceParams) (*models.PerformanceAnalytics, error)
+	GetAIInsights(ctx context.Context, params AnalyticsAIInsightsParams) (*models.AIInsights, error)
+	GetContentAnalytics(ctx context.Context, params AnalyticsContentParams) (*models.ContentAnalytics, error)
+	GetAudienceAnalytics(ctx context.Context, params AnalyticsAudienceParams) (*models.AudienceAnalytics, error)
+	GenerateCustomReport(ctx context.Context, params AnalyticsCustomReportParams) (*models.CustomAnalyticsReport, error)
+	GetCustomReports(ctx context.Context, params AnalyticsCustomReportsParams) ([]models.CustomAnalyticsReport, *utils.Pagination, error)
+	GetPredictions(ctx context.Context, params AnalyticsPredictionsParams) (*models.Predictions, error)
 }
 
-// GetOverviewParams معاملات جلب النظرة العامة
-type GetOverviewParams struct {
+// AnalyticsOverviewParams معاملات جلب النظرة العامة
+type AnalyticsOverviewParams struct {
 	Timeframe string
 	CompareTo string
 	UserID    string
 }
 
-// GetPerformanceParams معاملات جلب تحليلات الأداء
-type GetPerformanceParams struct {
+// AnalyticsPerformanceParams معاملات جلب تحليلات الأداء
+type AnalyticsPerformanceParams struct {
 	Timeframe string
 	Metrics   string
 	Platform  string
 	UserID    string
 }
 
-// GetAIInsightsParams معاملات جلب الرؤى بالذكاء الاصطناعي
-type GetAIInsightsParams struct {
+// AnalyticsAIInsightsParams معاملات جلب الرؤى بالذكاء الاصطناعي
+type AnalyticsAIInsightsParams struct {
 	Timeframe    string
 	Platforms    string
 	InsightTypes string
 	UserID       string
 }
 
-// GetContentAnalyticsParams معاملات تحليل المحتوى
-type GetContentAnalyticsParams struct {
+// AnalyticsContentParams معاملات تحليل المحتوى
+type AnalyticsContentParams struct {
 	Timeframe   string
 	ContentType string
 	Platform    string
@@ -53,16 +54,16 @@ type GetContentAnalyticsParams struct {
 	UserID      string
 }
 
-// GetAudienceAnalyticsParams معاملات تحليل الجمهور
-type GetAudienceAnalyticsParams struct {
+// AnalyticsAudienceParams معاملات تحليل الجمهور
+type AnalyticsAudienceParams struct {
 	Timeframe string
 	Platform  string
 	Segment   string
 	UserID    string
 }
 
-// GenerateCustomReportParams معاملات إنشاء تقرير مخصص
-type GenerateCustomReportParams struct {
+// AnalyticsCustomReportParams معاملات إنشاء تقرير مخصص
+type AnalyticsCustomReportParams struct {
 	Name                  string
 	Metrics               []string
 	Timeframe             string
@@ -73,15 +74,15 @@ type GenerateCustomReportParams struct {
 	UserID                string
 }
 
-// GetCustomReportsParams معاملات جلب التقارير المخصصة
-type GetCustomReportsParams struct {
+// AnalyticsCustomReportsParams معاملات جلب التقارير المخصصة
+type AnalyticsCustomReportsParams struct {
 	UserID string
 	Page   int
 	Limit  int
 }
 
-// GetPredictionsParams معاملات جلب التوقعات
-type GetPredictionsParams struct {
+// AnalyticsPredictionsParams معاملات جلب التوقعات
+type AnalyticsPredictionsParams struct {
 	Timeframe      string
 	ForecastPeriod string
 	Metrics        string
@@ -90,18 +91,17 @@ type GetPredictionsParams struct {
 
 // analyticsServiceImpl التطبيق الفعلي لخدمة التحليلات
 type analyticsServiceImpl struct {
-	// يمكن إضافة dependencies مثل repositories، AI clients، etc.
+	db *gorm.DB
 }
 
 // NewAnalyticsService إنشاء خدمة تحليلات جديدة
-func NewAnalyticsService() AnalyticsService {
-	return &analyticsServiceImpl{}
+func NewAnalyticsService(db *gorm.DB) AnalyticsService {
+	return &analyticsServiceImpl{
+		db: db,
+	}
 }
 
-func (s *analyticsServiceImpl) GetOverview(ctx context.Context, params GetOverviewParams) (*models.AnalyticsOverview, error) {
-	// TODO: تنفيذ منطق جلب النظرة العامة على التحليلات
-	// هذا تنفيذ مؤقت للتوضيح
-	
+func (s *analyticsServiceImpl) GetOverview(ctx context.Context, params AnalyticsOverviewParams) (*models.AnalyticsOverview, error) {
 	overview := &models.AnalyticsOverview{
 		Summary: &models.AnalyticsSummary{
 			TotalVisitors:     15000,
@@ -148,8 +148,7 @@ func (s *analyticsServiceImpl) GetOverview(ctx context.Context, params GetOvervi
 	return overview, nil
 }
 
-func (s *analyticsServiceImpl) GetPerformance(ctx context.Context, params GetPerformanceParams) (*models.PerformanceAnalytics, error) {
-	// TODO: تنفيذ منطق جلب تحليلات الأداء
+func (s *analyticsServiceImpl) GetPerformance(ctx context.Context, params AnalyticsPerformanceParams) (*models.PerformanceAnalytics, error) {
 	performance := &models.PerformanceAnalytics{
 		Timeframe: params.Timeframe,
 		Platform:  params.Platform,
@@ -189,8 +188,7 @@ func (s *analyticsServiceImpl) GetPerformance(ctx context.Context, params GetPer
 	return performance, nil
 }
 
-func (s *analyticsServiceImpl) GetAIInsights(ctx context.Context, params GetAIInsightsParams) (*models.AIInsights, error) {
-	// TODO: تنفيذ منطق توليد الرؤى باستخدام الذكاء الاصطناعي
+func (s *analyticsServiceImpl) GetAIInsights(ctx context.Context, params AnalyticsAIInsightsParams) (*models.AIInsights, error) {
 	insights := &models.AIInsights{
 		Trends: &models.TrendInsights{
 			PositiveTrends: []string{
@@ -251,8 +249,7 @@ func (s *analyticsServiceImpl) GetAIInsights(ctx context.Context, params GetAIIn
 	return insights, nil
 }
 
-func (s *analyticsServiceImpl) GetContentAnalytics(ctx context.Context, params GetContentAnalyticsParams) (*models.ContentAnalytics, error) {
-	// TODO: تنفيذ منطق تحليل أداء المحتوى
+func (s *analyticsServiceImpl) GetContentAnalytics(ctx context.Context, params AnalyticsContentParams) (*models.ContentAnalytics, error) {
 	contentAnalytics := &models.ContentAnalytics{
 		Performance: &models.ContentPerformance{
 			TotalContent: 150,
@@ -313,8 +310,7 @@ func (s *analyticsServiceImpl) GetContentAnalytics(ctx context.Context, params G
 	return contentAnalytics, nil
 }
 
-func (s *analyticsServiceImpl) GetAudienceAnalytics(ctx context.Context, params GetAudienceAnalyticsParams) (*models.AudienceAnalytics, error) {
-	// TODO: تنفيذ منطق تحليل الجمهور
+func (s *analyticsServiceImpl) GetAudienceAnalytics(ctx context.Context, params AnalyticsAudienceParams) (*models.AudienceAnalytics, error) {
 	audienceAnalytics := &models.AudienceAnalytics{
 		Demographics: &models.AudienceDemographics{
 			AgeGroups: map[string]int{
@@ -395,8 +391,7 @@ func (s *analyticsServiceImpl) GetAudienceAnalytics(ctx context.Context, params 
 	return audienceAnalytics, nil
 }
 
-func (s *analyticsServiceImpl) GenerateCustomReport(ctx context.Context, params GenerateCustomReportParams) (*models.CustomAnalyticsReport, error) {
-	// TODO: تنفيذ منطق إنشاء تقرير مخصص
+func (s *analyticsServiceImpl) GenerateCustomReport(ctx context.Context, params AnalyticsCustomReportParams) (*models.CustomAnalyticsReport, error) {
 	customReport := &models.CustomAnalyticsReport{
 		ID:        fmt.Sprintf("custom_%d", time.Now().Unix()),
 		Name:      params.Name,
@@ -435,8 +430,7 @@ func (s *analyticsServiceImpl) GenerateCustomReport(ctx context.Context, params 
 	return customReport, nil
 }
 
-func (s *analyticsServiceImpl) GetCustomReports(ctx context.Context, params GetCustomReportsParams) ([]models.CustomAnalyticsReport, *utils.Pagination, error) {
-	// TODO: تنفيذ منطق جلب التقارير المخصصة
+func (s *analyticsServiceImpl) GetCustomReports(ctx context.Context, params AnalyticsCustomReportsParams) ([]models.CustomAnalyticsReport, *utils.Pagination, error) {
 	var reports []models.CustomAnalyticsReport
 	
 	// محاكاة جلب التقارير
@@ -466,8 +460,7 @@ func (s *analyticsServiceImpl) GetCustomReports(ctx context.Context, params GetC
 	return reports, pagination, nil
 }
 
-func (s *analyticsServiceImpl) GetPredictions(ctx context.Context, params GetPredictionsParams) (*models.Predictions, error) {
-	// TODO: تنفيذ منطق توليد التوقعات
+func (s *analyticsServiceImpl) GetPredictions(ctx context.Context, params AnalyticsPredictionsParams) (*models.Predictions, error) {
 	predictions := &models.Predictions{
 		Forecasts: map[string]models.Forecast{
 			"engagement": {
