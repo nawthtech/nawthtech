@@ -6,6 +6,16 @@ import (
 	"strings"
 )
 
+// Cors تكوين CORS
+type Cors struct {
+	AllowedOrigins   []string
+	AllowedMethods   []string
+	AllowedHeaders   []string
+	ExposedHeaders   []string
+	AllowCredentials bool
+	MaxAge           int
+}
+
 // getAllowedOrigins الحصول على قائمة النطاقات المسموح بها ديناميكياً
 func getAllowedOrigins() []string {
 	baseDomains := []string{
@@ -24,6 +34,8 @@ func getAllowedOrigins() []string {
 		"http://localhost:5000",
 		"http://127.0.0.1:3000",
 		"http://127.0.0.1:5173",
+		"http://localhost:8080",
+		"http://127.0.0.1:8080",
 		
 		// نطاقات البيئات الأخرى
 		"https://staging.nawthtech.com",
@@ -216,6 +228,8 @@ func GetCORSConfig(path string) CORSOptions {
 			"X-Plausible-Token",
 			"X-Matomo-Token",
 			"X-Fathom-Key",
+			"X-Request-ID",
+			"Cache-Control",
 		},
 		ExposedHeaders: []string{
 			"X-Request-ID",
@@ -223,6 +237,8 @@ func GetCORSConfig(path string) CORSOptions {
 			"X-API-Version",
 			"X-RateLimit-Limit",
 			"X-RateLimit-Remaining",
+			"X-Total-Count",
+			"Content-Length",
 		},
 		AllowCredentials: true,
 		MaxAge:           86400,
@@ -234,7 +250,7 @@ func ValidateOrigin(origin string) bool {
 	allowedOrigins := getAllowedOrigins()
 	
 	// في بيئة التطوير، السماح مع تسجيل التحذيرات
-	if os.Getenv("ENVIRONMENT") == "development" {
+	if os.Getenv("ENVIRONMENT") == "development" || os.Getenv("ENVIRONMENT") == "" {
 		if origin != "" && !isOriginAllowed(origin, allowedOrigins) {
 			// سيتم التعامل مع التسجيل في middleware
 			return true
@@ -253,6 +269,8 @@ func GetCORSStats() map[string]interface{} {
 	microsoftCount := 0
 	storageCount := 0
 	paymentsCount := 0
+	localCount := 0
+	productionCount := 0
 	
 	for _, origin := range allowedOrigins {
 		switch {
@@ -264,17 +282,84 @@ func GetCORSStats() map[string]interface{} {
 			storageCount++
 		case strings.Contains(origin, "stripe"):
 			paymentsCount++
+		case strings.Contains(origin, "localhost") || strings.Contains(origin, "127.0.0.1"):
+			localCount++
+		case strings.Contains(origin, "nawthtech.com") && !strings.Contains(origin, "localhost"):
+			productionCount++
 		}
+	}
+	
+	environment := os.Getenv("ENVIRONMENT")
+	if environment == "" {
+		environment = "development"
 	}
 	
 	return map[string]interface{}{
 		"totalAllowedOrigins": len(allowedOrigins),
 		"services": map[string]int{
-			"analytics": analyticsCount,
-			"microsoft": microsoftCount,
-			"storage":   storageCount,
-			"payments":  paymentsCount,
+			"analytics":  analyticsCount,
+			"microsoft":  microsoftCount,
+			"storage":    storageCount,
+			"payments":   paymentsCount,
+			"local":      localCount,
+			"production": productionCount,
 		},
-		"environment": os.Getenv("ENVIRONMENT"),
+		"environment": environment,
 	}
+}
+
+// GetDefaultCORSConfig الحصول على إعدادات CORS الافتراضية
+func GetDefaultCORSConfig() Cors {
+	allowedOrigins := getAllowedOrigins()
+	
+	return Cors{
+		AllowedOrigins: allowedOrigins,
+		AllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"},
+		AllowedHeaders: []string{
+			"Content-Type",
+			"Authorization", 
+			"X-Requested-With",
+			"X-API-Key",
+			"Accept",
+			"Origin",
+			"X-Client-Version",
+			"X-Device-ID",
+			"X-Platform",
+			"X-Plausible-Token",
+			"X-Matomo-Token",
+			"X-Fathom-Key",
+			"X-Request-ID",
+			"Cache-Control",
+			"X-CSRF-Token",
+		},
+		ExposedHeaders: []string{
+			"X-Request-ID",
+			"X-Response-Time",
+			"X-API-Version",
+			"X-RateLimit-Limit",
+			"X-RateLimit-Remaining",
+			"X-Total-Count",
+			"Content-Length",
+		},
+		AllowCredentials: true,
+		MaxAge:           86400,
+	}
+}
+
+// IsDevelopmentEnvironment التحقق إذا كانت البيئة تطوير
+func IsDevelopmentEnvironment() bool {
+	env := os.Getenv("ENVIRONMENT")
+	return env == "development" || env == ""
+}
+
+// IsProductionEnvironment التحقق إذا كانت البيئة إنتاج
+func IsProductionEnvironment() bool {
+	env := os.Getenv("ENVIRONMENT")
+	return env == "production"
+}
+
+// IsStagingEnvironment التحقق إذا كانت البيئة تجريبية
+func IsStagingEnvironment() bool {
+	env := os.Getenv("ENVIRONMENT")
+	return env == "staging"
 }
