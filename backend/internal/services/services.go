@@ -311,14 +311,24 @@ type (
 	}
 
 	// Cart Structures
-	CartSummary struct {
-		TotalItems    int     `json:"total_items"`
-		Subtotal      float64 `json:"subtotal"`
-		Tax           float64 `json:"tax"`
-		Shipping      float64 `json:"shipping"`
-		Discount      float64 `json:"discount"`
-		Total         float64 `json:"total"`
-	}
+CartSummary struct {
+	TotalItems    int     `json:"total_items"`
+	Subtotal      float64 `json:"subtotal"`
+	Tax           float64 `json:"tax"`
+	Shipping      float64 `json:"shipping"`
+	Discount      float64 `json:"discount"`
+	Total         float64 `json:"total"`
+}
+
+// CartItem عنصر في عربة التسوق (للخدمات)
+CartItem struct {
+	ID          string  `json:"id"`
+	ServiceID   string  `json:"service_id"`
+	ServiceName string  `json:"service_name"`
+	Quantity    int     `json:"quantity"`
+	Price       float64 `json:"price"`
+	Image       string  `json:"image,omitempty"`
+}
 
 	// Category Structures
 	CategoryQueryParams struct {
