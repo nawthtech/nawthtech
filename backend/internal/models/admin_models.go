@@ -10,28 +10,28 @@ import (
 
 // DashboardStats إحصائيات لوحة التحكم
 type DashboardStats struct {
-	TotalUsers        int     `json:"totalUsers"`
-	TotalOrders       int     `json:"totalOrders"`
-	TotalRevenue      float64 `json:"totalRevenue"`
-	ActiveServices    int     `json:"activeServices"`
-	PendingOrders     int     `json:"pendingOrders"`
-	SupportTickets    int     `json:"supportTickets"`
-	ConversionRate    float64 `json:"conversionRate"`
-	BounceRate        float64 `json:"bounceRate"`
-	StoreVisits       int     `json:"storeVisits"`
-	NewCustomers      int     `json:"newCustomers"`
+	TotalUsers        int     `json:"total_users"`
+	TotalOrders       int     `json:"total_orders"`
+	TotalRevenue      float64 `json:"total_revenue"`
+	ActiveServices    int     `json:"active_services"`
+	PendingOrders     int     `json:"pending_orders"`
+	SupportTickets    int     `json:"support_tickets"`
+	ConversionRate    float64 `json:"conversion_rate"`
+	BounceRate        float64 `json:"bounce_rate"`
+	StoreVisits       int     `json:"store_visits"`
+	NewCustomers      int     `json:"new_customers"`
 }
 
 // StoreMetrics مقاييس المتجر
 type StoreMetrics struct {
-	TotalProducts          int     `json:"totalProducts"`
-	LowStockItems          int     `json:"lowStockItems"`
-	StoreRevenue           float64 `json:"storeRevenue"`
-	StoreOrders            int     `json:"storeOrders"`
-	AverageOrderValue      float64 `json:"averageOrderValue"`
-	TopSellingCategory     string  `json:"topSellingCategory"`
-	CustomerSatisfaction   float64 `json:"customerSatisfaction"`
-	ReturnRate             float64 `json:"returnRate"`
+	TotalProducts          int     `json:"total_products"`
+	LowStockItems          int     `json:"low_stock_items"`
+	StoreRevenue           float64 `json:"store_revenue"`
+	StoreOrders            int     `json:"store_orders"`
+	AverageOrderValue      float64 `json:"average_order_value"`
+	TopSellingCategory     string  `json:"top_selling_category"`
+	CustomerSatisfaction   float64 `json:"customer_satisfaction"`
+	ReturnRate             float64 `json:"return_rate"`
 }
 
 // SalesPerformance أداء المبيعات
@@ -41,22 +41,15 @@ type SalesPerformance struct {
 	Orders int     `json:"orders"`
 }
 
-// AdminPerformanceMetric مقياس الأداء (تم تغيير الاسم لتجنب التضارب)
-type AdminPerformanceMetric struct {
-	Value  float64 `json:"value"`
-	Label  string  `json:"label"`
-	Change float64 `json:"change"`
-}
-
 // DashboardData بيانات لوحة التحكم
 type DashboardData struct {
-	Stats         DashboardStats         `json:"stats"`
-	StoreMetrics  StoreMetrics           `json:"storeMetrics"`
-	RecentOrders  []Order                `json:"recentOrders"`
-	UserActivity  []UserActivity         `json:"userActivity"`
-	SystemAlerts  []SystemAlert          `json:"systemAlerts"`
-	SalesTrends   []SalesPerformance     `json:"salesTrends"`
-	Performance   []AdminPerformanceMetric `json:"performance"` // تم التحديث هنا
+	Stats         DashboardStats      `json:"stats"`
+	StoreMetrics  StoreMetrics        `json:"store_metrics"`
+	RecentOrders  []Order             `json:"recent_orders"`  // من shared_models
+	UserActivity  []UserActivity      `json:"user_activity"`  // من shared_models
+	SystemAlerts  []SystemAlert       `json:"system_alerts"`  // من shared_models
+	SalesTrends   []SalesPerformance  `json:"sales_trends"`
+	Performance   []PerformanceMetric `json:"performance"`    // من shared_models
 }
 
 // ================================
@@ -70,15 +63,15 @@ type SystemStatus struct {
 	System      SystemInfo        `json:"system"`
 	Performance PerformanceMetrics `json:"performance"`
 	Services    map[string]string `json:"services"`
-	AIAnalysis  AIHealthAnalysis  `json:"aiAnalysis"`
+	AIAnalysis  AIHealthAnalysis  `json:"ai_analysis"`
 	Security    SecurityStatus    `json:"security"`
-	LastChecked time.Time         `json:"lastChecked"`
+	LastChecked time.Time         `json:"last_checked"`
 }
 
 // SystemInfo معلومات النظام
 type SystemInfo struct {
 	Version      string     `json:"version"`
-	NodeVersion  string     `json:"nodeVersion"`
+	NodeVersion  string     `json:"node_version"`
 	Environment  string     `json:"environment"`
 	Platform     string     `json:"platform"`
 	Arch         string     `json:"arch"`
@@ -93,7 +86,7 @@ type DiskStatus struct {
 	Free            uint64   `json:"free"`
 	Size            uint64   `json:"size"`
 	Used            uint64   `json:"used"`
-	FreePercentage  float64  `json:"freePercentage"`
+	FreePercentage  float64  `json:"free_percentage"`
 	Path            string   `json:"path"`
 	Threshold       string   `json:"threshold"`
 	Recommendations []string `json:"recommendations"`
@@ -102,28 +95,28 @@ type DiskStatus struct {
 // DatabaseStatus حالة قاعدة البيانات
 type DatabaseStatus struct {
 	Connected     bool                `json:"connected"`
-	ReadyState    string              `json:"readyState"`
-	DBName        string              `json:"dbName"`
+	ReadyState    string              `json:"ready_state"`
+	DBName        string              `json:"db_name"`
 	Host          string              `json:"host"`
 	Connections   int                 `json:"connections"`
 	Performance   DatabasePerformance `json:"performance"`
 	Collections   int                 `json:"collections"`
 	Size          int64               `json:"size"`
-	StorageEngine string              `json:"storageEngine"`
+	StorageEngine string              `json:"storage_engine"`
 }
 
 // DatabasePerformance أداء قاعدة البيانات
 type DatabasePerformance struct {
-	QueryTime    time.Duration `json:"queryTime"`
+	QueryTime    time.Duration `json:"query_time"`
 	Connections  int           `json:"connections"`
 	Operations   int64         `json:"operations"`
 }
 
 // MemoryUsage استخدام الذاكرة
 type MemoryUsage struct {
-	HeapUsed        uint64  `json:"heapUsed"`
-	HeapTotal       uint64  `json:"heapTotal"`
-	UsagePercentage float64 `json:"usagePercentage"`
+	HeapUsed        uint64  `json:"heap_used"`
+	HeapTotal       uint64  `json:"heap_total"`
+	UsagePercentage float64 `json:"usage_percentage"`
 }
 
 // CPUUsage استخدام المعالج
@@ -137,12 +130,12 @@ type PerformanceMetrics struct {
 	CPU            CPUUsage          `json:"cpu"`
 	Memory         MemoryUsage       `json:"memory"`
 	Uptime         float64           `json:"uptime"`
-	ActiveHandles  int               `json:"activeHandles"`
-	ActiveRequests int               `json:"activeRequests"`
-	HeapStatistics MemoryUsage       `json:"heapStatistics"`
-	ResponseTimes  APIResponseTimes  `json:"responseTimes"`
+	ActiveHandles  int               `json:"active_handles"`
+	ActiveRequests int               `json:"active_requests"`
+	HeapStatistics MemoryUsage       `json:"heap_statistics"`
+	ResponseTimes  APIResponseTimes  `json:"response_times"`
 	Throughput     SystemThroughput  `json:"throughput"`
-	ErrorRates     ErrorRates        `json:"errorRates"`
+	ErrorRates     ErrorRates        `json:"error_rates"`
 }
 
 // APIResponseTimes أوقات استجابة API
@@ -154,29 +147,29 @@ type APIResponseTimes struct {
 
 // SystemThroughput إنتاجية النظام
 type SystemThroughput struct {
-	RequestsPerMinute int    `json:"requestsPerMinute"`
-	DataProcessed     string `json:"dataProcessed"`
+	RequestsPerMinute int    `json:"requests_per_minute"`
+	DataProcessed     string `json:"data_processed"`
 }
 
 // ErrorRates معدلات الخطأ
 type ErrorRates struct {
-	ErrorRate   string `json:"errorRate"`
-	TotalErrors int    `json:"totalErrors"`
+	ErrorRate   string `json:"error_rate"`
+	TotalErrors int    `json:"total_errors"`
 }
 
 // AIHealthAnalysis تحليل صحة الذكاء الاصطناعي
 type AIHealthAnalysis struct {
-	HealthScore float64 `json:"healthScore"`
+	HealthScore float64 `json:"health_score"`
 	Status      string  `json:"status"`
-	RiskLevel   string  `json:"riskLevel"`
+	RiskLevel   string  `json:"risk_level"`
 }
 
 // SecurityStatus حالة الأمان
 type SecurityStatus struct {
-	SSLEnabled       bool      `json:"sslEnabled"`
-	RateLimiting     bool      `json:"rateLimiting"`
+	SSLEnabled       bool      `json:"ssl_enabled"`
+	RateLimiting     bool      `json:"rate_limiting"`
 	Authentication   bool      `json:"authentication"`
-	LastSecurityScan time.Time `json:"lastSecurityScan"`
+	LastSecurityScan time.Time `json:"last_security_scan"`
 }
 
 // ================================
@@ -185,27 +178,27 @@ type SecurityStatus struct {
 
 // SystemUpdateRequest طلب تحديث النظام
 type SystemUpdateRequest struct {
-	UpdateType    string `json:"updateType"`
+	UpdateType    string `json:"update_type"`
 	Version       string `json:"version"`
 	Force         bool   `json:"force"`
 	Backup        bool   `json:"backup"`
-	AnalyzeImpact bool   `json:"analyzeImpact"`
+	AnalyzeImpact bool   `json:"analyze_impact"`
 }
 
 // SystemUpdateResult نتيجة تحديث النظام
 type SystemUpdateResult struct {
-	UpdateID          string        `json:"updateId"`
-	EstimatedDuration time.Duration `json:"estimatedDuration"`
-	RequiresRestart   bool          `json:"requiresRestart"`
+	UpdateID          string        `json:"update_id"`
+	EstimatedDuration time.Duration `json:"estimated_duration"`
+	RequiresRestart   bool          `json:"requires_restart"`
 	Steps             []string      `json:"steps"`
-	BackupCreated     bool          `json:"backupCreated"`
-	ImpactAnalysis    interface{}   `json:"impactAnalysis"`
+	BackupCreated     bool          `json:"backup_created"`
+	ImpactAnalysis    interface{}   `json:"impact_analysis"`
 }
 
 // AIAnalyticsRequest طلب تحليلات الذكاء الاصطناعي
 type AIAnalyticsRequest struct {
 	Timeframe    string `json:"timeframe"`
-	AnalysisType string `json:"analysisType"`
+	AnalysisType string `json:"analysis_type"`
 }
 
 // AIAnalyticsResult نتيجة تحليلات الذكاء الاصطناعي
@@ -215,16 +208,16 @@ type AIAnalyticsResult struct {
 	Optimizations  interface{} `json:"optimizations"`
 	Capacity       interface{} `json:"capacity"`
 	Predictions    interface{} `json:"predictions"`
-	RiskAssessment interface{} `json:"riskAssessment"`
-	GeneratedAt    time.Time   `json:"generatedAt"`
-	AnalysisPeriod string      `json:"analysisPeriod"`
+	RiskAssessment interface{} `json:"risk_assessment"`
+	GeneratedAt    time.Time   `json:"generated_at"`
+	AnalysisPeriod string      `json:"analysis_period"`
 }
 
 // UserAnalyticsRequest طلب تحليلات المستخدمين
 type UserAnalyticsRequest struct {
 	Timeframe    string `json:"timeframe"`
-	UserSegment  string `json:"userSegment"`
-	AnalysisDepth string `json:"analysisDepth"`
+	UserSegment  string `json:"user_segment"`
+	AnalysisDepth string `json:"analysis_depth"`
 }
 
 // UserAnalyticsResult نتيجة تحليلات المستخدمين
@@ -235,7 +228,7 @@ type UserAnalyticsResult struct {
 	Predictions    interface{} `json:"predictions"`
 	Retention      interface{} `json:"retention"`
 	Recommendations interface{} `json:"recommendations"`
-	GeneratedAt    time.Time   `json:"generatedAt"`
+	GeneratedAt    time.Time   `json:"generated_at"`
 }
 
 // MaintenanceRequest طلب الصيانة
@@ -252,20 +245,20 @@ type MaintenanceResult struct {
 	Message     string      `json:"message"`
 	Schedule    *time.Time  `json:"schedule,omitempty"`
 	Duration    *time.Duration `json:"duration,omitempty"`
-	InitiatedBy string      `json:"initiatedBy"`
+	InitiatedBy string      `json:"initiated_by"`
 }
 
 // BackupRequest طلب النسخ الاحتياطي
 type BackupRequest struct {
 	Type        string `json:"type"`
-	IncludeLogs bool   `json:"includeLogs"`
+	IncludeLogs bool   `json:"include_logs"`
 	Optimize    bool   `json:"optimize"`
 	Schedule    bool   `json:"schedule"`
 }
 
 // BackupResult نتيجة النسخ الاحتياطي
 type BackupResult struct {
-	BackupID string      `json:"backupId"`
+	BackupID string      `json:"backup_id"`
 	Size     int64       `json:"size"`
 	Path     string      `json:"path"`
 	Type     string      `json:"type"`
@@ -301,104 +294,9 @@ type LogsRequest struct {
 
 // LogsResult نتيجة السجلات
 type LogsResult struct {
-	Logs       []LogEntry `json:"logs"`
+	Logs       []LogEntry `json:"logs"`      // من shared_models
 	Analysis   interface{} `json:"analysis"`
-	Pagination Pagination  `json:"pagination"`
-}
-
-// LogEntry إدخال السجل
-type LogEntry struct {
-	Timestamp time.Time `json:"timestamp"`
-	Level     string    `json:"level"`
-	Message   string    `json:"message"`
-	Service   string    `json:"service"`
-	UserID    string    `json:"userId,omitempty"`
-	RequestID string    `json:"requestId,omitempty"`
-}
-
-// ================================
-// الكيانات الأساسية
-// ================================
-
-// Order طلب
-type Order struct {
-	ID          string    `json:"id"`
-	User        string    `json:"user"`
-	Service     string    `json:"service"`
-	Amount      float64   `json:"amount"`
-	Status      string    `json:"status"`
-	Date        string    `json:"date"`
-	Type        string    `json:"type"`
-	Category    string    `json:"category"`
-	CreatedAt   time.Time `json:"createdAt"`
-	UpdatedAt   time.Time `json:"updatedAt"`
-}
-
-// UserActivity نشاط المستخدم
-type UserActivity struct {
-	User      string    `json:"user"`
-	Action    string    `json:"action"`
-	Service   string    `json:"service,omitempty"`
-	Time      string    `json:"time"`
-	IP        string    `json:"ip"`
-	Type      string    `json:"type"`
-	CreatedAt time.Time `json:"createdAt"`
-}
-
-// SystemAlert تنبيه النظام
-type SystemAlert struct {
-	Type      string    `json:"type"`
-	Title     string    `json:"title"`
-	Message   string    `json:"message"`
-	Priority  string    `json:"priority"` // low, medium, high, critical
-	Action    string    `json:"action,omitempty"`
-	Timestamp time.Time `json:"timestamp"`
-}
-
-// ================================
-// الهياكل المساعدة
-// ================================
-
-// Pagination الترقيم
-type Pagination struct {
-	Page  int `json:"page"`
-	Limit int `json:"limit"`
-	Total int `json:"total"`
-	Pages int `json:"pages"`
-}
-
-// HealthCheckResult نتيجة فحص الصحة
-type HealthCheckResult struct {
-	Service     string      `json:"service"`
-	Status      string      `json:"status"`
-	ResponseTime string     `json:"responseTime,omitempty"`
-	Error       string      `json:"error,omitempty"`
-	Usage       string      `json:"usage,omitempty"`
-	Details     interface{} `json:"details,omitempty"`
-}
-
-// SystemSummary ملخص النظام
-type SystemSummary struct {
-	Overall         string   `json:"overall"`
-	Issues          []string `json:"issues"`
-	Recommendations []string `json:"recommendations"`
-}
-
-// SystemMetrics مقاييس النظام
-type SystemMetrics struct {
-	Timestamp   time.Time          `json:"timestamp"`
-	System      SystemInfo         `json:"system"`
-	Performance PerformanceMetrics `json:"performance"`
-	Database    DatabaseStatus     `json:"database"`
-	Services    map[string]string  `json:"services"`
-}
-
-// UpdateImpactAnalysis تحليل تأثير التحديث
-type UpdateImpactAnalysis struct {
-	RiskScore         float64  `json:"riskScore"`
-	Risks             []string `json:"risks"`
-	Recommendations   []string `json:"recommendations"`
-	AffectedServices  []string `json:"affectedServices"`
+	Pagination Pagination  `json:"pagination"` // من shared_models
 }
 
 // ================================
@@ -409,31 +307,18 @@ type UpdateImpactAnalysis struct {
 type ReportRequest struct {
 	Type       string     `json:"type"`
 	Format     string     `json:"format"` // pdf, excel, csv, json
-	DateRange  DateRange  `json:"dateRange"`
-	Filters    []Filter   `json:"filters"`
-	IncludeCharts bool    `json:"includeCharts"`
-}
-
-// DateRange نطاق التاريخ
-type DateRange struct {
-	From time.Time `json:"from"`
-	To   time.Time `json:"to"`
-}
-
-// Filter عامل التصفية
-type Filter struct {
-	Field    string      `json:"field"`
-	Operator string      `json:"operator"`
-	Value    interface{} `json:"value"`
+	DateRange  DateRange  `json:"date_range"` // من shared_models
+	Filters    []Filter   `json:"filters"`    // من shared_models
+	IncludeCharts bool    `json:"include_charts"`
 }
 
 // ReportResult نتيجة التقرير
 type ReportResult struct {
-	ReportID   string      `json:"reportId"`
+	ReportID   string      `json:"report_id"`
 	Type       string      `json:"type"`
 	Data       interface{} `json:"data"`
-	GeneratedAt time.Time  `json:"generatedAt"`
-	DownloadURL string     `json:"downloadUrl,omitempty"`
+	GeneratedAt time.Time  `json:"generated_at"`
+	DownloadURL string     `json:"download_url,omitempty"`
 }
 
 // ================================
@@ -442,21 +327,21 @@ type ReportResult struct {
 
 // UserManagementRequest طلب إدارة المستخدم
 type UserManagementRequest struct {
-	UserID    string   `json:"userId"`
+	UserID    string   `json:"user_id"`
 	Action    string   `json:"action"` // suspend, activate, change_role, reset_password
-	NewRole   string   `json:"newRole,omitempty"`
+	NewRole   string   `json:"new_role,omitempty"`
 	Reason    string   `json:"reason,omitempty"`
 	Duration  *time.Duration `json:"duration,omitempty"`
 }
 
 // UserManagementResult نتيجة إدارة المستخدم
 type UserManagementResult struct {
-	UserID    string    `json:"userId"`
+	UserID    string    `json:"user_id"`
 	Action    string    `json:"action"`
-	PreviousStatus string `json:"previousStatus"`
-	NewStatus string    `json:"newStatus"`
+	PreviousStatus string `json:"previous_status"`
+	NewStatus string    `json:"new_status"`
 	Timestamp time.Time `json:"timestamp"`
-	PerformedBy string `json:"performedBy"`
+	PerformedBy string `json:"performed_by"`
 }
 
 // RolePermission إذن الدور
@@ -479,7 +364,7 @@ type Notification struct {
 	Priority  string    `json:"priority"`
 	Recipient string    `json:"recipient"`
 	Read      bool      `json:"read"`
-	CreatedAt time.Time `json:"createdAt"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 // BroadcastRequest طلب البث
@@ -493,9 +378,37 @@ type BroadcastRequest struct {
 
 // BroadcastResult نتيجة البث
 type BroadcastResult struct {
-	BroadcastID string    `json:"broadcastId"`
-	SentTo      int       `json:"sentTo"`
+	BroadcastID string    `json:"broadcast_id"`
+	SentTo      int       `json:"sent_to"`
 	Failed      int       `json:"failed"`
 	Scheduled   bool      `json:"scheduled"`
-	SentAt      time.Time `json:"sentAt"`
+	SentAt      time.Time `json:"sent_at"`
+}
+
+// ================================
+// الهياكل المساعدة
+// ================================
+
+// SystemSummary ملخص النظام
+type SystemSummary struct {
+	Overall         string   `json:"overall"`
+	Issues          []string `json:"issues"`
+	Recommendations []string `json:"recommendations"`
+}
+
+// SystemMetrics مقاييس النظام
+type SystemMetrics struct {
+	Timestamp   time.Time          `json:"timestamp"`
+	System      SystemInfo         `json:"system"`
+	Performance PerformanceMetrics `json:"performance"`
+	Database    DatabaseStatus     `json:"database"`
+	Services    map[string]string  `json:"services"`
+}
+
+// UpdateImpactAnalysis تحليل تأثير التحديث
+type UpdateImpactAnalysis struct {
+	RiskScore         float64  `json:"risk_score"`
+	Risks             []string `json:"risks"`
+	Recommendations   []string `json:"recommendations"`
+	AffectedServices  []string `json:"affected_services"`
 }
