@@ -54,8 +54,8 @@ func main() {
 func initDatabase(cfg *config.Config) (*gorm.DB, error) {
 	logger.Stdout.Info("🗄️  تهيئة اتصال قاعدة البيانات...")
 
-	// استخدام DSN مباشرة من الإعدادات
-	dsn := cfg.Database.DSN
+	// استخدام GetDSN بدلاً من DSN مباشرة
+	dsn := cfg.GetDSN()
 	if cfg.IsDevelopment() && dsn == "" {
 		dsn = "host=localhost user=postgres password=postgres dbname=nawthtech port=5432 sslmode=disable"
 		logger.Stdout.Info("🔧 استخدام إعدادات قاعدة بيانات افتراضية للتطوير")
