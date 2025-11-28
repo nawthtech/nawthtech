@@ -1,7 +1,6 @@
 package middleware
 
 import (
-	"context"
 	"fmt"
 	"log/slog"
 	"net"
@@ -9,281 +8,471 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gin-gonic/gin"
 	"github.com/nawthtech/nawthtech/backend/internal/config"
 	"github.com/nawthtech/nawthtech/backend/internal/logger"
-
-	"github.com/go-chi/chi/v5"
-	chimiddleware "github.com/go-chi/chi/v5/middleware"
-	"github.com/go-chi/cors"
+	"github.com/nawthtech/nawthtech/backend/internal/services"
 )
 
 // ==================== هياكل البيانات ====================
 
-// trustProxyConfig تكوين وسيط الثقة بالبروكسي
-type trustProxyConfig struct {
-	ErrorLogger *slog.Logger
+// MiddlewareContainer حاوية الوسائط
+type MiddlewareContainer struct {
+	AuthMiddleware      gin.HandlerFunc
+	AdminMiddleware     gin.HandlerFunc
+	SellerMiddleware    gin.HandlerFunc
+	CORSMiddleware      gin.HandlerFunc
+	SecurityMiddleware  gin.HandlerFunc
+	RateLimitMiddleware gin.HandlerFunc
+	LoggerMiddleware    gin.HandlerFunc
 }
 
 // ==================== الوسائط الأساسية ====================
 
-// TrustProxy وسيط الثقة بالبروكسي
-func TrustProxy(config *trustProxyConfig) func(http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if config == nil {
-				config = &trustProxyConfig{}
-			}
+// CORS وسيط CORS
+func CORS() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
+		c.Writer.Header().Set("Access-Control-Allow-Credentials", "true")
+		c.Writer.Header().Set("Access-Control-Allow-Headers", "Content-Type, Content-Length, Accept-Encoding, X-CSRF-Token, Authorization, accept, origin, Cache-Control, X-Requested-With")
+		c.Writer.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS, GET, PUT, DELETE, PATCH")
+		c.Writer.Header().Set("Access-Control-Expose-Headers", "Content-Length, X-Request-ID, X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset")
 
-			// الحصول على عنوان IP الحقيقي من الرؤوس
-			if realIP := r.Header.Get("X-Real-IP"); realIP != "" {
-				r.RemoteAddr = realIP
-			} else if forwardedFor := r.Header.Get("X-Forwarded-For"); forwardedFor != "" {
-				// أخذ أول عنوان في القائمة
-				ips := strings.Split(forwardedFor, ",")
-				if len(ips) > 0 {
-					r.RemoteAddr = strings.TrimSpace(ips[0])
-				}
-			}
+		if c.Request.Method == "OPTIONS" {
+			c.AbortWithStatus(204)
+			return
+		}
 
-			// تحديث الطلب مع معلومات البروتوكول الحقيقية
-			if proto := r.Header.Get("X-Forwarded-Proto"); proto != "" {
-				r.URL.Scheme = proto
-			} else if r.TLS != nil {
-				r.URL.Scheme = "https"
-			} else {
-				r.URL.Scheme = "http"
-			}
+		c.Next()
+	}
+}
 
-			if host := r.Header.Get("X-Forwarded-Host"); host != "" {
-				r.URL.Host = host
-				r.Host = host
-			}
-
-			next.ServeHTTP(w, r)
-		})
+// SecurityHeaders وسيط رؤوس الأمان
+func SecurityHeaders() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Writer.Header().Set("X-Content-Type-Options", "nosniff")
+		c.Writer.Header().Set("X-Frame-Options", "DENY")
+		c.Writer.Header().Set("X-XSS-Protection", "1; mode=block")
+		c.Writer.Header().Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+		c.Writer.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
+		c.Writer.Header().Set("Content-Security-Policy", "default-src 'self'")
+		
+		c.Next()
 	}
 }
 
 // RequestID وسيط إضافة معرف الطلب
-func RequestID(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		requestID := r.Header.Get("X-Request-ID")
+func RequestID() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		requestID := c.GetHeader("X-Request-ID")
 		if requestID == "" {
 			requestID = generateRequestID()
 		}
 
 		// إضافة معرف الطلب إلى الرأس
-		w.Header().Set("X-Request-ID", requestID)
+		c.Writer.Header().Set("X-Request-ID", requestID)
 
 		// إضافة معرف الطلب إلى السياق
-		ctx := r.Context()
-		ctx = context.WithValue(ctx, "requestID", requestID)
-		r = r.WithContext(ctx)
+		c.Set("requestID", requestID)
 
-		next.ServeHTTP(w, r)
-	})
+		c.Next()
+	}
 }
 
-// Logger وسيط التسجيل
-func Logger() func(http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			start := time.Now()
+// Logging وسيط التسجيل
+func Logging() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		start := time.Now()
+		
+		// معالجة الطلب
+		c.Next()
 
-			// استخدام ResponseWriter معاد لالتقاط حالة الاستجابة
-			ww := chimiddleware.NewWrapResponseWriter(w, r.ProtoMajor)
+		// حساب مدة التنفيذ
+		duration := time.Since(start)
 
-			// معالجة الطلب
-			next.ServeHTTP(ww, r)
+		// جمع معلومات التسجيل
+		fields := []interface{}{
+			"method", c.Request.Method,
+			"path", c.Request.URL.Path,
+			"status", c.Writer.Status(),
+			"duration", duration.String(),
+			"bytes", c.Writer.Size(),
+			"user_agent", c.Request.UserAgent(),
+			"ip", getClientIP(c.Request),
+		}
 
-			// حساب مدة التنفيذ
-			duration := time.Since(start)
+		// إضافة معرف الطلب إذا كان متوفراً
+		if requestID, exists := c.Get("requestID"); exists {
+			fields = append(fields, "request_id", requestID)
+		}
 
-			// جمع معلومات التسجيل
-			fields := []interface{}{
-				"method", r.Method,
-				"path", r.URL.Path,
-				"status", ww.Status(),
-				"duration", duration.String(),
-				"bytes", ww.BytesWritten(),
-				"user_agent", r.UserAgent(),
-				"ip", getClientIP(r),
-			}
-
-			// إضافة معرف الطلب إذا كان متوفراً
-			if requestID := r.Context().Value("requestID"); requestID != nil {
-				fields = append(fields, "request_id", requestID)
-			}
-
-			// تسجيل بناءً على حالة الاستجابة
-			status := ww.Status()
-			switch {
-			case status >= 500:
-				logger.Stderr.Error("خطأ في الخادم", fields...)
-			case status >= 400:
-				logger.Stdout.Warn("خطأ في العميل", fields...)
-			default:
-				logger.Stdout.Info("طلب معالَج", fields...)
-			}
-		})
+		// تسجيل بناءً على حالة الاستجابة
+		status := c.Writer.Status()
+		switch {
+		case status >= 500:
+			logger.Stderr.Error("خطأ في الخادم", fields...)
+		case status >= 400:
+			logger.Stdout.Warn("خطأ في العميل", fields...)
+		default:
+			logger.Stdout.Info("طلب معالَج", fields...)
+		}
 	}
 }
 
 // ==================== وسائط المصادقة ====================
 
-// AuthMiddleware وسيط المصادقة الأساسي
-func AuthMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+// AuthMiddleware وسيط المصادقة باستخدام AuthService
+func AuthMiddleware(authService services.AuthService) gin.HandlerFunc {
+	return func(c *gin.Context) {
 		// الحصول على التوكن من الرأس
-		authHeader := r.Header.Get("Authorization")
+		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" {
-			http.Error(w, `{"success": false, "error": "مصادقة مطلوبة"}`, http.StatusUnauthorized)
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"success": false,
+				"error":   "مصادقة مطلوبة",
+				"message": "يرجى تقديم رمز المصادقة",
+			})
+			c.Abort()
 			return
 		}
 
 		// التحقق من صيغة التوكن (Bearer token)
 		parts := strings.Split(authHeader, " ")
 		if len(parts) != 2 || parts[0] != "Bearer" {
-			http.Error(w, `{"success": false, "error": "صيغة توكن غير صالحة"}`, http.StatusUnauthorized)
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"success": false,
+				"error":   "صيغة توكن غير صالحة",
+				"message": "يجب أن يكون التوكن بصيغة Bearer token",
+			})
+			c.Abort()
 			return
 		}
 
 		token := parts[1]
 
-		// التحقق من صحة التوكن (هنا يمكن إضافة منطق التحقق الفعلي)
-		userID, err := validateToken(token)
+		// التحقق من صحة التوكن باستخدام AuthService
+		claims, err := authService.VerifyToken(c.Request.Context(), token)
 		if err != nil {
-			http.Error(w, `{"success": false, "error": "توكن غير صالح"}`, http.StatusUnauthorized)
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"success": false,
+				"error":   "توكن غير صالح",
+				"message": "رمز المصادقة منتهي الصلاحية أو غير صحيح",
+			})
+			c.Abort()
 			return
 		}
 
 		// إضافة معلومات المستخدم إلى السياق
-		ctx := r.Context()
-		ctx = context.WithValue(ctx, "userID", userID)
-		ctx = context.WithValue(ctx, "token", token)
-		r = r.WithContext(ctx)
+		c.Set("userID", claims.UserID)
+		c.Set("userEmail", claims.Email)
+		c.Set("userRole", claims.Role)
+		c.Set("token", token)
 
-		next.ServeHTTP(w, r)
-	})
+		c.Next()
+	}
 }
 
-// AdminAuth وسيط مصادقة المسؤول
-func AdminAuth(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+// AdminMiddleware وسيط مصادقة المسؤول
+func AdminMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
 		// الحصول على معلومات المستخدم من السياق
-		userID := r.Context().Value("userID")
-		if userID == nil {
-			http.Error(w, `{"success": false, "error": "صلاحيات غير كافية"}`, http.StatusForbidden)
+		userRole, exists := c.Get("userRole")
+		if !exists {
+			c.JSON(http.StatusForbidden, gin.H{
+				"success": false,
+				"error":   "صلاحيات غير كافية",
+				"message": "مطلوب صلاحيات مسؤول للوصول إلى هذا المورد",
+			})
+			c.Abort()
 			return
 		}
 
-		// التحقق من صلاحيات المسؤول (هنا يمكن إضافة منطق التحقق الفعلي)
-		isAdmin, err := checkAdminPermissions(userID.(string))
-		if err != nil || !isAdmin {
-			http.Error(w, `{"success": false, "error": "صلاحيات إدارة مطلوبة"}`, http.StatusForbidden)
+		// التحقق من صلاحيات المسؤول
+		if userRole != "admin" {
+			c.JSON(http.StatusForbidden, gin.H{
+				"success": false,
+				"error":   "صلاحيات إدارة مطلوبة",
+				"message": "لا تملك الصلاحيات الكافية للوصول إلى هذا المورد",
+			})
+			c.Abort()
 			return
 		}
 
-		next.ServeHTTP(w, r)
-	})
+		c.Next()
+	}
+}
+
+// SellerMiddleware وسيط مصادقة البائعين
+func SellerMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// الحصول على معلومات المستخدم من السياق
+		userRole, exists := c.Get("userRole")
+		if !exists {
+			c.JSON(http.StatusForbidden, gin.H{
+				"success": false,
+				"error":   "صلاحيات غير كافية",
+				"message": "مطلوب صلاحيات بائع للوصول إلى هذا المورد",
+			})
+			c.Abort()
+			return
+		}
+
+		// التحقق من صلاحيات البائع أو المسؤول
+		if userRole != "seller" && userRole != "admin" {
+			c.JSON(http.StatusForbidden, gin.H{
+				"success": false,
+				"error":   "صلاحيات بائع مطلوبة",
+				"message": "لا تملك الصلاحيات الكافية للوصول إلى هذا المورد",
+			})
+			c.Abort()
+			return
+		}
+
+		c.Next()
+	}
 }
 
 // ==================== وسائط الأمان والأداء ====================
 
-// RateLimiter وسيط تحديد المعدل
-func RateLimiter(requests int, window time.Duration) func(http.Handler) http.Handler {
-	// تنفيذ مبسط لتحديد المعدل (في الواقع يجب استخدام Redis أو ذاكرة مشتركة)
+// RateLimit وسيط تحديد المعدل
+func RateLimit() gin.HandlerFunc {
+	// تنفيذ مبسط لتحديد المعدل
 	type clientLimit struct {
 		count    int
 		lastSeen time.Time
 	}
 
 	clients := make(map[string]*clientLimit)
+	requests := 100 // 100 طلب
+	window := time.Minute // في الدقيقة
 	
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			clientIP := getClientIP(r)
-			
-			now := time.Now()
-			
-			// تنظيف العملاء القدامى
-			if len(clients) > 10000 { // حد أقصى للذاكرة
-				for ip, limit := range clients {
-					if now.Sub(limit.lastSeen) > window {
-						delete(clients, ip)
-					}
+	return func(c *gin.Context) {
+		clientIP := getClientIP(c.Request)
+		
+		now := time.Now()
+		
+		// تنظيف العملاء القدامى
+		if len(clients) > 10000 {
+			for ip, limit := range clients {
+				if now.Sub(limit.lastSeen) > window {
+					delete(clients, ip)
 				}
 			}
-			
-			limit, exists := clients[clientIP]
-			if !exists {
-				limit = &clientLimit{count: 0, lastSeen: now}
-				clients[clientIP] = limit
-			}
-			
-			// إعادة تعيين العداد إذا انتهت النافذة الزمنية
-			if now.Sub(limit.lastSeen) > window {
-				limit.count = 0
-				limit.lastSeen = now
-			}
-			
-			// التحقق من تجاوز الحد
-			if limit.count >= requests {
-				http.Error(w, `{"success": false, "error": "تم تجاوز معدل الطلبات المسموح به"}`, http.StatusTooManyRequests)
-				return
-			}
-			
-			// زيادة العداد
-			limit.count++
+		}
+		
+		limit, exists := clients[clientIP]
+		if !exists {
+			limit = &clientLimit{count: 0, lastSeen: now}
+			clients[clientIP] = limit
+		}
+		
+		// إعادة تعيين العداد إذا انتهت النافذة الزمنية
+		if now.Sub(limit.lastSeen) > window {
+			limit.count = 0
 			limit.lastSeen = now
-			
-			// إضافة معلومات التحديد إلى الرأس
-			w.Header().Set("X-RateLimit-Limit", fmt.Sprintf("%d", requests))
-			w.Header().Set("X-RateLimit-Remaining", fmt.Sprintf("%d", requests-limit.count))
-			w.Header().Set("X-RateLimit-Reset", fmt.Sprintf("%d", now.Add(window).Unix()))
-			
-			next.ServeHTTP(w, r)
-		})
+		}
+		
+		// التحقق من تجاوز الحد
+		if limit.count >= requests {
+			c.JSON(http.StatusTooManyRequests, gin.H{
+				"success": false,
+				"error":   "تم تجاوز معدل الطلبات المسموح به",
+				"message": "يرجى المحاولة مرة أخرى لاحقاً",
+			})
+			c.Abort()
+			return
+		}
+		
+		// زيادة العداد
+		limit.count++
+		limit.lastSeen = now
+		
+		// إضافة معلومات التحديد إلى الرأس
+		c.Writer.Header().Set("X-RateLimit-Limit", fmt.Sprintf("%d", requests))
+		c.Writer.Header().Set("X-RateLimit-Remaining", fmt.Sprintf("%d", requests-limit.count))
+		c.Writer.Header().Set("X-RateLimit-Reset", fmt.Sprintf("%d", now.Add(window).Unix()))
+		
+		c.Next()
 	}
 }
 
-// ValidateAdminAction التحقق من صحة إجراءات المسؤول
-func ValidateAdminAction(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// التحقق من صحة البيانات والإجراءات للمسؤول
-		if r.Method == "POST" || r.Method == "PUT" || r.Method == "PATCH" {
-			contentType := r.Header.Get("Content-Type")
+// ValidateContentType وسيط التحقق من نوع المحتوى
+func ValidateContentType() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if c.Request.Method == "POST" || c.Request.Method == "PUT" || c.Request.Method == "PATCH" {
+			contentType := c.GetHeader("Content-Type")
 			if !strings.Contains(contentType, "application/json") {
-				http.Error(w, `{"success": false, "error": "نوع المحتوى يجب أن يكون JSON"}`, http.StatusBadRequest)
-				return
-			}
-			
-			// التحقق من حجم الجسم للطلبات الكبيرة
-			if r.ContentLength > 10*1024*1024 { // 10MB
-				http.Error(w, `{"success": false, "error": "حجم البيانات كبير جداً"}`, http.StatusRequestEntityTooLarge)
+				c.JSON(http.StatusBadRequest, gin.H{
+					"success": false,
+					"error":   "نوع المحتوى يجب أن يكون JSON",
+					"message": "يرجى استخدام application/json كنوع للمحتوى",
+				})
+				c.Abort()
 				return
 			}
 		}
 		
-		next.ServeHTTP(w, r)
-	})
+		c.Next()
+	}
 }
 
-// UpdateMiddleware وسيط تحديث النظام
-func UpdateMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// إضافة معرف الطلب
-		requestID := generateRequestID()
-		w.Header().Set("X-Request-ID", requestID)
-
-		// التحقق من حالة النظام قبل التحديث
-		if !isSystemReadyForUpdate() {
-			http.Error(w, `{"success": false, "error": "النظام غير جاهز للتحديث"}`, http.StatusServiceUnavailable)
+// SizeLimit وسيط تحديد حجم الطلب
+func SizeLimit(maxSize int64) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if c.Request.ContentLength > maxSize {
+			c.JSON(http.StatusRequestEntityTooLarge, gin.H{
+				"success": false,
+				"error":   "حجم البيانات كبير جداً",
+				"message": fmt.Sprintf("الحجم الأقصى المسموح به هو %d بايت", maxSize),
+			})
+			c.Abort()
 			return
 		}
+		
+		c.Next()
+	}
+}
 
-		next.ServeHTTP(w, r)
-	})
+// Timeout وسيط وقت انتهاء الطلب
+func Timeout(timeout time.Duration) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// إعداد مهلة للطلب
+		ctx, cancel := context.WithTimeout(c.Request.Context(), timeout)
+		defer cancel()
+		
+		c.Request = c.Request.WithContext(ctx)
+		
+		// قناة للإشارة بانتهاء المعالجة
+		done := make(chan bool, 1)
+		
+		go func() {
+			c.Next()
+			done <- true
+		}()
+		
+		select {
+		case <-ctx.Done():
+			if ctx.Err() == context.DeadlineExceeded {
+				c.JSON(http.StatusRequestTimeout, gin.H{
+					"success": false,
+					"error":   "انتهت مهلة الطلب",
+					"message": "تجاوز الطلب الوقت المحدد للمعالجة",
+				})
+				c.Abort()
+			}
+		case <-done:
+			// الطلب اكتمل بنجاح
+		}
+	}
+}
+
+// Recovery وسيط استعادة الأخطاء
+func Recovery() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		defer func() {
+			if err := recover(); err != nil {
+				// الحصول على معرف الطلب
+				requestID, _ := c.Get("requestID")
+				
+				// تسجيل الخطأ
+				logger.Stderr.Error("تعافى من حالة panic",
+					"error", err,
+					"request_id", requestID,
+					"path", c.Request.URL.Path,
+					"method", c.Request.Method,
+				)
+				
+				// إرسال استجابة خطأ
+				c.JSON(http.StatusInternalServerError, gin.H{
+					"success": false,
+					"error":   "خطأ داخلي في الخادم",
+					"message": "حدث خطأ غير متوقع",
+				})
+				
+				c.Abort()
+			}
+		}()
+		
+		c.Next()
+	}
+}
+
+// ==================== وسائط التحقق من الصلاحيات ====================
+
+// ValidateAdminAction وسيط التحقق من إجراءات المسؤول
+func ValidateAdminAction() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// التحقق من أن المستخدم مسؤول
+		userRole, exists := c.Get("userRole")
+		if !exists || userRole != "admin" {
+			c.JSON(http.StatusForbidden, gin.H{
+				"success": false,
+				"error":   "صلاحيات غير كافية",
+				"message": "مطلوب صلاحيات مسؤول لهذا الإجراء",
+			})
+			c.Abort()
+			return
+		}
+		
+		// التحقق من نوع المحتوى للطلبات التي تحتوي على جسم
+		if c.Request.Method == "POST" || c.Request.Method == "PUT" || c.Request.Method == "PATCH" {
+			contentType := c.GetHeader("Content-Type")
+			if !strings.Contains(contentType, "application/json") {
+				c.JSON(http.StatusBadRequest, gin.H{
+					"success": false,
+					"error":   "نوع المحتوى يجب أن يكون JSON",
+					"message": "يرجى استخدام application/json لنوع المحتوى",
+				})
+				c.Abort()
+				return
+			}
+		}
+		
+		c.Next()
+	}
+}
+
+// OwnerOrAdmin وسيط التحقق من المالك أو المسؤول
+func OwnerOrAdmin() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userID, exists := c.Get("userID")
+		if !exists {
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"success": false,
+				"error":   "غير مصرح",
+				"message": "يجب تسجيل الدخول للوصول إلى هذا المورد",
+			})
+			c.Abort()
+			return
+		}
+		
+		userRole, _ := c.Get("userRole")
+		
+		// إذا كان المستخدم مسؤولاً، اسمح بالوصول
+		if userRole == "admin" {
+			c.Next()
+			return
+		}
+		
+		// الحصول على معرف المورد من المسار
+		resourceUserID := c.Param("userID")
+		if resourceUserID == "" {
+			resourceUserID = c.Param("id")
+		}
+		
+		// التحقق إذا كان المستخدم هو مالك المورد
+		if resourceUserID != userID {
+			c.JSON(http.StatusForbidden, gin.H{
+				"success": false,
+				"error":   "صلاحيات غير كافية",
+				"message": "لا يمكنك الوصول إلى هذا المورد",
+			})
+			c.Abort()
+			return
+		}
+		
+		c.Next()
+	}
 }
 
 // ==================== الدوال المساعدة ====================
@@ -313,7 +502,7 @@ func getClientIP(r *http.Request) string {
 
 // generateRequestID إنشاء معرف طلب فريد
 func generateRequestID() string {
-	return strings.ReplaceAll(time.Now().Format("20060102150405.000000"), ".", "") + "-" + randomString(8)
+	return fmt.Sprintf("req_%d_%s", time.Now().UnixNano(), randomString(8))
 }
 
 // randomString إنشاء سلسلة عشوائية
@@ -326,61 +515,49 @@ func randomString(length int) string {
 	return string(b)
 }
 
-// validateToken التحقق من صحة التوكن (تنفيذ مبدئي)
-func validateToken(token string) (string, error) {
-	// في الواقع، يجب التحقق من التوكن مع قاعدة البيانات أو خدمة المصادقة
-	// هذا تنفيذ مبسط للتوضيح
-	if token == "" {
-		return "", fmt.Errorf("توكن فارغ")
-	}
-	
-	// محاكاة التحقق من التوكن
-	if strings.HasPrefix(token, "valid_") {
-		return strings.TrimPrefix(token, "valid_"), nil
-	}
-	
-	return "", fmt.Errorf("توكن غير صالح")
-}
-
-// checkAdminPermissions التحقق من صلاحيات المسؤول (تنفيذ مبدئي)
-func checkAdminPermissions(userID string) (bool, error) {
-	// في الواقع، يجب التحقق من الصلاحيات مع قاعدة البيانات
-	// هذا تنفيذ مبسط للتوضيح
-	return strings.HasPrefix(userID, "admin_"), nil
-}
-
-// isSystemReadyForUpdate التحقق من جاهزية النظام للتحديث
-func isSystemReadyForUpdate() bool {
-	// في الواقع، يجب التحقق من حالة النظام ومدى ملاءمته للتحديث
-	// هذا تنفيذ مبسط للتوضيح
-	return true
-}
-
 // ==================== تسجيل الوسائط ====================
 
-// Register تسجيل جميع الوسائط
-func Register(r *chi.Mux) {
+// RegisterGlobalMiddlewares تسجيل الوسائط العامة
+func RegisterGlobalMiddlewares(router *gin.Engine, cfg *config.Config) {
 	// الوسائط الأساسية
-	r.Use(chimiddleware.Recoverer)
-	r.Use(TrustProxy(&trustProxyConfig{
-		ErrorLogger: logger.Stderr,
-	}))
-	r.Use(RequestID)
-	r.Use(Logger())
+	router.Use(Recovery())
+	router.Use(RequestID())
+	router.Use(Logging())
+	router.Use(CORS())
+	router.Use(SecurityHeaders())
+	router.Use(RateLimit())
+	
+	// وسائط إضافية بناءً على البيئة
+	if cfg.Environment == "production" {
+		router.Use(SizeLimit(10 * 1024 * 1024)) // 10MB في الإنتاج
+	} else {
+		router.Use(SizeLimit(50 * 1024 * 1024)) // 50MB في التطوير
+	}
+}
 
-	// وسيط CORS
-	r.Use(cors.Handler(cors.Options{
-		AllowedOrigins:   config.Cors.AllowedOrigins,
-		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"},
-		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token", "X-Request-ID"},
-		ExposedHeaders:   []string{"Link", "X-Request-ID", "X-RateLimit-Limit", "X-RateLimit-Remaining", "X-RateLimit-Reset"},
-		AllowCredentials: true,
-		MaxAge:           300, // 5 دقائق
-	}))
+// GetUserIDFromContext الحصول على معرف المستخدم من السياق
+func GetUserIDFromContext(c *gin.Context) (string, bool) {
+	userID, exists := c.Get("userID")
+	if !exists {
+		return "", false
+	}
+	return userID.(string), true
+}
 
-	// وسائط إضافية
-	r.Use(chimiddleware.Compress(5)) // ضغط GZIP
-	r.Use(chimiddleware.Timeout(60 * time.Second)) // وقت انتهاء للطلبات
-	r.Use(chimiddleware.Throttle(1000)) // تحديد معدل الطلبات الأساسي
-	r.Use(chimiddleware.Heartbeat("/health")) // نقطة فحص الصحة
+// GetUserRoleFromContext الحصول على دور المستخدم من السياق
+func GetUserRoleFromContext(c *gin.Context) (string, bool) {
+	userRole, exists := c.Get("userRole")
+	if !exists {
+		return "", false
+	}
+	return userRole.(string), true
+}
+
+// GetRequestIDFromContext الحصول على معرف الطلب من السياق
+func GetRequestIDFromContext(c *gin.Context) (string, bool) {
+	requestID, exists := c.Get("requestID")
+	if !exists {
+		return "", false
+	}
+	return requestID.(string), true
 }
