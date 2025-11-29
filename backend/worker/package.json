@@ -1,0 +1,19 @@
+{
+  "name": "nawthtech-worker",
+  "version": "1.0.0",
+  "description": "NawthTech API Worker",
+  "main": "src/index.js",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "deploy:prod": "wrangler deploy --env production"
+  },
+  "dependencies": {
+    "itty-router": "^4.0.0",
+    "bcryptjs": "^2.4.3",
+    "jsonwebtoken": "^9.0.0"
+  },
+  "devDependencies": {
+    "wrangler": "^4.51.0"
+  }
+}
