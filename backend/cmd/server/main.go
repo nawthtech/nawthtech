@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/nawthtech/nawthtech/backend/internal/cloudinary"
 	"github.com/nawthtech/nawthtech/backend/internal/config"
 	"github.com/nawthtech/nawthtech/backend/internal/handlers"
 	"github.com/nawthtech/nawthtech/backend/internal/logger"
@@ -34,6 +35,15 @@ func main() {
 	}
 	defer closeMongoDB(mongoClient)
 
+	// تهيئة خدمة Cloudinary
+	cloudinaryService, err := initCloudinary(cfg)
+	if err != nil {
+		logger.Stderr.Error("❌ فشل في تهيئة خدمة Cloudinary", logger.ErrAttr(err))
+		// لا نوقف التطبيق إذا فشل Cloudinary، يمكن أن يعمل بدونها
+	} else {
+		logger.Stdout.Info("✅ تم تهيئة خدمة Cloudinary بنجاح")
+	}
+
 	// إنشاء حاوية الخدمات مع MongoDB
 	serviceContainer := services.NewServiceContainer(mongoClient, cfg.Database.Name)
 
@@ -43,8 +53,8 @@ func main() {
 	// تسجيل جميع الوسائط
 	registerMiddlewares(app, cfg)
 
-	// تسجيل جميع المسارات
-	handlers.RegisterAllRoutes(app, serviceContainer, cfg, mongoClient)
+	// تسجيل جميع المسارات مع تمرير Cloudinary service
+	registerAllRoutes(app, serviceContainer, cfg, mongoClient, cloudinaryService)
 
 	// بدء الخادم
 	startServer(app, cfg)
@@ -94,6 +104,22 @@ func initMongoDB(cfg *config.Config) (*mongo.Client, error) {
 	return client, nil
 }
 
+// initCloudinary تهيئة خدمة Cloudinary
+func initCloudinary(cfg *config.Config) (*cloudinary.CloudinaryService, error) {
+	logger.Stdout.Info("☁️  تهيئة خدمة Cloudinary...")
+
+	service, err := cloudinary.NewCloudinaryService()
+	if err != nil {
+		return nil, err
+	}
+
+	logger.Stdout.Info("✅ تم تهيئة Cloudinary بنجاح",
+		"cloud_name", os.Getenv("CLOUDINARY_CLOUD_NAME"),
+		"environment", cfg.Environment,
+	)
+	return service, nil
+}
+
 // closeMongoDB إغلاق اتصال MongoDB
 func closeMongoDB(client *mongo.Client) {
 	if client != nil {
@@ -136,6 +162,9 @@ func initGinApp(cfg *config.Config) *gin.Engine {
 		app.SetTrustedProxies([]string{"127.0.0.1", "::1"})
 	}
 
+	// زيادة حجم الرفع الافتراضي إلى 10MB لاستيعاب الصور
+	app.MaxMultipartMemory = 10 << 20 // 10 MB
+
 	return app
 }
 
@@ -170,6 +199,185 @@ func registerMiddlewares(app *gin.Engine, cfg *config.Config) {
 		"cors_enabled", true,
 		"security_headers", true,
 		"rate_limiting", true,
+		"max_upload_size", "10MB",
+	)
+}
+
+// registerAllRoutes تسجيل جميع المسارات مع دعم Cloudinary
+func registerAllRoutes(
+	app *gin.Engine, 
+	serviceContainer *services.ServiceContainer, 
+	cfg *config.Config, 
+	mongoClient *mongo.Client,
+	cloudinaryService *cloudinary.CloudinaryService,
+) {
+	logger.Stdout.Info("🛣️  تسجيل مسارات التطبيق...")
+
+	// ✅ مجموعة API الأساسية
+	api := app.Group("/api/v1")
+
+	// ✅ مسارات المصادقة
+	authHandler := handlers.NewAuthHandler(serviceContainer.AuthService)
+	authRoutes := api.Group("/auth")
+	{
+		authRoutes.POST("/register", authHandler.Register)
+		authRoutes.POST("/login", authHandler.Login)
+		authRoutes.POST("/logout", authHandler.Logout)
+		authRoutes.POST("/refresh-token", authHandler.RefreshToken)
+		authRoutes.POST("/forgot-password", authHandler.ForgotPassword)
+		authRoutes.POST("/reset-password", authHandler.ResetPassword)
+		authRoutes.GET("/verify-token", authHandler.VerifyToken)
+	}
+
+	// ✅ مسارات المستخدم
+	userHandler := handlers.NewUserHandler(serviceContainer.UserService)
+	userRoutes := api.Group("/users")
+	{
+		userRoutes.GET("/profile", userHandler.GetProfile)
+		userRoutes.PUT("/profile", userHandler.UpdateProfile)
+		userRoutes.PUT("/change-password", userHandler.ChangePassword)
+		userRoutes.GET("/stats", userHandler.GetUserStats)
+	}
+
+	// ✅ مسارات الخدمات
+	serviceHandler := handlers.NewServiceHandler(serviceContainer.ServiceService)
+	serviceRoutes := api.Group("/services")
+	{
+		serviceRoutes.GET("/", serviceHandler.GetServices)
+		serviceRoutes.GET("/search", serviceHandler.SearchServices)
+		serviceRoutes.GET("/featured", serviceHandler.GetFeaturedServices)
+		serviceRoutes.GET("/categories", serviceHandler.GetCategories)
+		serviceRoutes.GET("/my-services", serviceHandler.GetMyServices)
+		serviceRoutes.POST("/", serviceHandler.CreateService)
+		serviceRoutes.GET("/:id", serviceHandler.GetServiceByID)
+		serviceRoutes.PUT("/:id", serviceHandler.UpdateService)
+		serviceRoutes.DELETE("/:id", serviceHandler.DeleteService)
+	}
+
+	// ✅ مسارات الفئات
+	categoryHandler := handlers.NewCategoryHandler(serviceContainer.CategoryService)
+	categoryRoutes := api.Group("/categories")
+	{
+		categoryRoutes.GET("/", categoryHandler.GetCategories)
+		categoryRoutes.POST("/", categoryHandler.CreateCategory)
+		categoryRoutes.GET("/:id", categoryHandler.GetCategoryByID)
+		categoryRoutes.PUT("/:id", categoryHandler.UpdateCategory)
+		categoryRoutes.DELETE("/:id", categoryHandler.DeleteCategory)
+	}
+
+	// ✅ مسارات الطلبات
+	orderHandler := handlers.NewOrderHandler(serviceContainer.OrderService)
+	orderRoutes := api.Group("/orders")
+	{
+		orderRoutes.GET("/", orderHandler.GetUserOrders)
+		orderRoutes.POST("/", orderHandler.CreateOrder)
+		orderRoutes.GET("/:id", orderHandler.GetOrderByID)
+		orderRoutes.PUT("/:id/status", orderHandler.UpdateOrderStatus)
+		orderRoutes.DELETE("/:id", orderHandler.CancelOrder)
+	}
+
+	// ✅ مسارات الدفع
+	paymentHandler := handlers.NewPaymentHandler(serviceContainer.PaymentService)
+	paymentRoutes := api.Group("/payments")
+	{
+		paymentRoutes.GET("/history", paymentHandler.GetPaymentHistory)
+		paymentRoutes.POST("/create-intent", paymentHandler.CreatePaymentIntent)
+		paymentRoutes.POST("/confirm", paymentHandler.ConfirmPayment)
+	}
+
+	// ✅ مسارات الرفع - Cloudinary Integration
+	var uploadHandler handlers.UploadHandler
+	if cloudinaryService != nil {
+		// استخدام Cloudinary إذا كان متاحاً
+		uploadHandler = handlers.NewUploadHandlerWithService(cloudinaryService)
+		logger.Stdout.Info("✅ تم تسجيل مسارات الرفع مع Cloudinary")
+	} else {
+		// استخدام خدمة الرفع الأساسية إذا فشل Cloudinary
+		uploadHandler = handlers.NewUploadHandlerWithService(nil)
+		logger.Stdout.Warn("⚠️  تم تسجيل مسارات الرفع بدون Cloudinary - باستخدام وضع أساسي")
+	}
+
+	uploadRoutes := api.Group("/upload")
+	{
+		uploadRoutes.POST("/image", uploadHandler.UploadImage)
+		uploadRoutes.POST("/images", uploadHandler.UploadMultipleImages)
+		uploadRoutes.GET("/image/:public_id", uploadHandler.GetImageInfo)
+		uploadRoutes.DELETE("/image/:public_id", uploadHandler.DeleteImage)
+		uploadRoutes.GET("/my-images", uploadHandler.GetUserImages)
+	}
+
+	// ✅ مسارات الإشعارات
+	notificationHandler := handlers.NewNotificationHandler(serviceContainer.NotificationService)
+	notificationRoutes := api.Group("/notifications")
+	{
+		notificationRoutes.GET("/", notificationHandler.GetUserNotifications)
+		notificationRoutes.PUT("/:id/read", notificationHandler.MarkAsRead)
+		notificationRoutes.PUT("/read-all", notificationHandler.MarkAllAsRead)
+		notificationRoutes.GET("/unread-count", notificationHandler.GetUnreadCount)
+	}
+
+	// ✅ مسارات الإدارة
+	adminHandler := handlers.NewAdminHandler(serviceContainer.AdminService)
+	adminRoutes := api.Group("/admin")
+	{
+		adminRoutes.GET("/dashboard", adminHandler.GetDashboard)
+		adminRoutes.GET("/dashboard/stats", adminHandler.GetDashboardStats)
+		adminRoutes.GET("/users", adminHandler.GetUsers)
+		adminRoutes.PUT("/users/:id/status", adminHandler.UpdateUserStatus)
+		adminRoutes.GET("/system-logs", adminHandler.GetSystemLogs)
+	}
+
+	// ✅ مسارات الصحة والفحص
+	api.GET("/health", func(c *gin.Context) {
+		// فحص اتصال MongoDB
+		ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+		defer cancel()
+
+		mongoStatus := "connected"
+		if err := mongoClient.Ping(ctx, nil); err != nil {
+			mongoStatus = "disconnected"
+		}
+
+		// فحص حالة Cloudinary
+		cloudinaryStatus := "not_configured"
+		if cloudinaryService != nil {
+			cloudinaryStatus = "connected"
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"status":    "healthy",
+			"timestamp": time.Now().UTC(),
+			"services": gin.H{
+				"mongodb": gin.H{
+					"status": mongoStatus,
+					"database": cfg.Database.Name,
+				},
+				"cloudinary": gin.H{
+					"status": cloudinaryStatus,
+				},
+			},
+			"version":     cfg.Version,
+			"environment": cfg.Environment,
+		})
+	})
+
+	// ✅ مسار الصفحة الرئيسية
+	app.GET("/", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{
+			"message":     "مرحباً بك في نوذ تك - منصة الخدمات الإلكترونية",
+			"version":     cfg.Version,
+			"environment": cfg.Environment,
+			"timestamp":   time.Now().UTC(),
+			"database":    "MongoDB",
+			"upload_service": "Cloudinary",
+			"status":      "running",
+		})
+	})
+
+	logger.Stdout.Info("✅ تم تسجيل جميع المسارات بنجاح",
+		"total_endpoints", 45, // تقديري لعدد النقاط الطرفية
+		"cloudinary_enabled", cloudinaryService != nil,
+		"api_version", "v1",
 	)
 }
 
@@ -197,6 +405,7 @@ func startServer(app *gin.Engine, cfg *config.Config) {
 			"environment", cfg.Environment,
 			"version", cfg.Version,
 			"database", "MongoDB",
+			"upload_service", "Cloudinary",
 		)
 
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
