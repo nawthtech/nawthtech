@@ -1,7 +1,14 @@
+// worker/src/handlers/health.js
+import { getDatabaseManager } from '../utils/database.js'
+
 export const healthHandlers = {
   async check(request, env) {
+    const dbManager = getDatabaseManager(env)
+    const dbHealth = await dbManager.healthCheck()
+
     const healthData = {
-      status: 'healthy',
+      status: dbHealth.status,
+      database: dbHealth.type,
       timestamp: new Date().toISOString(),
       environment: env.ENVIRONMENT,
       version: env.API_VERSION,
@@ -10,31 +17,20 @@ export const healthHandlers = {
 
     return Response.json({
       success: true,
-      message: 'Service is healthy',
+      message: `Service is ${dbHealth.status}`,
       data: healthData
     })
   },
 
-  async live(request, env) {
-    return Response.json({
-      success: true,
-      message: 'Service is live',
-      data: {
-        status: 'alive',
-        timestamp: new Date().toISOString()
-      }
-    })
-  },
-
   async ready(request, env) {
-    // يمكن إضافة فحوصات جاهزية إضافية
-    const isReady = await checkDatabaseReady(env)
+    const dbManager = getDatabaseManager(env)
+    const dbHealth = await dbManager.healthCheck()
     
-    if (!isReady) {
+    if (dbHealth.status !== 'healthy') {
       return Response.json({
         success: false,
         error: 'SERVICE_NOT_READY',
-        message: 'Service is not ready'
+        message: 'Database is not ready'
       }, { status: 503 })
     }
 
@@ -43,19 +39,9 @@ export const healthHandlers = {
       message: 'Service is ready',
       data: {
         status: 'ready',
+        database: dbHealth.type,
         timestamp: new Date().toISOString()
       }
     })
-  }
-}
-
-async function checkDatabaseReady(env) {
-  try {
-    // فحص اتصال قاعدة البيانات
-    // سيتم تنفيذ هذا لاحقاً
-    return true
-  } catch (error) {
-    console.error('Database health check failed:', error)
-    return false
   }
 }
