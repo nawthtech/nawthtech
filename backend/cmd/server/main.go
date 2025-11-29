@@ -14,8 +14,8 @@ import (
 	"github.com/nawthtech/nawthtech/backend/internal/logger"
 	"github.com/nawthtech/nawthtech/backend/internal/middleware"
 	"github.com/nawthtech/nawthtech/backend/internal/services"
-	"gorm.io/driver/postgres"
-	"gorm.io/gorm"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 func main() {
@@ -26,16 +26,16 @@ func main() {
 		"version", cfg.Version,
 	)
 
-	// تهيئة قاعدة البيانات
-	db, err := initDatabase(cfg)
+	// تهيئة قاعدة بيانات MongoDB
+	mongoClient, err := initMongoDB(cfg)
 	if err != nil {
 		logger.Stderr.Error("❌ فشل في تهيئة قاعدة البيانات", logger.ErrAttr(err))
 		os.Exit(1)
 	}
-	defer closeDatabase(db)
+	defer closeMongoDB(mongoClient)
 
-	// إنشاء حاوية الخدمات
-	serviceContainer := services.NewServiceContainer(db)
+	// إنشاء حاوية الخدمات مع MongoDB
+	serviceContainer := services.NewServiceContainer(mongoClient, cfg.Database.Name)
 
 	// إنشاء تطبيق Gin
 	app := initGinApp(cfg)
@@ -44,50 +44,67 @@ func main() {
 	registerMiddlewares(app, cfg)
 
 	// تسجيل جميع المسارات
-	handlers.RegisterAllRoutes(app, serviceContainer, cfg, db)
+	handlers.RegisterAllRoutes(app, serviceContainer, cfg, mongoClient)
 
 	// بدء الخادم
 	startServer(app, cfg)
 }
 
-// initDatabase تهيئة قاعدة البيانات
-func initDatabase(cfg *config.Config) (*gorm.DB, error) {
-	logger.Stdout.Info("🗄️  تهيئة اتصال قاعدة البيانات...")
+// initMongoDB تهيئة اتصال MongoDB
+func initMongoDB(cfg *config.Config) (*mongo.Client, error) {
+	logger.Stdout.Info("🗄️  تهيئة اتصال MongoDB...")
 
-	// استخدام GetDSN بدلاً من DSN مباشرة
-	dsn := cfg.GetDSN()
-	if cfg.IsDevelopment() && dsn == "" {
-		dsn = "host=localhost user=postgres password=postgres dbname=nawthtech port=5432 sslmode=disable"
-		logger.Stdout.Info("🔧 استخدام إعدادات قاعدة بيانات افتراضية للتطوير")
+	// استخدام رابط الاتصال من الإعدادات
+	connectionString := cfg.Database.URL
+	if cfg.IsDevelopment() && connectionString == "" {
+		connectionString = "mongodb://localhost:27017/nawthtech"
+		logger.Stdout.Info("🔧 استخدام إعدادات MongoDB افتراضية للتطوير")
 	}
 
-	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
+	// إعداد خيارات العميل
+	serverAPI := options.ServerAPI(options.ServerAPIVersion1)
+	clientOptions := options.Client().
+		ApplyURI(connectionString).
+		SetServerAPIOptions(serverAPI).
+		SetMaxPoolSize(100).
+		SetMinPoolSize(10).
+		SetConnectTimeout(10 * time.Second).
+		SetSocketTimeout(30 * time.Second).
+		SetServerSelectionTimeout(10 * time.Second)
+
+	// الاتصال بقاعدة البيانات
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	client, err := mongo.Connect(ctx, clientOptions)
 	if err != nil {
 		return nil, err
 	}
 
-	// تكوين اتصال قاعدة البيانات
-	sqlDB, err := db.DB()
+	// اختبار الاتصال
+	err = client.Ping(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	// إعدادات تجمع الاتصالات
-	sqlDB.SetMaxIdleConns(10)
-	sqlDB.SetMaxOpenConns(100)
-	sqlDB.SetConnMaxLifetime(time.Hour)
-
-	logger.Stdout.Info("✅ تم الاتصال بقاعدة البيانات بنجاح")
-	return db, nil
+	logger.Stdout.Info("✅ تم الاتصال بـ MongoDB بنجاح",
+		"database", cfg.Database.Name,
+		"connection_string", maskConnectionString(connectionString),
+	)
+	return client, nil
 }
 
-// closeDatabase إغلاق اتصال قاعدة البيانات
-func closeDatabase(db *gorm.DB) {
-	if db != nil {
-		sqlDB, err := db.DB()
-		if err == nil {
-			sqlDB.Close()
-			logger.Stdout.Info("✅ تم إغلاق اتصال قاعدة البيانات")
+// closeMongoDB إغلاق اتصال MongoDB
+func closeMongoDB(client *mongo.Client) {
+	if client != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		
+		err := client.Disconnect(ctx)
+		if err != nil {
+			logger.Stderr.Error("❌ فشل في إغلاق اتصال MongoDB", logger.ErrAttr(err))
+		} else {
+			logger.Stdout.Info("✅ تم إغلاق اتصال MongoDB")
 		}
 	}
 }
@@ -179,6 +196,7 @@ func startServer(app *gin.Engine, cfg *config.Config) {
 			"port", cfg.Port,
 			"environment", cfg.Environment,
 			"version", cfg.Version,
+			"database", "MongoDB",
 		)
 
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
@@ -202,4 +220,14 @@ func startServer(app *gin.Engine, cfg *config.Config) {
 	} else {
 		logger.Stdout.Info("✅ تم إيقاف الخادم بنجاح")
 	}
+}
+
+// maskConnectionString إخفاء كلمة السر في رابط الاتصال للأمان
+func maskConnectionString(connectionString string) string {
+	// إخفاء كلمة السر لعرض آمن في السجلات
+	// مثال: mongodb://user:password@host -> mongodb://user:****@host
+	if len(connectionString) > 50 {
+		return connectionString[:30] + "****" + connectionString[len(connectionString)-20:]
+	}
+	return "****"
 }
