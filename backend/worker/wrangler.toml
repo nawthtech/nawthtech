@@ -14,7 +14,8 @@ ENVIRONMENT = "production"
 API_VERSION = "v1"
 CORS_ALLOWED_ORIGINS = "https://nawthtech.com,https://www.nawthtech.com, https://www.api.nawthtech.com, https://www.storage.nawthtech.com"
 
-# إعدادات قاعدة البيانات (ستكون أسراراً)
-[[kv_namespaces]]
-binding = "CONFIG"
-id = "your-kv-namespace-id"  # سيتم إنشاؤه لاحقاً
+[[secrets_stores]]
+
+binding = "SECRETS"
+
+id = "a6428db8d5304ba0a48ee7009cc18ded"
