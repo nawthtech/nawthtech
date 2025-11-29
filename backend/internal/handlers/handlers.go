@@ -2,11 +2,13 @@ package handlers
 
 import (
 	"net/http"
+	"path/filepath"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/nawthtech/nawthtech/backend/internal/services"
- "github.com/nawthtech/nawthtech/backend/internal/cloudinary"
- "github.com/nawthtech/nawthtech/backend/internal/utils"
+	"github.com/nawthtech/nawthtech/backend/internal/cloudinary"
+	"github.com/nawthtech/nawthtech/backend/internal/utils"
 )
 
 // ================================
@@ -73,10 +75,11 @@ type (
 
 	// UploadHandler معالج الرفع
 	UploadHandler interface {
-		UploadFile(c *gin.Context)
-		DeleteFile(c *gin.Context)
-		GetFile(c *gin.Context)
-		GetUserFiles(c *gin.Context)
+		UploadImage(c *gin.Context)
+		UploadMultipleImages(c *gin.Context)
+		DeleteImage(c *gin.Context)
+		GetImageInfo(c *gin.Context)
+		GetUserImages(c *gin.Context)
 	}
 
 	// NotificationHandler معالج الإشعارات
@@ -127,7 +130,7 @@ type (
 	}
 
 	uploadHandler struct {
-		uploadService services.UploadService
+		cloudinaryService *cloudinary.CloudinaryService
 	}
 
 	notificationHandler struct {
@@ -167,8 +170,16 @@ func NewPaymentHandler(paymentService services.PaymentService) PaymentHandler {
 	return &paymentHandler{paymentService: paymentService}
 }
 
-func NewUploadHandler(uploadService services.UploadService) UploadHandler {
-	return &uploadHandler{uploadService: uploadService}
+func NewUploadHandler() (UploadHandler, error) {
+	cloudinaryService, err := cloudinary.NewCloudinaryService()
+	if err != nil {
+		return nil, err
+	}
+	return &uploadHandler{cloudinaryService: cloudinaryService}, nil
+}
+
+func NewUploadHandlerWithService(cloudinaryService *cloudinary.CloudinaryService) UploadHandler {
+	return &uploadHandler{cloudinaryService: cloudinaryService}
 }
 
 func NewNotificationHandler(notificationService services.NotificationService) NotificationHandler {
@@ -564,52 +575,181 @@ func (h *paymentHandler) GetPaymentHistory(c *gin.Context) {
 	})
 }
 
-// UploadHandler implementations
-func (h *uploadHandler) UploadFile(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "Upload file endpoint - Cloudinary Ready",
-		"data": gin.H{
-			"file_url": "https://res.cloudinary.com/nawthtech/image/upload/v123/example.jpg",
-			"public_id": "example",
-			"format":    "jpg",
-			"database":  "MongoDB",
-		},
+// UploadHandler implementations - Cloudinary Integration
+func (h *uploadHandler) UploadImage(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	// التحقق من وجود الملف
+	file, err := c.FormFile("image")
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusBadRequest, "لم يتم توفير ملف صورة", "NO_FILE_PROVIDED")
+		return
+	}
+
+	// التحقق من صحة الملف
+	if err := h.cloudinaryService.ValidateImage(file); err != nil {
+		utils.ErrorResponse(c, http.StatusBadRequest, err.Error(), "INVALID_FILE")
+		return
+	}
+
+	// الحصول على public_id من الطلب أو إنشاء واحد تلقائي
+	publicID := c.PostForm("public_id")
+	if publicID == "" {
+		publicID = h.cloudinaryService.GeneratePublicID("img")
+	}
+
+	// رفع الصورة إلى Cloudinary
+	result, err := h.cloudinaryService.UploadImageFromGinFile(c, "image", cloudinary.UploadOptions{
+		PublicID: publicID,
+		Folder:   "nawthtech/uploads",
+		Overwrite: true,
+	})
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusInternalServerError, "فشل في رفع الصورة", "UPLOAD_FAILED")
+		return
+	}
+
+	utils.SuccessResponse(c, http.StatusOK, "تم رفع الصورة بنجاح", gin.H{
+		"image_url":    result.SecureURL,
+		"public_id":    result.PublicID,
+		"format":       result.Format,
+		"size_bytes":   result.Bytes,
+		"width":        result.Width,
+		"height":       result.Height,
+		"resource_type": result.ResourceType,
 	})
 }
 
-func (h *uploadHandler) DeleteFile(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "Delete file endpoint",
-		"data": gin.H{
-			"deleted":  true,
-			"database": "MongoDB",
-		},
+func (h *uploadHandler) UploadMultipleImages(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	// الحصول على النموذج متعدد الأجزاء
+	form, err := c.MultipartForm()
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusBadRequest, "طلب غير صالح", "INVALID_FORM")
+		return
+	}
+
+	files := form.File["images"]
+	if len(files) == 0 {
+		utils.ErrorResponse(c, http.StatusBadRequest, "لم يتم توفير ملفات", "NO_FILES_PROVIDED")
+		return
+	}
+
+	var results []gin.H
+	var errors []string
+
+	for i, file := range files {
+		// التحقق من صحة كل ملف
+		if err := h.cloudinaryService.ValidateImage(file); err != nil {
+			errors = append(errors, fmt.Sprintf("الملف %s: %s", file.Filename, err.Error()))
+			continue
+		}
+
+		// إنشاء public_id فريد
+		publicID := h.cloudinaryService.GeneratePublicID("img")
+
+		// رفع الصورة
+		result, err := h.cloudinaryService.UploadImageFromGinFile(c, "images", cloudinary.UploadOptions{
+			PublicID: publicID,
+			Folder:   "nawthtech/uploads",
+			Overwrite: true,
+		})
+		if err != nil {
+			errors = append(errors, fmt.Sprintf("الملف %s: %s", file.Filename, err.Error()))
+			continue
+		}
+
+		results = append(results, gin.H{
+			"filename":    file.Filename,
+			"image_url":   result.SecureURL,
+			"public_id":   result.PublicID,
+			"format":      result.Format,
+			"size_bytes":  result.Bytes,
+			"width":       result.Width,
+			"height":      result.Height,
+			"upload_index": i,
+		})
+	}
+
+	response := gin.H{
+		"uploaded": results,
+		"total_uploaded": len(results),
+		"total_failed": len(errors),
+	}
+
+	if len(errors) > 0 {
+		response["errors"] = errors
+		utils.SuccessResponse(c, http.StatusPartialContent, "تم رفع بعض الملفات بنجاح مع وجود أخطاء", response)
+		return
+	}
+
+	utils.SuccessResponse(c, http.StatusOK, "تم رفع جميع الملفات بنجاح", response)
+}
+
+func (h *uploadHandler) DeleteImage(c *gin.Context) {
+	ctx := c.Request.Context()
+	publicID := c.Param("public_id")
+
+	if publicID == "" {
+		utils.ErrorResponse(c, http.StatusBadRequest, "معرف الصورة مطلوب", "MISSING_PUBLIC_ID")
+		return
+	}
+
+	err := h.cloudinaryService.DeleteImage(publicID)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusInternalServerError, "فشل في حذف الصورة", "DELETE_FAILED")
+		return
+	}
+
+	utils.SuccessResponse(c, http.StatusOK, "تم حذف الصورة بنجاح", gin.H{
+		"public_id": publicID,
+		"deleted":   true,
 	})
 }
 
-func (h *uploadHandler) GetFile(c *gin.Context) {
-	fileID := c.Param("id")
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "Get file endpoint",
-		"data": gin.H{
-			"id":       fileID,
-			"url":      "https://example.com/file.jpg",
-			"database": "MongoDB",
-		},
+func (h *uploadHandler) GetImageInfo(c *gin.Context) {
+	ctx := c.Request.Context()
+	publicID := c.Param("public_id")
+
+	if publicID == "" {
+		utils.ErrorResponse(c, http.StatusBadRequest, "معرف الصورة مطلوب", "MISSING_PUBLIC_ID")
+		return
+	}
+
+	result, err := h.cloudinaryService.GetImageInfo(publicID)
+	if err != nil {
+		utils.ErrorResponse(c, http.StatusNotFound, "لم يتم العثور على الصورة", "IMAGE_NOT_FOUND")
+		return
+	}
+
+	utils.SuccessResponse(c, http.StatusOK, "معلومات الصورة", gin.H{
+		"public_id":    result.PublicID,
+		"secure_url":   result.SecureURL,
+		"format":       result.Format,
+		"resource_type": result.ResourceType,
+		"bytes":        result.Bytes,
+		"width":        result.Width,
+		"height":       result.Height,
+		"created_at":   result.CreatedAt,
 	})
 }
 
-func (h *uploadHandler) GetUserFiles(c *gin.Context) {
-	c.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "Get user files endpoint",
-		"data": gin.H{
-			"files":    []gin.H{},
-			"database": "MongoDB",
-		},
+func (h *uploadHandler) GetUserImages(c *gin.Context) {
+	ctx := c.Request.Context()
+	userID := utils.GetUserIDFromContext(ctx)
+
+	if userID == "" {
+		utils.ErrorResponse(c, http.StatusUnauthorized, "يجب تسجيل الدخول", "UNAUTHORIZED")
+		return
+	}
+
+	// في التطبيق الحقيقي، يمكن جلب الصور من قاعدة البيانات
+	// هذا مثال بسيط للاستجابة
+	utils.SuccessResponse(c, http.StatusOK, "صور المستخدم", gin.H{
+		"user_id": userID,
+		"images":  []gin.H{},
+		"total":   0,
 	})
 }
 
@@ -730,4 +870,49 @@ func (h *adminHandler) GetSystemLogs(c *gin.Context) {
 			"database": "MongoDB",
 		},
 	})
+}
+
+// ================================
+// دوال مساعدة إضافية
+// ================================
+
+// Helper function for multiple uploads
+func (h *uploadHandler) processMultipleUploads(c *gin.Context, files []*multipart.FileHeader) ([]gin.H, []string) {
+	var results []gin.H
+	var errors []string
+
+	for i, file := range files {
+		// التحقق من صحة كل ملف
+		if err := h.cloudinaryService.ValidateImage(file); err != nil {
+			errors = append(errors, fmt.Sprintf("الملف %s: %s", file.Filename, err.Error()))
+			continue
+		}
+
+		// إنشاء public_id فريد
+		publicID := h.cloudinaryService.GeneratePublicID("img")
+
+		// رفع الصورة
+		result, err := h.cloudinaryService.UploadImageFromGinFile(c, "images", cloudinary.UploadOptions{
+			PublicID: publicID,
+			Folder:   "nawthtech/uploads",
+			Overwrite: true,
+		})
+		if err != nil {
+			errors = append(errors, fmt.Sprintf("الملف %s: %s", file.Filename, err.Error()))
+			continue
+		}
+
+		results = append(results, gin.H{
+			"filename":    file.Filename,
+			"image_url":   result.SecureURL,
+			"public_id":   result.PublicID,
+			"format":      result.Format,
+			"size_bytes":  result.Bytes,
+			"width":       result.Width,
+			"height":      result.Height,
+			"upload_index": i,
+		})
+	}
+
+	return results, errors
 }
