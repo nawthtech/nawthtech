@@ -28,31 +28,23 @@ func TestGetGoroutineCount(t *testing.T) {
 	}
 }
 
-// إذا كان لديك دالة GenerateID في utils، أضف هذا الاختبار
-// إذا لم تكن موجودة، احذف هذا الاختبار أو أنشئ الدالة أولاً
-
-func TestGenerateRandomString(t *testing.T) {
-	// اختبار دالة مساعدة إذا كانت موجودة
-	str1 := generateRandomString(10)
-	str2 := generateRandomString(10)
-	
-	if len(str1) != 10 {
-		t.Errorf("Expected string length 10, got %d", len(str1))
+// إذا لم تكن generateRandomString موجودة، استبدل هذا الاختبار بـ:
+func TestFormatBytes(t *testing.T) {
+	// Test that FormatBytes works correctly
+	tests := []struct {
+		input    int64
+		expected string
+	}{
+		{1024, "1.0 KB"},
+		{1048576, "1.0 MB"},
+		{1073741824, "1.0 GB"},
+		{0, "0 B"},
 	}
 	
-	if str1 == str2 {
-		t.Errorf("Expected unique strings, got duplicates: %s", str1)
+	for _, test := range tests {
+		result := FormatBytes(test.input)
+		if result != test.expected {
+			t.Errorf("For %d bytes, expected '%s', got '%s'", test.input, test.expected, result)
+		}
 	}
 }
-
-// إذا لم تكن generateRandomString موجودة، أضف هذه الدالة المساعدة إلى utils.go:
-/*
-func generateRandomString(length int) string {
-	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-	b := make([]byte, length)
-	for i := range b {
-		b[i] = charset[time.Now().UnixNano()%int64(len(charset))]
-	}
-	return string(b)
-}
-*/
