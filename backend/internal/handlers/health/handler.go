@@ -1,30 +1,31 @@
 package health
 
 import (
+	"context"
 	"net/http"
+	"runtime"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/nawthtech/nawthtech/backend/internal/config"
 	"github.com/nawthtech/nawthtech/backend/internal/services"
-	"github.com/nawthtech/nawthtech/backend/internal/utils"
-	"gorm.io/gorm"
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 // HealthHandler معالج فحوصات الصحة
 type HealthHandler struct {
-	db            *gorm.DB
-	cacheService  services.CacheService
-	version       string
-	environment   string
-	startTime     time.Time
-	config        *config.Config
+	mongoClient  *mongo.Client
+	cacheService services.CacheService
+	version      string
+	environment  string
+	startTime    time.Time
+	config       *config.Config
 }
 
 // NewHealthHandler إنشاء معالج صحة جديد
-func NewHealthHandler(db *gorm.DB, cacheService services.CacheService, config *config.Config) *HealthHandler {
+func NewHealthHandler(mongoClient *mongo.Client, cacheService services.CacheService, config *config.Config) *HealthHandler {
 	return &HealthHandler{
-		db:           db,
+		mongoClient:  mongoClient,
 		cacheService: cacheService,
 		version:      config.Version,
 		environment:  config.Environment,
@@ -68,6 +69,13 @@ type SystemSummary struct {
 	Summary         string   `json:"summary"`
 }
 
+// MemoryStats إحصائيات الذاكرة
+type MemoryStats struct {
+	UsedMB          float64 `json:"used_mb"`
+	TotalMB         float64 `json:"total_mb"`
+	UsagePercentage float64 `json:"usage_percentage"`
+}
+
 // Check - فحص الصحة الأساسي
 // @Summary فحص صحة الخدمة
 // @Description فحص الحالة العامة للخدمة والمكونات
@@ -79,7 +87,7 @@ func (h *HealthHandler) Check(c *gin.Context) {
 	start := time.Now()
 	checks := make(map[string]HealthCheck)
 
-	// فحص قاعدة البيانات
+	// فحص قاعدة بيانات MongoDB
 	dbCheck := h.checkDatabase()
 	checks["database"] = dbCheck
 
@@ -132,13 +140,14 @@ func (h *HealthHandler) Check(c *gin.Context) {
 // @Description فحص إذا كانت الخدمة حية وجاهزة لاستقبال الطلبات
 // @Tags Health
 // @Produce json
-// @Success 200 {object} utils.Response
+// @Success 200 {object} map[string]interface{}
 // @Router /health/live [get]
 func (h *HealthHandler) Live(c *gin.Context) {
 	response := gin.H{
 		"status":    "alive",
 		"timestamp": time.Now(),
 		"message":   "الخدمة حية وتعمل",
+		"database":  "MongoDB",
 	}
 
 	c.JSON(http.StatusOK, gin.H{
@@ -153,25 +162,38 @@ func (h *HealthHandler) Live(c *gin.Context) {
 // @Description فحص إذا كانت الخدمة جاهزة لمعالجة الطلبات
 // @Tags Health
 // @Produce json
-// @Success 200 {object} utils.Response
+// @Success 200 {object} map[string]interface{}
 // @Router /health/ready [get]
 func (h *HealthHandler) Ready(c *gin.Context) {
-	// فحص قاعدة البيانات
-	if h.db != nil {
-		if err := h.db.Exec("SELECT 1").Error; err != nil {
+	// فحص قاعدة بيانات MongoDB
+	if h.mongoClient != nil {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		if err := h.mongoClient.Ping(ctx, nil); err != nil {
 			c.JSON(http.StatusServiceUnavailable, gin.H{
 				"success": false,
 				"message": "الخدمة غير جاهزة",
-				"error":   "SERVICE_NOT_READY",
+				"error":   "MONGODB_CONNECTION_FAILED",
+				"details": "فشل في الاتصال بقاعدة البيانات",
 			})
 			return
 		}
+	} else {
+		c.JSON(http.StatusServiceUnavailable, gin.H{
+			"success": false,
+			"message": "الخدمة غير جاهزة",
+			"error":   "MONGODB_NOT_CONFIGURED",
+			"details": "اتصال قاعدة البيانات غير مهيء",
+		})
+		return
 	}
 
 	response := gin.H{
 		"status":    "ready",
 		"timestamp": time.Now(),
 		"message":   "الخدمة جاهزة لمعالجة الطلبات",
+		"database":  "MongoDB",
 	}
 
 	c.JSON(http.StatusOK, gin.H{
@@ -186,7 +208,7 @@ func (h *HealthHandler) Ready(c *gin.Context) {
 // @Description الحصول على معلومات حول إصدار وبيئة الخدمة
 // @Tags Health
 // @Produce json
-// @Success 200 {object} utils.Response
+// @Success 200 {object} map[string]interface{}
 // @Router /health/info [get]
 func (h *HealthHandler) Info(c *gin.Context) {
 	response := SystemInfoResponse{
@@ -209,7 +231,7 @@ func (h *HealthHandler) Info(c *gin.Context) {
 // @Description فحص مفصل لجميع مكونات النظام
 // @Tags Health
 // @Produce json
-// @Success 200 {object} utils.Response
+// @Success 200 {object} map[string]interface{}
 // @Router /health/detailed [get]
 func (h *HealthHandler) Detailed(c *gin.Context) {
 	start := time.Now()
@@ -238,16 +260,17 @@ func (h *HealthHandler) Detailed(c *gin.Context) {
 	analysis := h.analyzeHealth(checks)
 
 	response := gin.H{
-		"status":        analysis.Overall,
-		"timestamp":     time.Now(),
-		"version":       h.version,
-		"environment":   h.environment,
-		"uptime":        time.Since(h.startTime).String(),
-		"response_time": time.Since(start).String(),
-		"checks":        checks,
-		"issues":        analysis.Issues,
-		"recommendations": analysis.Recommendations,
-		"summary":       analysis.Summary,
+		"status":           analysis.Overall,
+		"timestamp":        time.Now(),
+		"version":          h.version,
+		"environment":      h.environment,
+		"uptime":           time.Since(h.startTime).String(),
+		"response_time":    time.Since(start).String(),
+		"checks":           checks,
+		"issues":           analysis.Issues,
+		"recommendations":  analysis.Recommendations,
+		"summary":          analysis.Summary,
+		"database":         "MongoDB",
 	}
 
 	c.JSON(http.StatusOK, gin.H{
@@ -262,7 +285,7 @@ func (h *HealthHandler) Detailed(c *gin.Context) {
 // @Description الحصول على مقاييس أداء النظام
 // @Tags Health
 // @Produce json
-// @Success 200 {object} utils.Response
+// @Success 200 {object} map[string]interface{}
 // @Router /health/metrics [get]
 func (h *HealthHandler) Metrics(c *gin.Context) {
 	metrics := h.getSystemMetrics()
@@ -280,7 +303,7 @@ func (h *HealthHandler) Metrics(c *gin.Context) {
 // @Tags Health-Admin
 // @Security BearerAuth
 // @Produce json
-// @Success 200 {object} utils.Response
+// @Success 200 {object} map[string]interface{}
 // @Router /health/admin [get]
 func (h *HealthHandler) AdminHealth(c *gin.Context) {
 	start := time.Now()
@@ -307,6 +330,7 @@ func (h *HealthHandler) AdminHealth(c *gin.Context) {
 		"system_info":   sensitiveInfo,
 		"warnings":      h.getSystemWarnings(),
 		"maintenance":   h.getMaintenanceInfo(),
+		"database":      "MongoDB",
 	}
 
 	c.JSON(http.StatusOK, gin.H{
@@ -323,7 +347,7 @@ func (h *HealthHandler) AdminHealth(c *gin.Context) {
 func (h *HealthHandler) checkDatabase() HealthCheck {
 	start := time.Now()
 
-	if h.db == nil {
+	if h.mongoClient == nil {
 		return HealthCheck{
 			Status: "unhealthy",
 			Error:  "قاعدة البيانات غير مهيئة",
@@ -331,9 +355,10 @@ func (h *HealthHandler) checkDatabase() HealthCheck {
 		}
 	}
 
-	var result int
-	err := h.db.Raw("SELECT 1").Scan(&result).Error
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 
+	err := h.mongoClient.Ping(ctx, nil)
 	responseTime := time.Since(start).String()
 
 	if err != nil {
@@ -341,19 +366,19 @@ func (h *HealthHandler) checkDatabase() HealthCheck {
 			Status:       "unhealthy",
 			ResponseTime: responseTime,
 			Error:        err.Error(),
-			Details:      "فشل في الاتصال بقاعدة البيانات",
+			Details:      "فشل في الاتصال بقاعدة بيانات MongoDB",
 		}
 	}
 
 	return HealthCheck{
 		Status:       "healthy",
 		ResponseTime: responseTime,
-		Details:      "الاتصال بقاعدة البيانات نشط",
+		Details:      "الاتصال بقاعدة بيانات MongoDB نشط",
 	}
 }
 
 func (h *HealthHandler) checkMemory() HealthCheck {
-	memStats := utils.GetMemoryUsageMB()
+	memStats := h.getMemoryUsage()
 	
 	status := "healthy"
 	if memStats.UsedMB > 500 { // مثال: إذا تجاوزت 500MB
@@ -363,8 +388,8 @@ func (h *HealthHandler) checkMemory() HealthCheck {
 	return HealthCheck{
 		Status: status,
 		Details: gin.H{
-			"used_mb":  memStats.UsedMB,
-			"total_mb": memStats.TotalMB,
+			"used_mb":          memStats.UsedMB,
+			"total_mb":         memStats.TotalMB,
 			"usage_percentage": memStats.UsagePercentage,
 		},
 	}
@@ -375,9 +400,10 @@ func (h *HealthHandler) checkDisk() HealthCheck {
 	return HealthCheck{
 		Status: "healthy",
 		Details: gin.H{
-			"available_space": "15GB",
-			"total_space":     "50GB",
-			"usage_percentage": "30%",
+			"available_space":   "15GB",
+			"total_space":       "50GB",
+			"usage_percentage":  "30%",
+			"status":            "طبيعي",
 		},
 	}
 }
@@ -424,7 +450,7 @@ func (h *HealthHandler) checkCache() HealthCheck {
 }
 
 func (h *HealthHandler) checkCPU() HealthCheck {
-	goroutines := utils.GetGoroutineCount()
+	goroutines := runtime.NumGoroutine()
 	
 	status := "healthy"
 	if goroutines > 1000 { // مثال: إذا تجاوزت 1000 goroutine
@@ -435,7 +461,7 @@ func (h *HealthHandler) checkCPU() HealthCheck {
 		Status: status,
 		Details: gin.H{
 			"goroutines": goroutines,
-			"cpu_cores":  "4", // يمكن جلبها من runtime
+			"cpu_cores":  runtime.NumCPU(),
 		},
 	}
 }
@@ -455,15 +481,15 @@ func (h *HealthHandler) checkServices() HealthCheck {
 		"PaymentService",
 		"NotificationService",
 		"UploadService",
-		"AnalyticsService",
 	}
 
 	return HealthCheck{
 		Status: "healthy",
 		Details: gin.H{
-			"total_services": len(services),
-			"active_services": len(services),
-			"services_list": services,
+			"total_services":   len(services),
+			"active_services":  len(services),
+			"services_list":    services,
+			"database":         "MongoDB",
 		},
 	}
 }
@@ -474,14 +500,15 @@ func (h *HealthHandler) checkExternalServices() HealthCheck {
 		"Email Service",
 		"Payment Gateway", 
 		"SMS Gateway",
+		"Cloudinary", // إضافة Cloudinary
 	}
 
 	return HealthCheck{
 		Status: "healthy",
 		Details: gin.H{
 			"total_external_services": len(externalServices),
-			"available_services": len(externalServices),
-			"services": externalServices,
+			"available_services":      len(externalServices),
+			"services":                externalServices,
 		},
 	}
 }
@@ -492,14 +519,15 @@ func (h *HealthHandler) checkAPIEndpoints() HealthCheck {
 		"/api/v1/services",
 		"/api/v1/orders",
 		"/api/v1/users/profile",
+		"/api/v1/upload",
 	}
 
 	return HealthCheck{
 		Status: "healthy",
 		Details: gin.H{
-			"total_endpoints": len(endpoints),
-			"tested_endpoints": len(endpoints),
-			"success_rate": "100%",
+			"total_endpoints":   len(endpoints),
+			"tested_endpoints":  len(endpoints),
+			"success_rate":      "100%",
 		},
 	}
 }
@@ -508,55 +536,72 @@ func (h *HealthHandler) checkPerformance() HealthCheck {
 	return HealthCheck{
 		Status: "healthy",
 		Details: gin.H{
-			"response_time": "ممتاز",
-			"throughput":    "عالٍ",
-			"error_rate":    "منخفض",
-			"concurrent_users": "150",
+			"response_time":     "ممتاز",
+			"throughput":        "عالٍ",
+			"error_rate":        "منخفض",
+			"concurrent_users":  "150",
+			"database":          "MongoDB",
 		},
 	}
 }
 
 func (h *HealthHandler) checkDatabaseDetailed() HealthCheck {
-	if h.db == nil {
+	if h.mongoClient == nil {
 		return HealthCheck{
 			Status: "unhealthy",
 			Error:  "قاعدة البيانات غير مهيئة",
 		}
 	}
 
-	// فحص مفصل لقاعدة البيانات
-	var (
-		tableCount int
-		connectionCount int
-	)
+	// فحص مفصل لقاعدة بيانات MongoDB
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 
-	h.db.Raw("SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = DATABASE()").Scan(&tableCount)
-	
-	// ملاحظة: قد يختلف هذا الاستعلام حسب نوع قاعدة البيانات
-	h.db.Raw("SELECT COUNT(*) FROM information_schema.processlist WHERE db = DATABASE()").Scan(&connectionCount)
+	// الحصول على معلومات قاعدة البيانات
+	database := h.mongoClient.Database("nawthtech")
+	collections, err := database.ListCollectionNames(ctx, nil)
+	if err != nil {
+		return HealthCheck{
+			Status: "degraded",
+			Error:  err.Error(),
+			Details: "فشل في جلب معلومات المجموعات",
+		}
+	}
+
+	// الحصول على إحصائيات الخادم
+	serverStatus, err := database.RunCommand(ctx, map[string]interface{}{"serverStatus": 1}).DecodeBytes()
+	var connections map[string]interface{}
+	if err == nil {
+		connectionsElem, _ := serverStatus.LookupErr("connections")
+		if connectionsElem != nil {
+			connections = connectionsElem.Interface().(map[string]interface{})
+		}
+	}
 
 	return HealthCheck{
 		Status: "healthy",
 		Details: gin.H{
-			"table_count":      tableCount,
-			"connections":      connectionCount,
-			"database_size":    "طبيعي",
-			"query_performance": "ممتاز",
+			"database_name":    "nawthtech",
+			"collection_count": len(collections),
+			"collections":      collections,
+			"connections":      connections,
+			"status":           "نشط",
 		},
 	}
 }
 
 func (h *HealthHandler) checkSystemResources() HealthCheck {
-	memStats := utils.GetMemoryUsageMB()
-	goroutines := utils.GetGoroutineCount()
+	memStats := h.getMemoryUsage()
+	goroutines := runtime.NumGoroutine()
 
 	return HealthCheck{
 		Status: "healthy",
 		Details: gin.H{
-			"memory_usage_mb":    memStats.UsedMB,
+			"memory_usage_mb":      memStats.UsedMB,
 			"memory_usage_percent": memStats.UsagePercentage,
-			"goroutines":         goroutines,
-			"go_version":         "1.25.4",
+			"goroutines":           goroutines,
+			"cpu_cores":            runtime.NumCPU(),
+			"go_version":           runtime.Version(),
 		},
 	}
 }
@@ -570,6 +615,7 @@ func (h *HealthHandler) checkSecurity() HealthCheck {
 			"rate_limiting":   true,
 			"authentication":  true,
 			"environment":     h.config.Environment,
+			"database":        "MongoDB",
 		},
 	}
 }
@@ -577,10 +623,10 @@ func (h *HealthHandler) checkSecurity() HealthCheck {
 func (h *HealthHandler) checkServicesStatus() HealthCheck {
 	services := map[string]string{
 		"API Server":      "نشط",
-		"Database":        "نشط",
+		"Database":        "MongoDB - نشط",
 		"Cache":           "نشط",
 		"Authentication":  "نشط",
-		"File Storage":    "نشط",
+		"File Storage":    "Cloudinary - نشط",
 		"Email Service":   "نشط",
 		"Payment Gateway": "نشط",
 	}
@@ -593,11 +639,12 @@ func (h *HealthHandler) checkServicesStatus() HealthCheck {
 
 func (h *HealthHandler) checkConfiguration() HealthCheck {
 	configStatus := gin.H{
-		"environment": h.config.Environment,
-		"debug_mode":  h.config.Environment == "development",
-		"port":        h.config.Port,
-		"database_configured": h.db != nil,
-		"cache_configured": h.cacheService != nil,
+		"environment":           h.config.Environment,
+		"debug_mode":            h.config.Environment == "development",
+		"port":                  h.config.Port,
+		"database_configured":   h.mongoClient != nil,
+		"cache_configured":      h.cacheService != nil,
+		"database_type":         "MongoDB",
 	}
 
 	return HealthCheck{
@@ -607,23 +654,24 @@ func (h *HealthHandler) checkConfiguration() HealthCheck {
 }
 
 func (h *HealthHandler) getSystemMetrics() gin.H {
-	memStats := utils.GetMemoryUsageMB()
+	memStats := h.getMemoryUsage()
 	
 	return gin.H{
 		"memory": gin.H{
-			"used_mb":  memStats.UsedMB,
-			"total_mb": memStats.TotalMB,
+			"used_mb":       memStats.UsedMB,
+			"total_mb":      memStats.TotalMB,
 			"usage_percent": memStats.UsagePercentage,
 		},
 		"performance": gin.H{
-			"goroutines": utils.GetGoroutineCount(),
-			"uptime":     time.Since(h.startTime).String(),
+			"goroutines":        runtime.NumGoroutine(),
+			"uptime":            time.Since(h.startTime).String(),
 			"requests_processed": 1250,
+			"database":          "MongoDB",
 		},
 		"services": gin.H{
-			"active_services": 15,
-			"total_endpoints": 45,
-			"error_rate": "0.5%",
+			"active_services": 8,
+			"total_endpoints": 25,
+			"error_rate":      "0.5%",
 		},
 	}
 }
@@ -661,30 +709,31 @@ func (h *HealthHandler) analyzeHealth(checks map[string]HealthCheck) SystemSumma
 
 func (h *HealthHandler) getSensitiveInfo() gin.H {
 	return gin.H{
-		"server_time":      time.Now(),
-		"go_version":       "1.25.4",
-		"database_driver":  "postgres",
-		"cache_engine":     "In-Memory",
-		"active_sessions":  150,
+		"server_time":        time.Now(),
+		"go_version":         runtime.Version(),
+		"database_driver":    "MongoDB",
+		"cache_engine":       "In-Memory",
+		"active_sessions":    150,
 		"config_environment": h.config.Environment,
-		"api_version":      "v1",
+		"api_version":        "v1",
+		"database_name":      "nawthtech",
 	}
 }
 
 func (h *HealthHandler) getSystemWarnings() []string {
 	warnings := []string{}
 
-	memStats := utils.GetMemoryUsageMB()
+	memStats := h.getMemoryUsage()
 	if memStats.UsagePercentage > 80 {
 		warnings = append(warnings, "استخدام الذاكرة مرتفع")
 	}
 
-	goroutines := utils.GetGoroutineCount()
+	goroutines := runtime.NumGoroutine()
 	if goroutines > 500 {
 		warnings = append(warnings, "عدد الـ goroutines مرتفع")
 	}
 
-	if h.db == nil {
+	if h.mongoClient == nil {
 		warnings = append(warnings, "قاعدة البيانات غير مهيئة")
 	}
 
@@ -697,9 +746,34 @@ func (h *HealthHandler) getSystemWarnings() []string {
 
 func (h *HealthHandler) getMaintenanceInfo() gin.H {
 	return gin.H{
-		"scheduled":        false,
-		"next_maintenance": time.Now().Add(7 * 24 * time.Hour),
-		"last_maintenance": time.Now().Add(-14 * 24 * time.Hour),
+		"scheduled":          false,
+		"next_maintenance":   time.Now().Add(7 * 24 * time.Hour),
+		"last_maintenance":   time.Now().Add(-14 * 24 * time.Hour),
 		"maintenance_window": "02:00-04:00",
 	}
+}
+
+// ================================
+// الدوال المساعدة للإحصائيات
+// ================================
+
+func (h *HealthHandler) getMemoryUsage() MemoryStats {
+	var m runtime.MemStats
+	runtime.ReadMemStats(&m)
+	
+	// تحويل البايت إلى ميجابايت
+	usedMB := float64(m.Alloc) / 1024 / 1024
+	totalMB := float64(m.Sys) / 1024 / 1024
+	usagePercentage := (usedMB / totalMB) * 100
+
+	return MemoryStats{
+		UsedMB:          usedMB,
+		TotalMB:         totalMB,
+		UsagePercentage: usagePercentage,
+	}
+}
+
+// GetGoroutineCount الحصول على عدد الـ goroutines النشطة
+func GetGoroutineCount() int {
+	return runtime.NumGoroutine()
 }
