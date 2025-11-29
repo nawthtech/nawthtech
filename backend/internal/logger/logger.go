@@ -62,26 +62,6 @@ func Init(env string) {
 	globalLogger = &DefaultLogger{logger: Stdout}
 }
 
-// InitLogger تهيئة متقدمة للنظام
-func InitLogger(env string, level slog.Level) {
-	opts := &slog.HandlerOptions{
-		Level: level,
-	}
-
-	if env == "development" {
-		// استخدام TextHandler في التطوير للقراءة السهلة
-		Stdout = slog.New(slog.NewTextHandler(os.Stdout, opts))
-		Stderr = slog.New(slog.NewTextHandler(os.Stderr, opts))
-	} else {
-		// استخدام JSONHandler في الإنتاج
-		opts.AddSource = true
-		Stdout = slog.New(slog.NewJSONHandler(os.Stdout, opts))
-		Stderr = slog.New(slog.NewJSONHandler(os.Stderr, opts))
-	}
-
-	globalLogger = &DefaultLogger{logger: Stdout}
-}
-
 // ========== تطبيق واجهة Logger ==========
 
 func (l *DefaultLogger) Debug(ctx context.Context, msg string, args ...any) {
@@ -151,26 +131,9 @@ func With(args ...any) Logger {
 // ErrAttr دالة مساعدة لإرجاع سمة الخطأ
 func ErrAttr(err error) slog.Attr {
 	if err == nil {
-		return slog.String("error", "nil")
+		return slog.String("error", "")
 	}
 	return slog.String("error", err.Error())
-}
-
-// ErrorsAttr دالة مساعدة لإرجاع سمة الأخطاء المتعددة
-func ErrorsAttr(errors ...error) slog.Attr {
-	if len(errors) == 0 {
-		return slog.Any("errors", []string{})
-	}
-	
-	errStrs := make([]string, len(errors))
-	for i, err := range errors {
-		if err != nil {
-			errStrs[i] = err.Error()
-		} else {
-			errStrs[i] = "nil"
-		}
-	}
-	return slog.Any("errors", errStrs)
 }
 
 // DurationAttr دالة مساعدة للوقت
@@ -191,40 +154,6 @@ func RequestIDAttr(requestID string) slog.Attr {
 // UserIDAttr دالة مساعدة لمعرف المستخدم
 func UserIDAttr(userID string) slog.Attr {
 	return slog.String("user_id", userID)
-}
-
-// UserRoleAttr دالة مساعدة لدور المستخدم
-func UserRoleAttr(role string) slog.Attr {
-	return slog.String("user_role", role)
-}
-
-// ========== دوال مساعدة للتخزين المؤقت ==========
-
-// CacheOperationAttr سمات عملية التخزين المؤقت
-func CacheOperationAttr(operation, key string, duration time.Duration) slog.Attr {
-	return slog.Group("cache",
-		slog.String("operation", operation),
-		slog.String("key", key),
-		slog.Duration("duration", duration),
-	)
-}
-
-// CacheHitAttr سمة نجاح التخزين المؤقت
-func CacheHitAttr(key string, hit bool) slog.Attr {
-	return slog.Group("cache",
-		slog.String("key", key),
-		slog.Bool("hit", hit),
-		slog.String("operation", "get"),
-	)
-}
-
-// CacheErrorAttr سمة خطأ التخزين المؤقت
-func CacheErrorAttr(operation, key string, err error) slog.Attr {
-	return slog.Group("cache_error",
-		slog.String("operation", operation),
-		slog.String("key", key),
-		ErrAttr(err),
-	)
 }
 
 // ========== دوال مساعدة للطلبات والشبكة ==========
@@ -248,23 +177,29 @@ func CORSAttr(origin, method string, allowed bool) slog.Attr {
 	)
 }
 
-// UserActionAttr سمة إجراء المستخدم
-func UserActionAttr(userID, action, resource string) slog.Attr {
-	return slog.Group("user_action",
-		slog.String("user_id", userID),
-		slog.String("action", action),
-		slog.String("resource", resource),
+// DatabaseQueryAttr سمة استعلام قاعدة البيانات
+func DatabaseQueryAttr(operation, collection string, duration time.Duration, documentsAffected int64) slog.Attr {
+	return slog.Group("database",
+		slog.String("operation", operation),
+		slog.String("collection", collection),
+		slog.Duration("duration", duration),
+		slog.Int64("documents_affected", documentsAffected),
 	)
 }
 
-// DatabaseQueryAttr سمة استعلام قاعدة البيانات
-func DatabaseQueryAttr(operation, table string, duration time.Duration, rowsAffected int64) slog.Attr {
-	return slog.Group("database",
-		slog.String("operation", operation),
-		slog.String("table", table),
+// MongoDBConnectionAttr سمة اتصال MongoDB
+func MongoDBConnectionAttr(status string, duration time.Duration, err error) slog.Attr {
+	attrs := []slog.Attr{
+		slog.String("status", status),
 		slog.Duration("duration", duration),
-		slog.Int64("rows_affected", rowsAffected),
-	)
+		slog.String("database", "MongoDB"),
+	}
+	
+	if err != nil {
+		attrs = append(attrs, ErrAttr(err))
+	}
+	
+	return slog.Group("mongodb_connection", attrs...)
 }
 
 // ========== دوال مساعدة للأداء والذاكرة ==========
@@ -296,77 +231,13 @@ func GoroutineCountAttr() slog.Attr {
 
 // ========== دوال تسجيل مخصصة ==========
 
-// LogCacheOperation تسجيل عملية تخزين مؤقت
-func LogCacheOperation(ctx context.Context, operation, key string, duration time.Duration, success bool) {
-	if success {
-		Info(ctx, "عملية التخزين المؤقت",
-			CacheOperationAttr(operation, key, duration),
-			slog.Bool("success", true),
-		)
-	} else {
-		Error(ctx, "فشل عملية التخزين المؤقت",
-			CacheOperationAttr(operation, key, duration),
-			slog.Bool("success", false),
-		)
-	}
-}
-
-// LogRedisConnection تسجيل اتصال Redis
-func LogRedisConnection(ctx context.Context, status, environment string, retryCount int, err error) {
-	if err != nil {
-		Error(ctx, "فشل اتصال Redis",
-			slog.String("status", status),
-			slog.String("environment", environment),
-			slog.Int("retry_count", retryCount),
-			ErrAttr(err),
-		)
-	} else {
-		Info(ctx, "اتصال Redis ناجح",
-			slog.String("status", status),
-			slog.String("environment", environment),
-			slog.Int("retry_count", retryCount),
-		)
-	}
-}
-
-// LogRateLimit تسجيل تحديد المعدل
-func LogRateLimit(ctx context.Context, userID, endpoint string, attempts int, limited bool) {
-	attrs := []any{
-		slog.String("user_id", userID),
-		slog.String("endpoint", endpoint),
-		slog.Int("attempts", attempts),
-		slog.Bool("limited", limited),
-	}
-
-	if limited {
-		Warn(ctx, "تم تحديد معدل الطلبات", attrs...)
-	} else {
-		Debug(ctx, "طلب ضمن المعدل المسموح", attrs...)
-	}
-}
-
-// LogCORSRequest تسجيل طلب CORS
-func LogCORSRequest(ctx context.Context, origin, method, path string, allowed bool) {
-	attrs := []any{
-		CORSAttr(origin, method, allowed),
-		slog.String("path", path),
-	}
-
-	if !allowed {
-		Warn(ctx, "طلب CORS مرفوض", attrs...)
-	} else {
-		Debug(ctx, "طلب CORS مسموح", attrs...)
-	}
-}
-
-// ========== دوال للمراقبة والصحة ==========
-
 // LogStartup تسجيل بدء التشغيل
 func LogStartup(ctx context.Context, service, version, environment string) {
 	Info(ctx, "🚀 بدء تشغيل الخدمة",
 		slog.String("service", service),
 		slog.String("version", version),
 		slog.String("environment", environment),
+		slog.String("database", "MongoDB"),
 	)
 }
 
@@ -397,37 +268,15 @@ func LogHealthCheck(ctx context.Context, service, status string, duration time.D
 // LogDatabaseConnection تسجيل اتصال قاعدة البيانات
 func LogDatabaseConnection(ctx context.Context, status string, duration time.Duration, err error) {
 	if err != nil {
-		Error(ctx, "فشل اتصال قاعدة البيانات",
-			slog.String("status", status),
-			slog.Duration("duration", duration),
-			ErrAttr(err),
+		Error(ctx, "❌ فشل اتصال قاعدة البيانات",
+			MongoDBConnectionAttr(status, duration, err),
 		)
 	} else {
-		Info(ctx, "اتصال قاعدة البيانات ناجح",
-			slog.String("status", status),
-			slog.Duration("duration", duration),
+		Info(ctx, "✅ اتصال قاعدة البيانات ناجح",
+			MongoDBConnectionAttr(status, duration, nil),
 		)
 	}
 }
-
-// LogSSEConnection تسجيل اتصال SSE
-func LogSSEConnection(ctx context.Context, clientID, userID string, channels []string) {
-	Info(ctx, "عميل SSE متصل",
-		slog.String("client_id", clientID),
-		slog.String("user_id", userID),
-		slog.Any("channels", channels),
-	)
-}
-
-// LogSSEDisconnection تسجيل انفصال SSE
-func LogSSEDisconnection(ctx context.Context, clientID, userID string) {
-	Info(ctx, "عميل SSE انقطع",
-		slog.String("client_id", clientID),
-		slog.String("user_id", userID),
-	)
-}
-
-// ========== دوال مساعدة للنماذج والخدمات ==========
 
 // LogServiceOperation تسجيل عملية خدمة
 func LogServiceOperation(ctx context.Context, service, operation string, duration time.Duration, success bool, err error) {
@@ -440,28 +289,98 @@ func LogServiceOperation(ctx context.Context, service, operation string, duratio
 
 	if err != nil {
 		attrs = append(attrs, ErrAttr(err))
-		Error(ctx, "فشل عملية الخدمة", attrs...)
+		Error(ctx, "❌ فشل عملية الخدمة", attrs...)
 	} else if !success {
-		Warn(ctx, "عملية الخدمة لم تنجح", attrs...)
+		Warn(ctx, "⚠️ عملية الخدمة لم تنجح", attrs...)
 	} else {
-		Info(ctx, "عملية الخدمة ناجحة", attrs...)
+		Info(ctx, "✅ عملية الخدمة ناجحة", attrs...)
 	}
 }
 
-// LogModelOperation تسجيل عملية على نموذج
-func LogModelOperation(ctx context.Context, model, operation string, id interface{}, duration time.Duration, err error) {
+// LogMongoDBOperation تسجيل عملية MongoDB
+func LogMongoDBOperation(ctx context.Context, operation, collection string, duration time.Duration, documentsAffected int64, err error) {
 	attrs := []any{
-		slog.String("model", model),
-		slog.String("operation", operation),
-		slog.Any("id", id),
-		slog.Duration("duration", duration),
+		DatabaseQueryAttr(operation, collection, duration, documentsAffected),
+		slog.String("database", "MongoDB"),
 	}
 
 	if err != nil {
 		attrs = append(attrs, ErrAttr(err))
-		Error(ctx, "فشل عملية النموذج", attrs...)
+		Error(ctx, "❌ فشل عملية قاعدة البيانات", attrs...)
 	} else {
-		Info(ctx, "عملية النموذج ناجحة", attrs...)
+		Debug(ctx, "عملية قاعدة البيانات ناجحة", attrs...)
+	}
+}
+
+// LogCloudinaryOperation تسجيل عملية Cloudinary
+func LogCloudinaryOperation(ctx context.Context, operation, filename string, duration time.Duration, success bool, err error) {
+	attrs := []any{
+		slog.String("service", "cloudinary"),
+		slog.String("operation", operation),
+		slog.String("filename", filename),
+		slog.Duration("duration", duration),
+		slog.Bool("success", success),
+	}
+
+	if err != nil {
+		attrs = append(attrs, ErrAttr(err))
+		Error(ctx, "❌ فشل عملية Cloudinary", attrs...)
+	} else if !success {
+		Warn(ctx, "⚠️ عملية Cloudinary لم تنجح", attrs...)
+	} else {
+		Info(ctx, "✅ عملية Cloudinary ناجحة", attrs...)
+	}
+}
+
+// LogAuthentication تسجيل عملية المصادقة
+func LogAuthentication(ctx context.Context, operation, userID string, success bool, err error) {
+	attrs := []any{
+		slog.String("operation", operation),
+		slog.String("user_id", userID),
+		slog.Bool("success", success),
+	}
+
+	if err != nil {
+		attrs = append(attrs, ErrAttr(err))
+		Warn(ctx, "🔐 فشل عملية المصادقة", attrs...)
+	} else if !success {
+		Warn(ctx, "🔐 عملية المصادقة لم تنجح", attrs...)
+	} else {
+		Info(ctx, "🔐 عملية المصادقة ناجحة", attrs...)
+	}
+}
+
+// LogRequest تسجيل طلب HTTP
+func LogRequest(ctx context.Context, method, path string, statusCode int, duration time.Duration, userID string) {
+	attrs := []any{
+		RequestAttr(method, path, statusCode, duration),
+	}
+
+	if userID != "" {
+		attrs = append(attrs, UserIDAttr(userID))
+	}
+
+	// تسجيل بناءً على حالة الاستجابة
+	if statusCode >= 500 {
+		Error(ctx, "طلب HTTP فاشل", attrs...)
+	} else if statusCode >= 400 {
+		Warn(ctx, "طلب HTTP برفض", attrs...)
+	} else {
+		Info(ctx, "طلب HTTP ناجح", attrs...)
+	}
+}
+
+// LogCORSRequest تسجيل طلب CORS
+func LogCORSRequest(ctx context.Context, origin, method, path string, allowed bool) {
+	attrs := []any{
+		CORSAttr(origin, method, allowed),
+		slog.String("path", path),
+	}
+
+	if !allowed {
+		Warn(ctx, "طلب CORS مرفوض", attrs...)
+	} else {
+		Debug(ctx, "طلب CORS مسموح", attrs...)
 	}
 }
 
@@ -471,20 +390,14 @@ func LogModelOperation(ctx context.Context, model, operation string, id interfac
 func formatMemory(bytes uint64) string {
 	const unit = 1024
 	if bytes < unit {
-		return sprintf("%d B", bytes)
+		return string(rune(bytes)) + " B"
 	}
 	div, exp := int64(unit), 0
 	for n := bytes / unit; n >= unit; n /= unit {
 		div *= unit
 		exp++
 	}
-	return sprintf("%.1f %cB", float64(bytes)/float64(div), "KMGTPE"[exp])
-}
-
-// sprintf دالة مساعدة للتنسيق (بدون استيراد fmt)
-func sprintf(format string, args ...interface{}) string {
-	// تنفيذ مبسط - في الواقع يجب استخدام fmt
-	return format
+	return string(rune(float64(bytes)/float64(div))) + " " + string("KMGTPE"[exp]) + "B"
 }
 
 // GetGlobalLogger الحصول على الـ logger العالمي
@@ -498,4 +411,31 @@ func GetGlobalLogger() Logger {
 // SetGlobalLogger تعيين الـ logger العالمي
 func SetGlobalLogger(logger Logger) {
 	globalLogger = logger
+}
+
+// ========== دوال بادئات الرموز التعبيرية ==========
+
+// WithSuccess إضافة رمز نجاح
+func WithSuccess(logger Logger) Logger {
+	return logger.With(slog.String("status", "✅"))
+}
+
+// WithWarning إضافة رمز تحذير
+func WithWarning(logger Logger) Logger {
+	return logger.With(slog.String("status", "⚠️"))
+}
+
+// WithError إضافة رمز خطأ
+func WithError(logger Logger) Logger {
+	return logger.With(slog.String("status", "❌"))
+}
+
+// WithInfo إضافة رمز معلومات
+func WithInfo(logger Logger) Logger {
+	return logger.With(slog.String("status", "ℹ️"))
+}
+
+// WithDebug إضافة رمز تصحيح
+func WithDebug(logger Logger) Logger {
+	return logger.With(slog.String("status", "🐛"))
 }
