@@ -16,3 +16,4 @@ go.work
 
 config.yaml
 *.env
+wargler.toml
