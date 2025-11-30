@@ -101,7 +101,7 @@ jobs:
 
     - name: Install dependencies
       run: |
-        npm ci --no-audit --no-fund --prefer-offline
+        npm install --no-audit --no-fund --prefer-offline
         echo "✅ Frontend dependencies installed"
 
     - name: Run type checking
