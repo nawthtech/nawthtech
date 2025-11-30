@@ -173,12 +173,23 @@ func checkHealth(c *cli.Context) error {
 		return fmt.Errorf("مهلة غير صالحة: %s", timeoutStr)
 	}
 
+	// استخدام context مع timeout
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
 	logger.Stdout.Info("🔍 فحص صحة النظام...",
 		"timeout", timeout.String(),
 	)
+
+	// استخدام ctx لمنع تحذير "declared and not used"
+	select {
+	case <-ctx.Done():
+		if ctx.Err() == context.DeadlineExceeded {
+			return fmt.Errorf("انتهت مهلة فحص الصحة")
+		}
+	default:
+		// الاستمرار في الفحص
+	}
 
 	// هنا يمكن إضافة فحوصات إضافية
 	// مثل اتصال قاعدة البيانات، خدمات الطرف الثالث، إلخ.
@@ -277,10 +288,6 @@ func setupSignalHandler() context.Context {
 			"signal", sig.String(),
 		)
 		cancel()
-		
-		// إعطاء وقت للإغلاق الأنيق
-		time.Sleep(2 * time.Second)
-		os.Exit(0)
 	}()
 
 	return ctx
@@ -289,7 +296,13 @@ func setupSignalHandler() context.Context {
 // init التهيئة - تُنفذ قبل main()
 func init() {
 	// معالجة الإشارات
-	_ = setupSignalHandler()
+	ctx := setupSignalHandler()
+
+	// استخدام ctx لمنع تحذير "declared and not used"
+	go func() {
+		<-ctx.Done()
+		logger.Stdout.Info("🔚 إغلاق التطبيق بناءً على الإشارة")
+	}()
 
 	// تهيئة التسجيل الأساسي
 	logger.Init(getEnv("APP_ENV", "development"))
