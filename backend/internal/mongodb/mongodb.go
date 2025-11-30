@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/nawthtech/nawthtech/backend/logger"
+	"github.com/nawthtech/nawthtech/backend/internal/logger"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
