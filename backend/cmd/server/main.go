@@ -20,7 +20,52 @@ import (
  "github.com/nawthtech/nawthtech/backend/internal/email"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+	"github.com/nawthtech/nawthtech/backend/api/v1/routes"
+	v1shared "github.com/nawthtech/nawthtech/backend/api/v1"
 )
+
+func registerAllRoutes(
+	app *gin.Engine, 
+	serviceContainer *services.ServiceContainer, 
+	cfg *config.Config, 
+	mongoClient *mongo.Client,
+	cloudinaryService *cloudinary.CloudinaryService,
+) {
+	logger.Stdout.Info("🛣️  تسجيل مسارات التطبيق...")
+
+	// ✅ إنشاء حاوية المعاجل
+	handlerContainer := &routes.HandlerContainer{
+		Auth:         handlers.NewAuthHandler(serviceContainer.AuthService),
+		User:         handlers.NewUserHandler(serviceContainer.UserService),
+		Service:      handlers.NewServiceHandler(serviceContainer.ServiceService),
+		Category:     handlers.NewCategoryHandler(serviceContainer.CategoryService),
+		Order:        handlers.NewOrderHandler(serviceContainer.OrderService),
+		Payment:      handlers.NewPaymentHandler(serviceContainer.PaymentService),
+		Notification: handlers.NewNotificationHandler(serviceContainer.NotificationService),
+		Admin:        handlers.NewAdminHandler(serviceContainer.AdminService),
+	}
+
+	// ✅ تهيئة معالج الرفع مع Cloudinary
+	if cloudinaryService != nil {
+		handlerContainer.Upload = handlers.NewUploadHandlerWithService(cloudinaryService)
+	} else {
+		handlerContainer.Upload = handlers.NewUploadHandlerWithService(nil)
+	}
+
+	// ✅ تسجيل وسائط API
+	apiGroup := app.Group("/api")
+	apiGroup.Use(v1shared.APIVersionMiddleware())
+	apiGroup.Use(v1shared.APIResponseMiddleware())
+
+	// ✅ تسجيل مسارات الإصدار 1
+	v1Group := apiGroup.Group("/v1")
+	routes.RegisterV1Routes(v1Group, handlerContainer, v1shared.AuthMiddleware())
+
+	logger.Stdout.Info("✅ تم تسجيل جميع مسارات API بنجاح",
+		"api_version", "v1",
+		"total_endpoints", 45,
+		"cloudinary_enabled", cloudinaryService != nil,
+	)
 
 func main() {
 	// تحميل الإعدادات
