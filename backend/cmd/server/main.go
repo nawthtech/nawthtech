@@ -17,6 +17,7 @@ import (
 	"github.com/nawthtech/nawthtech/backend/internal/logger"
 	"github.com/nawthtech/nawthtech/backend/internal/middleware"
 	"github.com/nawthtech/nawthtech/backend/internal/services"
+ "github.com/nawthtech/nawthtech/backend/internal/email"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
@@ -28,6 +29,14 @@ func main() {
 		"environment", cfg.Environment,
 		"version", cfg.Version,
 	)
+
+// في دالة main
+_, err := email.NewEmailService()
+if err != nil {
+    logger.Error(context.Background(), "⚠️ فشل في تهيئة خدمة البريد الإلكتروني", "error", err.Error())
+} else {
+    logger.Info(context.Background(), "✅ خدمة البريد الإلكتروني جاهزة للاستخدام")
+}
 
 // في دالة main
 cloudflareService, err := cloudflare.InitCloudflareService()
