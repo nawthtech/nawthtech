@@ -76,7 +76,7 @@ docs/ assets/
 ### Prerequisites
 - Docker & Docker Compose
 - Node.js 18+
-- Go 1.21+
+- Go 1.25.4+
 
 ### Development Setup
 
@@ -178,6 +178,7 @@ Website: www.nawthtech.com
 Instagram: @nawthtech
 Twitter: @nawthtech
 LinkedIn: NawthTech
+</div>
 <div align="center">
 
 Start Your Smart Digital
