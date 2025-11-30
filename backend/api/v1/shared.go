@@ -10,7 +10,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/nawthtech/nawthtech/backend/internal/utils"
-	"github.com/nawthtech/nawthtech/backend/logger"
+	"github.com/nawthtech/nawthtech/backend/internal/logger"
 	"golang.org/x/crypto/bcrypt"
 )
 
