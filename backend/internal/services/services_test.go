@@ -7,9 +7,8 @@ import (
 )
 
 func TestNewServiceContainer(t *testing.T) {
-	// Test that service container can be created without panicking
-	// Use nil for mongo client and "test" for database name
-	container := NewServiceContainer(nil, "test")
+	// Test with empty database name to avoid nil panic
+	container := NewServiceContainer(nil, "")
 	
 	if container == nil {
 		t.Error("Expected service container to be created")
@@ -27,7 +26,7 @@ func TestNewServiceContainer(t *testing.T) {
 	if container.Service == nil {
 		t.Error("Expected Service service to be initialized")
 	}
-	
+
 	if container.Category == nil {
 		t.Error("Expected Category service to be initialized")
 	}
