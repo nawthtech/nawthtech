@@ -5,6 +5,31 @@ import (
 	"testing"
 )
 
+// في internal/config/config_test.go
+func TestLoad(t *testing.T) {
+	// تهيئة الـ logger أولاً قبل تحميل الإعدادات
+	InitTestLogger()
+	
+	cfg := Load()
+	if cfg == nil {
+		t.Fatal("Expected config to be loaded")
+	}
+}
+
+func TestConfigDefaults(t *testing.T) {
+	// تهيئة الـ logger أولاً
+	InitTestLogger()
+	
+	cfg := Load()
+	if cfg.Port == "" {
+		t.Error("Expected default port to be set")
+	}
+}
+
+// دالة مساعدة لتهيئة الـ logger للاختبارات
+func InitTestLogger() {
+	// تهيئة الـ logger للبيئة الاختبارية
+}
 func TestLoad(t *testing.T) {
 	// حفظ الإعدادات الحالية
 	originalEnv := os.Getenv("ENVIRONMENT")
