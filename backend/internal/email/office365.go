@@ -51,7 +51,6 @@ type EmailTemplate struct {
 	Name     string
 	Subject  string
 	HTMLPath string
-	TextPath string
 }
 
 // SendResult نتيجة إرسال البريد
@@ -237,7 +236,6 @@ func LoadTemplate(templateName string, data interface{}) (string, string, error)
 	templatesDir := getEnv("EMAIL_TEMPLATES_DIR", "./templates/email")
 	
 	htmlPath := filepath.Join(templatesDir, templateName, "template.html")
-	textPath := filepath.Join(templatesDir, templateName, "template.txt")
 	subjectPath := filepath.Join(templatesDir, templateName, "subject.txt")
 
 	// تحميل موضوع البريد
