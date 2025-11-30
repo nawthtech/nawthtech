@@ -1,8 +1,7 @@
-package server
+package main
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
@@ -185,21 +184,32 @@ func registerAllRoutes(
 
 	// ✅ إنشاء حاوية المعاجل
 	handlerContainer := &routes.HandlerContainer{
-		Auth:         handlers.NewAuthHandler(serviceContainer.AuthService),
-		User:         handlers.NewUserHandler(serviceContainer.UserService),
-		Service:      handlers.NewServiceHandler(serviceContainer.ServiceService),
-		Category:     handlers.NewCategoryHandler(serviceContainer.CategoryService),
-		Order:        handlers.NewOrderHandler(serviceContainer.OrderService),
-		Payment:      handlers.NewPaymentHandler(serviceContainer.PaymentService),
-		Notification: handlers.NewNotificationHandler(serviceContainer.NotificationService),
-		Admin:        handlers.NewAdminHandler(serviceContainer.AdminService),
+		Auth:         handlers.NewAuthHandler(serviceContainer.Auth),
+		User:         handlers.NewUserHandler(serviceContainer.User),
+		Service:      handlers.NewServiceHandler(serviceContainer.Service),
+		Category:     handlers.NewCategoryHandler(serviceContainer.Category),
+		Order:        handlers.NewOrderHandler(serviceContainer.Order),
+		Payment:      handlers.NewPaymentHandler(serviceContainer.Payment),
+		Notification: handlers.NewNotificationHandler(serviceContainer.Notification),
+		Admin:        handlers.NewAdminHandler(serviceContainer.Admin),
 	}
 
 	// ✅ تهيئة معالج الرفع مع Cloudinary
 	if cloudinaryService != nil {
-		handlerContainer.Upload = handlers.NewUploadHandlerWithService(cloudinaryService)
+		uploadHandler, err := handlers.NewUploadHandlerWithService(cloudinaryService)
+		if err == nil {
+			handlerContainer.Upload = uploadHandler
+		} else {
+			logger.Stderr.Error("❌ فشل في إنشاء معالج الرفع", logger.ErrAttr(err))
+		}
 	} else {
-		handlerContainer.Upload = handlers.NewUploadHandlerWithService(nil)
+		// إنشاء معالج رفع بدون Cloudinary (للحالات الطارئة)
+		uploadHandler, err := handlers.NewUploadHandler()
+		if err != nil {
+			logger.Stderr.Error("❌ فشل في إنشاء معالج الرفع الافتراضي", logger.ErrAttr(err))
+		} else {
+			handlerContainer.Upload = uploadHandler
+		}
 	}
 
 	// ✅ تسجيل مسارات API v1
@@ -215,7 +225,6 @@ func registerAllRoutes(
 
 	logger.Stdout.Info("✅ تم تسجيل جميع المسارات بنجاح",
 		"api_version", "v1",
-		"total_endpoints", routes.GetRoutesInfo()["total_endpoints"],
 		"cloudinary_enabled", cloudinaryService != nil,
 		"cloudflare_enabled", cloudflare.IsEnabled(),
 		"email_enabled", email.IsEnabled(),
@@ -414,4 +423,12 @@ func startServer(app *gin.Engine, cfg *config.Config) error {
 	)
 	
 	return nil
+}
+
+// main الدالة الرئيسية
+func main() {
+	if err := Run(); err != nil {
+		logger.Stderr.Error("❌ فشل في تشغيل الخادم", logger.ErrAttr(err))
+		os.Exit(1)
+	}
 }
