@@ -9,98 +9,66 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/nawthtech/nawthtech/backend/api/v1/routes"
+	v1shared "github.com/nawthtech/nawthtech/backend/api/v1"
+	"github.com/nawthtech/nawthtech/backend/internal/cloudflare"
 	"github.com/nawthtech/nawthtech/backend/internal/cloudinary"
- "github.com/nawthtech/nawthtech/backend/internal/mongodb"
- "github.com/nawthtech/nawthtech/backend/internal/cloudflare"
 	"github.com/nawthtech/nawthtech/backend/internal/config"
+	"github.com/nawthtech/nawthtech/backend/internal/email"
 	"github.com/nawthtech/nawthtech/backend/internal/handlers"
 	"github.com/nawthtech/nawthtech/backend/internal/logger"
 	"github.com/nawthtech/nawthtech/backend/internal/middleware"
+	"github.com/nawthtech/nawthtech/backend/internal/mongodb"
 	"github.com/nawthtech/nawthtech/backend/internal/services"
- "github.com/nawthtech/nawthtech/backend/internal/email"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
-	"github.com/nawthtech/nawthtech/backend/api/v1/routes"
-	v1shared "github.com/nawthtech/nawthtech/backend/api/v1"
 )
-
-func registerAllRoutes(
-	app *gin.Engine, 
-	serviceContainer *services.ServiceContainer, 
-	cfg *config.Config, 
-	mongoClient *mongo.Client,
-	cloudinaryService *cloudinary.CloudinaryService,
-) {
-	logger.Stdout.Info("🛣️  تسجيل مسارات التطبيق...")
-
-	// ✅ إنشاء حاوية المعاجل
-	handlerContainer := &routes.HandlerContainer{
-		Auth:         handlers.NewAuthHandler(serviceContainer.AuthService),
-		User:         handlers.NewUserHandler(serviceContainer.UserService),
-		Service:      handlers.NewServiceHandler(serviceContainer.ServiceService),
-		Category:     handlers.NewCategoryHandler(serviceContainer.CategoryService),
-		Order:        handlers.NewOrderHandler(serviceContainer.OrderService),
-		Payment:      handlers.NewPaymentHandler(serviceContainer.PaymentService),
-		Notification: handlers.NewNotificationHandler(serviceContainer.NotificationService),
-		Admin:        handlers.NewAdminHandler(serviceContainer.AdminService),
-	}
-
-	// ✅ تهيئة معالج الرفع مع Cloudinary
-	if cloudinaryService != nil {
-		handlerContainer.Upload = handlers.NewUploadHandlerWithService(cloudinaryService)
-	} else {
-		handlerContainer.Upload = handlers.NewUploadHandlerWithService(nil)
-	}
-
-	// ✅ تسجيل وسائط API
-	apiGroup := app.Group("/api")
-	apiGroup.Use(v1shared.APIVersionMiddleware())
-	apiGroup.Use(v1shared.APIResponseMiddleware())
-
-	// ✅ تسجيل مسارات الإصدار 1
-	v1Group := apiGroup.Group("/v1")
-	routes.RegisterV1Routes(v1Group, handlerContainer, v1shared.AuthMiddleware())
-
-	logger.Stdout.Info("✅ تم تسجيل جميع مسارات API بنجاح",
-		"api_version", "v1",
-		"total_endpoints", 45,
-		"cloudinary_enabled", cloudinaryService != nil,
-	)
 
 func main() {
 	// تحميل الإعدادات
 	cfg := config.Load()
+	
+	// تسجيل بدء التشغيل
 	logger.Stdout.Info("🚀 بدء تشغيل تطبيق نوذ تك", 
 		"environment", cfg.Environment,
 		"version", cfg.Version,
+		"port", cfg.Port,
 	)
 
-// في دالة main
-_, err := email.NewEmailService()
-if err != nil {
-    logger.Error(context.Background(), "⚠️ فشل في تهيئة خدمة البريد الإلكتروني", "error", err.Error())
-} else {
-    logger.Info(context.Background(), "✅ خدمة البريد الإلكتروني جاهزة للاستخدام")
-}
+	// ================================
+	// 🔄 تهيئة جميع الخدمات
+	// ================================
 
-// في دالة main
-cloudflareService, err := cloudflare.InitCloudflareService()
-if err != nil {
-    logger.Error(context.Background(), "⚠️ فشل في تهيئة Cloudflare", "error", err.Error())
-} else {
-    logger.Info(context.Background(), "✅ Cloudflare جاهز للاستخدام")
-}
+	// 1. 📧 تهيئة خدمة البريد الإلكتروني
+	emailService, err := email.NewEmailService()
+	if err != nil {
+		logger.Stderr.Error("⚠️ فشل في تهيئة خدمة البريد الإلكتروني", logger.ErrAttr(err))
+	} else {
+		logger.Stdout.Info("✅ خدمة البريد الإلكتروني جاهزة للاستخدام",
+			"enabled", email.IsEnabled(),
+		)
+	}
 
-	// تهيئة قاعدة بيانات MongoDB
-	mongoClient, err := initMongoDB(cfg)
+	// 2. 🌐 تهيئة خدمة Cloudflare
+	cloudflareService, err := cloudflare.InitCloudflareService()
+	if err != nil {
+		logger.Stderr.Error("⚠️ فشل في تهيئة Cloudflare", logger.ErrAttr(err))
+	} else {
+		logger.Stdout.Info("✅ Cloudflare جاهز للاستخدام",
+			"enabled", cloudflare.IsEnabled(),
+		)
+	}
+
+	// 3. 🗄️ تهيئة قاعدة بيانات MongoDB
+	mongoService, err := mongodb.NewMongoDBService()
 	if err != nil {
 		logger.Stderr.Error("❌ فشل في تهيئة قاعدة البيانات", logger.ErrAttr(err))
 		os.Exit(1)
 	}
-	defer closeMongoDB(mongoClient)
+	defer mongoService.Close()
 
-	// تهيئة خدمة Cloudinary
-	cloudinaryService, err := initCloudinary(cfg)
+	// 4. ☁️ تهيئة خدمة Cloudinary
+	cloudinaryService, err := cloudinary.NewCloudinaryService()
 	if err != nil {
 		logger.Stderr.Error("❌ فشل في تهيئة خدمة Cloudinary", logger.ErrAttr(err))
 		// لا نوقف التطبيق إذا فشل Cloudinary، يمكن أن يعمل بدونها
@@ -108,8 +76,12 @@ if err != nil {
 		logger.Stdout.Info("✅ تم تهيئة خدمة Cloudinary بنجاح")
 	}
 
+	// ================================
+	// 🏗️ بناء التطبيق
+	// ================================
+
 	// إنشاء حاوية الخدمات مع MongoDB
-	serviceContainer := services.NewServiceContainer(mongoClient, cfg.Database.Name)
+	serviceContainer := services.NewServiceContainer(mongoService.GetClient(), mongoService.Config.DatabaseName)
 
 	// إنشاء تطبيق Gin
 	app := initGinApp(cfg)
@@ -117,87 +89,16 @@ if err != nil {
 	// تسجيل جميع الوسائط
 	registerMiddlewares(app, cfg)
 
-	// تسجيل جميع المسارات مع تمرير Cloudinary service
-	registerAllRoutes(app, serviceContainer, cfg, mongoClient, cloudinaryService)
+	// تسجيل جميع المسارات
+	registerAllRoutes(app, serviceContainer, cfg, mongoService, cloudinaryService, cloudflareService, emailService)
 
 	// بدء الخادم
 	startServer(app, cfg)
 }
 
-// initMongoDB تهيئة اتصال MongoDB
-func initMongoDB(cfg *config.Config) (*mongo.Client, error) {
-	logger.Stdout.Info("🗄️  تهيئة اتصال MongoDB...")
-
-	// استخدام رابط الاتصال من الإعدادات
-	connectionString := cfg.Database.URL
-	if cfg.IsDevelopment() && connectionString == "" {
-		connectionString = "mongodb://localhost:27017/nawthtech"
-		logger.Stdout.Info("🔧 استخدام إعدادات MongoDB افتراضية للتطوير")
-	}
-
-	// إعداد خيارات العميل
-	serverAPI := options.ServerAPI(options.ServerAPIVersion1)
-	clientOptions := options.Client().
-		ApplyURI(connectionString).
-		SetServerAPIOptions(serverAPI).
-		SetMaxPoolSize(100).
-		SetMinPoolSize(10).
-		SetConnectTimeout(10 * time.Second).
-		SetSocketTimeout(30 * time.Second).
-		SetServerSelectionTimeout(10 * time.Second)
-
-	// الاتصال بقاعدة البيانات
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-
-	client, err := mongo.Connect(ctx, clientOptions)
-	if err != nil {
-		return nil, err
-	}
-
-	// اختبار الاتصال
-	err = client.Ping(ctx, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	logger.Stdout.Info("✅ تم الاتصال بـ MongoDB بنجاح",
-		"database", cfg.Database.Name,
-		"connection_string", maskConnectionString(connectionString),
-	)
-	return client, nil
-}
-
-// initCloudinary تهيئة خدمة Cloudinary
-func initCloudinary(cfg *config.Config) (*cloudinary.CloudinaryService, error) {
-	logger.Stdout.Info("☁️  تهيئة خدمة Cloudinary...")
-
-	service, err := cloudinary.NewCloudinaryService()
-	if err != nil {
-		return nil, err
-	}
-
-	logger.Stdout.Info("✅ تم تهيئة Cloudinary بنجاح",
-		"cloud_name", os.Getenv("CLOUDINARY_CLOUD_NAME"),
-		"environment", cfg.Environment,
-	)
-	return service, nil
-}
-
-// closeMongoDB إغلاق اتصال MongoDB
-func closeMongoDB(client *mongo.Client) {
-	if client != nil {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		
-		err := client.Disconnect(ctx)
-		if err != nil {
-			logger.Stderr.Error("❌ فشل في إغلاق اتصال MongoDB", logger.ErrAttr(err))
-		} else {
-			logger.Stdout.Info("✅ تم إغلاق اتصال MongoDB")
-		}
-	}
-}
+// ================================
+// 🛠️ دوال التهيئة
+// ================================
 
 // initGinApp تهيئة تطبيق Gin
 func initGinApp(cfg *config.Config) *gin.Engine {
@@ -259,191 +160,207 @@ func registerMiddlewares(app *gin.Engine, cfg *config.Config) {
 	// ✅ وسيط تحديد المعدل
 	app.Use(middleware.RateLimit())
 
+	// ✅ وسيط إصدار API
+	app.Use(v1shared.APIVersionMiddleware())
+
+	// ✅ وسيط استجابة API الموحدة
+	app.Use(v1shared.APIResponseMiddleware())
+
 	logger.Stdout.Info("✅ تم تسجيل الوسائط الأساسية",
 		"cors_enabled", true,
 		"security_headers", true,
 		"rate_limiting", true,
+		"api_versioning", true,
 		"max_upload_size", "10MB",
 	)
 }
 
-// registerAllRoutes تسجيل جميع المسارات مع دعم Cloudinary
+// ================================
+// 🛣️ تسجيل المسارات
+// ================================
+
+// registerAllRoutes تسجيل جميع المسارات
 func registerAllRoutes(
 	app *gin.Engine, 
 	serviceContainer *services.ServiceContainer, 
 	cfg *config.Config, 
-	mongoClient *mongo.Client,
+	mongoService *mongodb.MongoDBService,
 	cloudinaryService *cloudinary.CloudinaryService,
+	cloudflareService *cloudflare.CloudflareConfig,
+	emailService *email.Office365Config,
 ) {
 	logger.Stdout.Info("🛣️  تسجيل مسارات التطبيق...")
 
-	// ✅ مجموعة API الأساسية
-	api := app.Group("/api/v1")
-
-	// ✅ مسارات المصادقة
-	authHandler := handlers.NewAuthHandler(serviceContainer.AuthService)
-	authRoutes := api.Group("/auth")
-	{
-		authRoutes.POST("/register", authHandler.Register)
-		authRoutes.POST("/login", authHandler.Login)
-		authRoutes.POST("/logout", authHandler.Logout)
-		authRoutes.POST("/refresh-token", authHandler.RefreshToken)
-		authRoutes.POST("/forgot-password", authHandler.ForgotPassword)
-		authRoutes.POST("/reset-password", authHandler.ResetPassword)
-		authRoutes.GET("/verify-token", authHandler.VerifyToken)
+	// ✅ إنشاء حاوية المعاجل
+	handlerContainer := &routes.HandlerContainer{
+		Auth:         handlers.NewAuthHandler(serviceContainer.AuthService),
+		User:         handlers.NewUserHandler(serviceContainer.UserService),
+		Service:      handlers.NewServiceHandler(serviceContainer.ServiceService),
+		Category:     handlers.NewCategoryHandler(serviceContainer.CategoryService),
+		Order:        handlers.NewOrderHandler(serviceContainer.OrderService),
+		Payment:      handlers.NewPaymentHandler(serviceContainer.PaymentService),
+		Notification: handlers.NewNotificationHandler(serviceContainer.NotificationService),
+		Admin:        handlers.NewAdminHandler(serviceContainer.AdminService),
 	}
 
-	// ✅ مسارات المستخدم
-	userHandler := handlers.NewUserHandler(serviceContainer.UserService)
-	userRoutes := api.Group("/users")
-	{
-		userRoutes.GET("/profile", userHandler.GetProfile)
-		userRoutes.PUT("/profile", userHandler.UpdateProfile)
-		userRoutes.PUT("/change-password", userHandler.ChangePassword)
-		userRoutes.GET("/stats", userHandler.GetUserStats)
-	}
-
-	// ✅ مسارات الخدمات
-	serviceHandler := handlers.NewServiceHandler(serviceContainer.ServiceService)
-	serviceRoutes := api.Group("/services")
-	{
-		serviceRoutes.GET("/", serviceHandler.GetServices)
-		serviceRoutes.GET("/search", serviceHandler.SearchServices)
-		serviceRoutes.GET("/featured", serviceHandler.GetFeaturedServices)
-		serviceRoutes.GET("/categories", serviceHandler.GetCategories)
-		serviceRoutes.GET("/my-services", serviceHandler.GetMyServices)
-		serviceRoutes.POST("/", serviceHandler.CreateService)
-		serviceRoutes.GET("/:id", serviceHandler.GetServiceByID)
-		serviceRoutes.PUT("/:id", serviceHandler.UpdateService)
-		serviceRoutes.DELETE("/:id", serviceHandler.DeleteService)
-	}
-
-	// ✅ مسارات الفئات
-	categoryHandler := handlers.NewCategoryHandler(serviceContainer.CategoryService)
-	categoryRoutes := api.Group("/categories")
-	{
-		categoryRoutes.GET("/", categoryHandler.GetCategories)
-		categoryRoutes.POST("/", categoryHandler.CreateCategory)
-		categoryRoutes.GET("/:id", categoryHandler.GetCategoryByID)
-		categoryRoutes.PUT("/:id", categoryHandler.UpdateCategory)
-		categoryRoutes.DELETE("/:id", categoryHandler.DeleteCategory)
-	}
-
-	// ✅ مسارات الطلبات
-	orderHandler := handlers.NewOrderHandler(serviceContainer.OrderService)
-	orderRoutes := api.Group("/orders")
-	{
-		orderRoutes.GET("/", orderHandler.GetUserOrders)
-		orderRoutes.POST("/", orderHandler.CreateOrder)
-		orderRoutes.GET("/:id", orderHandler.GetOrderByID)
-		orderRoutes.PUT("/:id/status", orderHandler.UpdateOrderStatus)
-		orderRoutes.DELETE("/:id", orderHandler.CancelOrder)
-	}
-
-	// ✅ مسارات الدفع
-	paymentHandler := handlers.NewPaymentHandler(serviceContainer.PaymentService)
-	paymentRoutes := api.Group("/payments")
-	{
-		paymentRoutes.GET("/history", paymentHandler.GetPaymentHistory)
-		paymentRoutes.POST("/create-intent", paymentHandler.CreatePaymentIntent)
-		paymentRoutes.POST("/confirm", paymentHandler.ConfirmPayment)
-	}
-
-	// ✅ مسارات الرفع - Cloudinary Integration
-	var uploadHandler handlers.UploadHandler
+	// ✅ تهيئة معالج الرفع مع Cloudinary
 	if cloudinaryService != nil {
-		// استخدام Cloudinary إذا كان متاحاً
-		uploadHandler = handlers.NewUploadHandlerWithService(cloudinaryService)
-		logger.Stdout.Info("✅ تم تسجيل مسارات الرفع مع Cloudinary")
+		handlerContainer.Upload = handlers.NewUploadHandlerWithService(cloudinaryService)
 	} else {
-		// استخدام خدمة الرفع الأساسية إذا فشل Cloudinary
-		uploadHandler = handlers.NewUploadHandlerWithService(nil)
-		logger.Stdout.Warn("⚠️  تم تسجيل مسارات الرفع بدون Cloudinary - باستخدام وضع أساسي")
+		handlerContainer.Upload = handlers.NewUploadHandlerWithService(nil)
 	}
 
-	uploadRoutes := api.Group("/upload")
-	{
-		uploadRoutes.POST("/image", uploadHandler.UploadImage)
-		uploadRoutes.POST("/images", uploadHandler.UploadMultipleImages)
-		uploadRoutes.GET("/image/:public_id", uploadHandler.GetImageInfo)
-		uploadRoutes.DELETE("/image/:public_id", uploadHandler.DeleteImage)
-		uploadRoutes.GET("/my-images", uploadHandler.GetUserImages)
-	}
+	// ✅ تسجيل مسارات API v1
+	apiGroup := app.Group("/api")
+	v1Group := apiGroup.Group("/v1")
+	routes.RegisterV1Routes(v1Group, handlerContainer, v1shared.AuthMiddleware())
 
-	// ✅ مسارات الإشعارات
-	notificationHandler := handlers.NewNotificationHandler(serviceContainer.NotificationService)
-	notificationRoutes := api.Group("/notifications")
-	{
-		notificationRoutes.GET("/", notificationHandler.GetUserNotifications)
-		notificationRoutes.PUT("/:id/read", notificationHandler.MarkAsRead)
-		notificationRoutes.PUT("/read-all", notificationHandler.MarkAllAsRead)
-		notificationRoutes.GET("/unread-count", notificationHandler.GetUnreadCount)
-	}
+	// ✅ تسجيل مسارات الصحة والفحص
+	registerHealthRoutes(app, mongoService, cloudinaryService, cloudflareService, emailService, cfg)
 
-	// ✅ مسارات الإدارة
-	adminHandler := handlers.NewAdminHandler(serviceContainer.AdminService)
-	adminRoutes := api.Group("/admin")
-	{
-		adminRoutes.GET("/dashboard", adminHandler.GetDashboard)
-		adminRoutes.GET("/dashboard/stats", adminHandler.GetDashboardStats)
-		adminRoutes.GET("/users", adminHandler.GetUsers)
-		adminRoutes.PUT("/users/:id/status", adminHandler.UpdateUserStatus)
-		adminRoutes.GET("/system-logs", adminHandler.GetSystemLogs)
-	}
+	// ✅ تسجيل المسارات العامة
+	registerGeneralRoutes(app, cfg)
 
-	// ✅ مسارات الصحة والفحص
-	api.GET("/health", func(c *gin.Context) {
-		// فحص اتصال MongoDB
-		ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+	logger.Stdout.Info("✅ تم تسجيل جميع المسارات بنجاح",
+		"api_version", "v1",
+		"total_endpoints", routes.GetRoutesInfo()["total_endpoints"],
+		"cloudinary_enabled", cloudinaryService != nil,
+		"cloudflare_enabled", cloudflare.IsEnabled(),
+		"email_enabled", email.IsEnabled(),
+	)
+}
+
+// registerHealthRoutes تسجيل مسارات الصحة والفحص
+func registerHealthRoutes(
+	app *gin.Engine,
+	mongoService *mongodb.MongoDBService,
+	cloudinaryService *cloudinary.CloudinaryService,
+	cloudflareService *cloudflare.CloudflareConfig,
+	emailService *email.Office365Config,
+	cfg *config.Config,
+) {
+	// ✅ مسار الصحة الشامل
+	app.GET("/health", func(c *gin.Context) {
+		ctx, cancel := context.WithTimeout(c.Request.Context(), 10*time.Second)
 		defer cancel()
 
-		mongoStatus := "connected"
-		if err := mongoClient.Ping(ctx, nil); err != nil {
-			mongoStatus = "disconnected"
-		}
-
-		// فحص حالة Cloudinary
+		// فحص جميع الخدمات
+		mongoStatus := mongoService.HealthCheck(ctx)
 		cloudinaryStatus := "not_configured"
 		if cloudinaryService != nil {
 			cloudinaryStatus = "connected"
 		}
+		cloudflareStatus := cloudflare.HealthCheck()
+		emailStatus := email.HealthCheck()
 
-		c.JSON(http.StatusOK, gin.H{
+		response := gin.H{
 			"status":    "healthy",
 			"timestamp": time.Now().UTC(),
+			"version":   cfg.Version,
+			"environment": cfg.Environment,
 			"services": gin.H{
 				"mongodb": gin.H{
-					"status": mongoStatus,
-					"database": cfg.Database.Name,
+					"status": mongoStatus["status"],
+					"database": mongoService.Config.DatabaseName,
 				},
 				"cloudinary": gin.H{
 					"status": cloudinaryStatus,
 				},
+				"cloudflare": cloudflareStatus,
+				"email":      emailStatus,
 			},
-			"version":     cfg.Version,
-			"environment": cfg.Environment,
+		}
+
+		// تحديد الحالة العامة بناءً على الخدمات الأساسية
+		if mongoStatus["status"] != "healthy" {
+			response["status"] = "degraded"
+			response["message"] = "بعض الخدمات غير متاحة"
+		}
+
+		c.JSON(http.StatusOK, response)
+	})
+
+	// ✅ مسار الصحة البسيط (ل Load Balancers)
+	app.GET("/health/live", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{
+			"status":    "live",
+			"timestamp": time.Now().UTC(),
 		})
 	})
 
+	// ✅ مسار الجاهزية
+	app.GET("/health/ready", func(c *gin.Context) {
+		ctx, cancel := context.WithTimeout(c.Request.Context(), 5*time.Second)
+		defer cancel()
+
+		// التحقق من اتصال MongoDB فقط (الخدمة الأساسية)
+		mongoStatus := mongoService.HealthCheck(ctx)
+
+		if mongoStatus["status"] != "healthy" {
+			c.JSON(http.StatusServiceUnavailable, gin.H{
+				"status":    "not_ready",
+				"timestamp": time.Now().UTC(),
+				"error":     "قاعدة البيانات غير متاحة",
+			})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"status":    "ready",
+			"timestamp": time.Now().UTC(),
+		})
+	})
+}
+
+// registerGeneralRoutes تسجيل المسارات العامة
+func registerGeneralRoutes(app *gin.Engine, cfg *config.Config) {
 	// ✅ مسار الصفحة الرئيسية
 	app.GET("/", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
-			"message":     "مرحباً بك في نوذ تك - منصة الخدمات الإلكترونية",
-			"version":     cfg.Version,
-			"environment": cfg.Environment,
-			"timestamp":   time.Now().UTC(),
-			"database":    "MongoDB",
-			"upload_service": "Cloudinary",
-			"status":      "running",
+			"message":        "مرحباً بك في نوذ تك - منصة الخدمات الإلكترونية",
+			"version":        cfg.Version,
+			"environment":    cfg.Environment,
+			"timestamp":      time.Now().UTC(),
+			"documentation":  "/api/v1/docs",
+			"health_check":   "/health",
+			"services": gin.H{
+				"database":       "MongoDB",
+				"upload_service": "Cloudinary",
+				"cdn":           "Cloudflare",
+				"email":         "Office 365",
+			},
 		})
 	})
 
-	logger.Stdout.Info("✅ تم تسجيل جميع المسارات بنجاح",
-		"total_endpoints", 45, // تقديري لعدد النقاط الطرفية
-		"cloudinary_enabled", cloudinaryService != nil,
-		"api_version", "v1",
-	)
+	// ✅ مسار معلومات النظام
+	app.GET("/info", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{
+			"name":        "NawthTech Backend API",
+			"version":     cfg.Version,
+			"environment": cfg.Environment,
+			"status":      "running",
+			"timestamp":   time.Now().UTC(),
+			"endpoints": gin.H{
+				"api_v1":       "/api/v1",
+				"health":       "/health",
+				"documentation": "/api/v1/docs",
+			},
+			"features": []string{
+				"المصادقة الآمنة",
+				"إدارة المستخدمين",
+				"الخدمات الإلكترونية",
+				"نظام الطلبات والدفع",
+				"رفع الملفات مع Cloudinary",
+				"CDN مع Cloudflare",
+				"إرسال البريد مع Office 365",
+			},
+		})
+	})
 }
+
+// ================================
+// 🚀 بدء الخادم
+// ================================
 
 // startServer بدء الخادم
 func startServer(app *gin.Engine, cfg *config.Config) {
@@ -468,8 +385,15 @@ func startServer(app *gin.Engine, cfg *config.Config) {
 			"port", cfg.Port,
 			"environment", cfg.Environment,
 			"version", cfg.Version,
-			"database", "MongoDB",
-			"upload_service", "Cloudinary",
+			"services", []string{
+				"MongoDB",
+				"Cloudinary",
+				"Cloudflare", 
+				"Office 365",
+			},
+			"read_timeout", "30s",
+			"write_timeout", "30s",
+			"idle_timeout", "120s",
 		)
 
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
@@ -488,17 +412,26 @@ func startServer(app *gin.Engine, cfg *config.Config) {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
+	logger.Stdout.Info("⏳ إيقاف الخادم بشكل أنيق...",
+		"timeout", "30s",
+	)
+
 	if err := server.Shutdown(ctx); err != nil {
 		logger.Stderr.Error("❌ فشل في إيقاف الخادم بشكل أنيق", logger.ErrAttr(err))
 	} else {
-		logger.Stdout.Info("✅ تم إيقاف الخادم بنجاح")
+		logger.Stdout.Info("✅ تم إيقاف الخادم بنجاح",
+			"duration", "أنيق",
+		)
 	}
 }
+
+// ================================
+// 🛡️ دوال مساعدة
+// ================================
 
 // maskConnectionString إخفاء كلمة السر في رابط الاتصال للأمان
 func maskConnectionString(connectionString string) string {
 	// إخفاء كلمة السر لعرض آمن في السجلات
-	// مثال: mongodb://user:password@host -> mongodb://user:****@host
 	if len(connectionString) > 50 {
 		return connectionString[:30] + "****" + connectionString[len(connectionString)-20:]
 	}
