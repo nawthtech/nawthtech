@@ -17,3 +17,4 @@ go.work
 config.yaml
 *.env
 main.go.backup
+.env.example
