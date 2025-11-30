@@ -30,7 +30,7 @@ Deployments/ #files
 
 ### Basic requirements
 
-- Go 1.21+
+- Go 1.25.4+
 
 - MongoDB 5.0+
 
