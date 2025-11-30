@@ -111,11 +111,17 @@ func PurgeCache(urls []string) error {
 		return err
 	}
 
-	logger.Info(context.Background(), "✅ تم مسح ذاكرة التخزين المؤقت لـ Cloudflare بنجاح",
-		"urls_count", len(urls),
+			type CloudflareResponse struct {
+	logger.Info(context.Background(), "✅ تم مسح كل ذاكرة التخزين المؤقت بنجاح",
 		"duration", time.Since(startTime),
-		"success", response.Success,
-	)
+    Success bool `json:"success"`
+}
+
+var result CloudflareResponse
+json.Unmarshal(response, &result)
+if result.Success {
+    Success bool `json:"success"`
+}
 
 	return nil
 }
@@ -130,7 +136,7 @@ func PurgeEverything() error {
 	startTime := time.Now()
 
 	payload := PurgeCacheRequest{
-		PurgeEverything: true,
+		PurgeAll: true,
 	}
 
 	response, err := makeCloudflareRequest("POST", "/purge_cache", payload)
@@ -142,9 +148,17 @@ func PurgeEverything() error {
 		return err
 	}
 
+		type CloudflareResponse struct {
 	logger.Info(context.Background(), "✅ تم مسح كل ذاكرة التخزين المؤقت بنجاح",
 		"duration", time.Since(startTime),
-		"success", response.Success,
+    Success bool `json:"success"`
+}
+
+var result CloudflareResponse
+json.Unmarshal(response, &result)
+if result.Success {
+    Success bool `json:"success"`
+}
 	)
 
 	return nil
@@ -173,11 +187,17 @@ func PurgeByTags(tags []string) error {
 		return err
 	}
 
-	logger.Info(context.Background(), "✅ تم مسح الذاكرة المؤقتة بالوسوم بنجاح",
-		"tags_count", len(tags),
+			type CloudflareResponse struct {
+	logger.Info(context.Background(), "✅ تم مسح كل ذاكرة التخزين المؤقت بنجاح",
 		"duration", time.Since(startTime),
-		"success", response.Success,
-	)
+    Success bool `json:"success"`
+}
+
+var result CloudflareResponse
+json.Unmarshal(response, &result)
+if result.Success {
+    Success bool `json:"success"`
+}
 
 	return nil
 }
