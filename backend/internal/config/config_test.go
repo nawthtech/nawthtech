@@ -8,20 +8,20 @@ import (
 func TestLoad(t *testing.T) {
 	// حفظ الإعدادات الحالية
 	originalEnv := os.Getenv("ENVIRONMENT")
-	originalDB := os.Getenv("DATABASE_URL")
+	originalDB := os.Getenv("MONGODB_URL")
 	originalJWT := os.Getenv("JWT_SECRET")
 	originalEncryption := os.Getenv("ENCRYPTION_KEY")
 	
 	defer func() {
 		os.Setenv("ENVIRONMENT", originalEnv)
-		os.Setenv("DATABASE_URL", originalDB)
+		os.Setenv("MONGODB_URL", originalDB)
 		os.Setenv("JWT_SECRET", originalJWT)
 		os.Setenv("ENCRYPTION_KEY", originalEncryption)
 	}()
 	
 	// تعيين بيئة اختبار
 	os.Setenv("ENVIRONMENT", "test")
-	os.Setenv("DATABASE_URL", "postgres://test:test@localhost:5432/test")
+	os.Setenv("MONGODB_URL", "mongodb://test:test@localhost:27017/test")
 	os.Setenv("JWT_SECRET", "test-jwt-secret")
 	os.Setenv("ENCRYPTION_KEY", "test-encryption-key")
 	
@@ -73,18 +73,6 @@ func TestIsProduction(t *testing.T) {
 	}
 }
 
-func TestGetDSN(t *testing.T) {
-	// Test with DatabaseURL directly (simpler approach)
-	cfg := &Config{
-		DatabaseURL: "postgres://user:pass@localhost:5432/db",
-	}
-	
-	dsn := cfg.GetDSN()
-	if dsn != "postgres://user:pass@localhost:5432/db" {
-		t.Errorf("Expected DSN to match, got '%s'", dsn)
-	}
-}
-
 func TestGetPort(t *testing.T) {
 	cfg := &Config{Port: "8080"}
 	
@@ -127,7 +115,9 @@ func TestIsStaging(t *testing.T) {
 
 func TestGetJWTSecret(t *testing.T) {
 	cfg := &Config{
-		JWTSecret: "test-secret",
+		Auth: AuthConfig{
+			JWTSecret: "test-secret",
+		},
 	}
 	
 	secret := cfg.GetJWTSecret()
@@ -145,32 +135,12 @@ func TestGetEncryptionKey(t *testing.T) {
 	}
 }
 
-func TestGetRedisAddress(t *testing.T) {
-	// Test with Redis URL directly
-	cfg1 := &Config{
-		RedisURL: "redis://localhost:6379",
-	}
-	
-	addr1 := cfg1.GetRedisAddress()
-	if addr1 != "redis://localhost:6379" {
-		t.Errorf("Expected Redis URL 'redis://localhost:6379', got '%s'", addr1)
-	}
-	
-	// Test with empty Redis URL
-	cfg2 := &Config{
-		RedisURL: "",
-	}
-	
-	addr2 := cfg2.GetRedisAddress()
-	if addr2 != "" {
-		t.Errorf("Expected empty Redis address, got '%s'", addr2)
-	}
-}
-
 func TestIsCacheEnabled(t *testing.T) {
 	// Test when cache is enabled
 	cfg1 := &Config{
-		CacheEnabled: true,
+		Cache: Cache{
+			Enabled: true,
+		},
 	}
 	
 	if !cfg1.IsCacheEnabled() {
@@ -179,7 +149,9 @@ func TestIsCacheEnabled(t *testing.T) {
 	
 	// Test when cache is disabled
 	cfg2 := &Config{
-		CacheEnabled: false,
+		Cache: Cache{
+			Enabled: false,
+		},
 	}
 	
 	if cfg2.IsCacheEnabled() {
@@ -190,13 +162,13 @@ func TestIsCacheEnabled(t *testing.T) {
 func TestConfigValidation(t *testing.T) {
 	// Test that Load doesn't panic with minimal required config
 	originalEnv := os.Getenv("ENVIRONMENT")
-	originalDB := os.Getenv("DATABASE_URL")
+	originalDB := os.Getenv("MONGODB_URL")
 	originalJWT := os.Getenv("JWT_SECRET")
 	originalEncryption := os.Getenv("ENCRYPTION_KEY")
 	
 	defer func() {
 		os.Setenv("ENVIRONMENT", originalEnv)
-		os.Setenv("DATABASE_URL", originalDB)
+		os.Setenv("MONGODB_URL", originalDB)
 		os.Setenv("JWT_SECRET", originalJWT)
 		os.Setenv("ENCRYPTION_KEY", originalEncryption)
 		
@@ -206,7 +178,7 @@ func TestConfigValidation(t *testing.T) {
 	
 	// Set minimal required environment variables
 	os.Setenv("ENVIRONMENT", "test")
-	os.Setenv("DATABASE_URL", "postgres://user:pass@localhost:5432/db")
+	os.Setenv("MONGODB_URL", "mongodb://user:pass@localhost:27017/db")
 	os.Setenv("JWT_SECRET", "test-jwt-secret")
 	os.Setenv("ENCRYPTION_KEY", "test-encryption-key")
 	
