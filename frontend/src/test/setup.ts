@@ -52,7 +52,7 @@ class MockEventSource {
   }
 }
 
-// @ts-ignore
+// @ts-expect-error - Mocking global EventSource for testing
 global.EventSource = MockEventSource
 
 // Mock environment variables
