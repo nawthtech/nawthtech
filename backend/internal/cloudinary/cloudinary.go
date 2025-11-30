@@ -12,7 +12,7 @@ import (
 	"github.com/cloudinary/cloudinary-go/v2"
 	"github.com/cloudinary/cloudinary-go/v2/api/uploader"
 	"github.com/gin-gonic/gin"
-	"github.com/nawthtech/nawthtech/backend/logger"
+	"github.com/nawthtech/nawthtech/backend/internal/logger"
 )
 
 // ========== هياكل البيانات ==========
