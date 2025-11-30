@@ -9,6 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/nawthtech/nawthtech/backend/internal/config"
 	"github.com/nawthtech/nawthtech/backend/internal/services"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
@@ -128,9 +129,9 @@ func (h *HealthHandler) Check(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"success":      true,
-		"message":      "فحص الصحة مكتمل",
-		"data":         response,
+		"success":       true,
+		"message":       "فحص الصحة مكتمل",
+		"data":          response,
 		"response_time": time.Since(start).String(),
 	})
 }
@@ -569,12 +570,18 @@ func (h *HealthHandler) checkDatabaseDetailed() HealthCheck {
 	}
 
 	// الحصول على إحصائيات الخادم
-	serverStatus, err := database.RunCommand(ctx, map[string]interface{}{"serverStatus": 1}).DecodeBytes()
-	var connections map[string]interface{}
-	if err == nil {
-		connectionsElem, _ := serverStatus.LookupErr("connections")
-		if connectionsElem != nil {
-			connections = connectionsElem.Interface().(map[string]interface{})
+	serverStatus, err := database.RunCommand(ctx, bson.D{{Key: "serverStatus", Value: 1}}).DecodeBytes()
+	connections := make(map[string]interface{})
+	if err == nil && serverStatus != nil {
+		if connectionsElem := serverStatus.Lookup("connections"); connectionsElem != nil {
+			// تحقق من نوع connectionsElem قبل التحويل
+			if rawConnections, ok := connectionsElem.Interface().(bson.D); ok {
+				for _, elem := range rawConnections {
+					if key, ok := elem.Key.(string); ok {
+						connections[key] = elem.Value
+					}
+				}
+			}
 		}
 	}
 
@@ -632,7 +639,7 @@ func (h *HealthHandler) checkServicesStatus() HealthCheck {
 	}
 
 	return HealthCheck{
-		Status: "healthy",
+		Status:  "healthy",
 		Details: services,
 	}
 }
