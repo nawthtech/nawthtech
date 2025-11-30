@@ -51,7 +51,7 @@ function App() {
   }, [messages]);
 
   return (
-      <div className="mx-auto flex size-full flex-col gap-4 p-10 text-center text-white">
+      <div className="mx-auto flex size-full flex-col gap-4 p-10 text-center text-white" role="main">
           <h1 className="text-4xl font-semibold">Here's some unnecessary quotes for you to read...</h1>
 
           {messages.map((message, index, elements) => (
@@ -60,8 +60,10 @@ function App() {
               </Fragment>
           ))}
 
-          {/* ⬇️ إزالة التعليق غير المستخدم من هنا ⬇️ */}
-          <button className={mc("hover:opacity-75 duration-200 font-bold text-lg", isConnectionOpen ? "text-[#f06b6b]" : "text-[#6bf06b]")} onClick={onToggleConnection}>
+          <button 
+              className={mc("hover:opacity-75 duration-200 font-bold text-lg", isConnectionOpen ? "text-[#f06b6b]" : "text-[#6bf06b]")} 
+              onClick={onToggleConnection}
+          >
               {isConnectionOpen ? "Stop" : "Start"} Quotes
           </button>
 
