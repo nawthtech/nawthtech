@@ -10,6 +10,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/nawthtech/nawthtech/backend/internal/cloudinary"
+ "github.com/nawthtech/nawthtech/backend/internal/mongodb"
+ "github.com/nawthtech/nawthtech/backend/internal/cloudflare"
 	"github.com/nawthtech/nawthtech/backend/internal/config"
 	"github.com/nawthtech/nawthtech/backend/internal/handlers"
 	"github.com/nawthtech/nawthtech/backend/internal/logger"
@@ -26,6 +28,14 @@ func main() {
 		"environment", cfg.Environment,
 		"version", cfg.Version,
 	)
+
+// في دالة main
+cloudflareService, err := cloudflare.InitCloudflareService()
+if err != nil {
+    logger.Error(context.Background(), "⚠️ فشل في تهيئة Cloudflare", "error", err.Error())
+} else {
+    logger.Info(context.Background(), "✅ Cloudflare جاهز للاستخدام")
+}
 
 	// تهيئة قاعدة بيانات MongoDB
 	mongoClient, err := initMongoDB(cfg)
