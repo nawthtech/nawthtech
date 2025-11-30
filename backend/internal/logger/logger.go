@@ -189,14 +189,15 @@ func DatabaseQueryAttr(operation, collection string, duration time.Duration, doc
 
 // MongoDBConnectionAttr سمة اتصال MongoDB
 func MongoDBConnectionAttr(status string, duration time.Duration, err error) slog.Attr {
-	attrs := []slog.Attr{
+	// تحويل []slog.Attr إلى []any
+	attrs := []any{
 		slog.String("status", status),
 		slog.Duration("duration", duration),
 		slog.String("database", "MongoDB"),
 	}
 	
 	if err != nil {
-		attrs = append(attrs, ErrAttr(err))
+		attrs = append(attrs, slog.String("error", err.Error()))
 	}
 	
 	return slog.Group("mongodb", attrs...)
@@ -288,7 +289,7 @@ func LogServiceOperation(ctx context.Context, service, operation string, duratio
 	}
 
 	if err != nil {
-		attrs = append(attrs, ErrAttr(err))
+		attrs = append(attrs, slog.String("error", err.Error()))
 		Error(ctx, "❌ فشل عملية الخدمة", attrs...)
 	} else if !success {
 		Warn(ctx, "⚠️ عملية الخدمة لم تنجح", attrs...)
@@ -305,7 +306,7 @@ func LogMongoDBOperation(ctx context.Context, operation, collection string, dura
 	}
 
 	if err != nil {
-		attrs = append(attrs, ErrAttr(err))
+		attrs = append(attrs, slog.String("error", err.Error()))
 		Error(ctx, "❌ فشل عملية قاعدة البيانات", attrs...)
 	} else {
 		Debug(ctx, "عملية قاعدة البيانات ناجحة", attrs...)
@@ -323,7 +324,7 @@ func LogCloudinaryOperation(ctx context.Context, operation, filename string, dur
 	}
 
 	if err != nil {
-		attrs = append(attrs, ErrAttr(err))
+		attrs = append(attrs, slog.String("error", err.Error()))
 		Error(ctx, "❌ فشل عملية Cloudinary", attrs...)
 	} else if !success {
 		Warn(ctx, "⚠️ عملية Cloudinary لم تنجح", attrs...)
@@ -341,7 +342,7 @@ func LogAuthentication(ctx context.Context, operation, userID string, success bo
 	}
 
 	if err != nil {
-		attrs = append(attrs, ErrAttr(err))
+		attrs = append(attrs, slog.String("error", err.Error()))
 		Warn(ctx, "🔐 فشل عملية المصادقة", attrs...)
 	} else if !success {
 		Warn(ctx, "🔐 عملية المصادقة لم تنجح", attrs...)
