@@ -9,7 +9,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/nawthtech/nawthtech/backend/logger"
+	"github.com/nawthtech/nawthtech/backend/internal/logger"
 )
 
 // ================================
