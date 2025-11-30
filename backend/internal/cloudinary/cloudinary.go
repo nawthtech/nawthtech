@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"os"
 	"path/filepath"
 	"strings"
@@ -25,20 +26,20 @@ type CloudinaryService struct {
 
 // UploadResult نتيجة الرفع
 type UploadResult struct {
-	PublicID    string `json:"public_id"`
-	SecureURL   string `json:"secure_url"`
-	Format      string `json:"format"`
-	Bytes       int    `json:"bytes"`
-	Width       int    `json:"width"`
-	Height      int    `json:"height"`
+	PublicID     string `json:"public_id"`
+	SecureURL    string `json:"secure_url"`
+	Format       string `json:"format"`
+	Bytes        int    `json:"bytes"`
+	Width        int    `json:"width"`
+	Height       int    `json:"height"`
 	ResourceType string `json:"resource_type"`
 }
 
 // UploadOptions خيارات الرفع
 type UploadOptions struct {
-	Folder      string
-	PublicID    string
-	Overwrite   bool
+	Folder       string
+	PublicID     string
+	Overwrite    bool
 	ResourceType string
 }
 
@@ -155,12 +156,12 @@ func (cs *CloudinaryService) UploadImage(file interface{}, options ...UploadOpti
 	}
 
 	uploadResult := &UploadResult{
-		PublicID:    result.PublicID,
-		SecureURL:   result.SecureURL,
-		Format:      result.Format,
-		Bytes:       result.Bytes,
-		Width:       result.Width,
-		Height:      result.Height,
+		PublicID:     result.PublicID,
+		SecureURL:    result.SecureURL,
+		Format:       result.Format,
+		Bytes:        result.Bytes,
+		Width:        result.Width,
+		Height:       result.Height,
 		ResourceType: result.ResourceType,
 	}
 
@@ -238,11 +239,11 @@ func (cs *CloudinaryService) UploadImageFromReader(reader io.Reader, publicID st
 }
 
 // UploadImageFromGinFile رفع صورة من ملف Gin
-func (cs *CloudinaryService) UploadImageFromGinFile(file *gin.Context, fieldName string, options ...UploadOptions) (*UploadResult, error) {
+func (cs *CloudinaryService) UploadImageFromGinFile(c *gin.Context, fieldName string, options ...UploadOptions) (*UploadResult, error) {
 	startTime := time.Now()
 
 	// الحصول على الملف من الطلب
-	uploadedFile, err := file.FormFile(fieldName)
+	uploadedFile, err := c.FormFile(fieldName)
 	if err != nil {
 		return nil, fmt.Errorf("فشل في الحصول على الملف: %v", err)
 	}
@@ -432,5 +433,43 @@ func (cs *CloudinaryService) GetResourceTypeFromExtension(filename string) strin
 		return "raw"
 	default:
 		return "auto"
+	}
+}
+
+// HealthCheck فحص صحة خدمة Cloudinary
+func (cs *CloudinaryService) HealthCheck() map[string]interface{} {
+	cloudName := os.Getenv("CLOUDINARY_CLOUD_NAME")
+	apiKey := os.Getenv("CLOUDINARY_API_KEY")
+	
+	if cloudName == "" || apiKey == "" {
+		return map[string]interface{}{
+			"service": "cloudinary",
+			"status":  "error",
+			"error":   "بيانات الاعتماد غير مكتملة",
+		}
+	}
+
+	// محاولة رفع ملف تجريبي صغير
+	testFile := strings.NewReader("test")
+	_, err := cs.UploadImage(testFile, UploadOptions{
+		PublicID: "health_check",
+		Folder:   "nawthtech/tests",
+	})
+
+	if err != nil {
+		return map[string]interface{}{
+			"service": "cloudinary",
+			"status":  "error",
+			"error":   err.Error(),
+		}
+	}
+
+	// حذف الملف التجريبي
+	cs.DeleteImage("nawthtech/tests/health_check")
+
+	return map[string]interface{}{
+		"service":    "cloudinary",
+		"status":     "healthy",
+		"cloud_name": cloudName,
 	}
 }
