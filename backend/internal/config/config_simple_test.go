@@ -4,7 +4,7 @@ import (
 	"testing"
 )
 
-func TestConfigDefaults(t *testing.T) {
+func TestSimpleConfigDefaults(t *testing.T) {
 	t.Skip("Skipping test - requires environment setup")
 	
 	cfg := Load()
@@ -26,7 +26,7 @@ func TestConfigDefaults(t *testing.T) {
 	}
 }
 
-func TestDatabaseConfig(t *testing.T) {
+func TestMongoDBConfig(t *testing.T) {
 	t.Skip("Skipping test - requires environment setup")
 	
 	cfg := Load()
@@ -34,16 +34,16 @@ func TestDatabaseConfig(t *testing.T) {
 		t.Fatal("Config should be loaded")
 	}
 	
-	if cfg.Database.URL == "" {
-		t.Error("Database URL should be set")
+	if cfg.MongoDB.URL == "" {
+		t.Error("MongoDB URL should be set")
 	}
 	
-	if cfg.Database.Name == "" {
-		t.Error("Database name should be set")
+	if cfg.MongoDB.DatabaseName == "" {
+		t.Error("MongoDB database name should be set")
 	}
 }
 
-func TestIsProduction(t *testing.T) {
+func TestIsProductionMethod(t *testing.T) {
 	t.Skip("Skipping test - requires environment setup")
 	
 	cfg := Load()
@@ -63,7 +63,7 @@ func TestIsProduction(t *testing.T) {
 	}
 }
 
-func TestIsDevelopment(t *testing.T) {
+func TestIsDevelopmentMethod(t *testing.T) {
 	t.Skip("Skipping test - requires environment setup")
 	
 	cfg := Load()
