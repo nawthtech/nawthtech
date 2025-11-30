@@ -149,7 +149,7 @@ func (cs *CloudinaryService) UploadImage(file interface{}, options ...UploadOpti
 		logger.Error(cs.ctx, "❌ فشل في رفع الصورة",
 			"public_id", uploadParams.PublicID,
 			"folder", uploadParams.Folder,
-			"duration", time.Since(startTime),
+			"duration", time.Since(startTime).String(),
 			"error", err.Error(),
 		)
 		return nil, err
@@ -172,7 +172,7 @@ func (cs *CloudinaryService) UploadImage(file interface{}, options ...UploadOpti
 		"format", uploadResult.Format,
 		"size_bytes", uploadResult.Bytes,
 		"dimensions", fmt.Sprintf("%dx%d", uploadResult.Width, uploadResult.Height),
-		"duration", time.Since(startTime),
+		"duration", time.Since(startTime).String(),
 	)
 
 	return uploadResult, nil
@@ -203,11 +203,17 @@ func (cs *CloudinaryService) UploadImageFromFile(filePath string, options ...Upl
 	if err != nil {
 		logger.Error(cs.ctx, "❌ فشل في رفع الصورة من الملف",
 			"file_path", filePath,
-			"duration", time.Since(startTime),
+			"duration", time.Since(startTime).String(),
 			"error", err.Error(),
 		)
 		return nil, err
 	}
+
+	logger.Info(cs.ctx, "✅ تم رفع الصورة من الملف بنجاح",
+		"file_path", filePath,
+		"public_id", result.PublicID,
+		"duration", time.Since(startTime).String(),
+	)
 
 	return result, nil
 }
@@ -229,11 +235,16 @@ func (cs *CloudinaryService) UploadImageFromReader(reader io.Reader, publicID st
 	if err != nil {
 		logger.Error(cs.ctx, "❌ فشل في رفع الصورة من القارئ",
 			"public_id", publicID,
-			"duration", time.Since(startTime),
+			"duration", time.Since(startTime).String(),
 			"error", err.Error(),
 		)
 		return nil, err
 	}
+
+	logger.Info(cs.ctx, "✅ تم رفع الصورة من القارئ بنجاح",
+		"public_id", publicID,
+		"duration", time.Since(startTime).String(),
+	)
 
 	return result, nil
 }
@@ -274,7 +285,7 @@ func (cs *CloudinaryService) UploadImageFromGinFile(c *gin.Context, fieldName st
 		logger.Error(cs.ctx, "❌ فشل في رفع الصورة من Gin",
 			"field_name", fieldName,
 			"file_name", fileName,
-			"duration", time.Since(startTime),
+			"duration", time.Since(startTime).String(),
 			"error", err.Error(),
 		)
 		return nil, err
@@ -285,7 +296,7 @@ func (cs *CloudinaryService) UploadImageFromGinFile(c *gin.Context, fieldName st
 		"file_name", fileName,
 		"public_id", result.PublicID,
 		"size_bytes", uploadedFile.Size,
-		"duration", time.Since(startTime),
+		"duration", time.Since(startTime).String(),
 	)
 
 	return result, nil
@@ -304,7 +315,7 @@ func (cs *CloudinaryService) DeleteImage(publicID string) error {
 	if err != nil {
 		logger.Error(cs.ctx, "❌ فشل في حذف الصورة",
 			"public_id", publicID,
-			"duration", time.Since(startTime),
+			"duration", time.Since(startTime).String(),
 			"error", err.Error(),
 		)
 		return err
@@ -313,7 +324,7 @@ func (cs *CloudinaryService) DeleteImage(publicID string) error {
 	logger.Info(cs.ctx, "✅ تم حذف الصورة بنجاح",
 		"public_id", publicID,
 		"result", result.Result,
-		"duration", time.Since(startTime),
+		"duration", time.Since(startTime).String(),
 	)
 
 	return nil
@@ -326,10 +337,26 @@ func (cs *CloudinaryService) DeleteImageByURL(imageURL string) error {
 	// استخراج public_id من URL
 	publicID, err := cs.extractPublicIDFromURL(imageURL)
 	if err != nil {
+		logger.Error(cs.ctx, "❌ فشل في استخراج public_id من URL",
+			"image_url", imageURL,
+			"duration", time.Since(startTime).String(),
+			"error", err.Error(),
+		)
 		return err
 	}
 
-	return cs.DeleteImage(publicID)
+	err = cs.DeleteImage(publicID)
+	if err != nil {
+		return err
+	}
+
+	logger.Info(cs.ctx, "✅ تم حذف الصورة باستخدام URL بنجاح",
+		"image_url", imageURL,
+		"public_id", publicID,
+		"duration", time.Since(startTime).String(),
+	)
+
+	return nil
 }
 
 // ========== دوال المساعدة ==========
@@ -389,6 +416,7 @@ func (cs *CloudinaryService) ValidateImage(fileHeader *multipart.FileHeader) err
 
 // UploadMultiple رفع عدة ملفات مرة واحدة
 func (cs *CloudinaryService) UploadMultiple(files []interface{}, options ...UploadOptions) ([]*UploadResult, error) {
+	startTime := time.Now()
 	var results []*UploadResult
 	var errors []string
 
@@ -415,8 +443,20 @@ func (cs *CloudinaryService) UploadMultiple(files []interface{}, options ...Uplo
 	}
 
 	if len(errors) > 0 {
+		logger.Error(cs.ctx, "❌ فشل في رفع بعض الملفات",
+			"total_files", len(files),
+			"successful", len(results),
+			"failed", len(errors),
+			"duration", time.Since(startTime).String(),
+			"errors", strings.Join(errors, "; "),
+		)
 		return results, fmt.Errorf("أخطاء في رفع بعض الملفات: %s", strings.Join(errors, "; "))
 	}
+
+	logger.Info(cs.ctx, "✅ تم رفع جميع الملفات بنجاح",
+		"total_files", len(files),
+		"duration", time.Since(startTime).String(),
+	)
 
 	return results, nil
 }
@@ -438,15 +478,21 @@ func (cs *CloudinaryService) GetResourceTypeFromExtension(filename string) strin
 
 // HealthCheck فحص صحة خدمة Cloudinary
 func (cs *CloudinaryService) HealthCheck() map[string]interface{} {
+	startTime := time.Now()
 	cloudName := os.Getenv("CLOUDINARY_CLOUD_NAME")
 	apiKey := os.Getenv("CLOUDINARY_API_KEY")
 	
 	if cloudName == "" || apiKey == "" {
-		return map[string]interface{}{
+		result := map[string]interface{}{
 			"service": "cloudinary",
 			"status":  "error",
 			"error":   "بيانات الاعتماد غير مكتملة",
+			"duration": time.Since(startTime).String(),
 		}
+		logger.Error(cs.ctx, "❌ فحص الصحة فشل - بيانات الاعتماد غير مكتملة",
+			"duration", time.Since(startTime).String(),
+		)
+		return result
 	}
 
 	// محاولة رفع ملف تجريبي صغير
@@ -457,19 +503,33 @@ func (cs *CloudinaryService) HealthCheck() map[string]interface{} {
 	})
 
 	if err != nil {
-		return map[string]interface{}{
+		result := map[string]interface{}{
 			"service": "cloudinary",
 			"status":  "error",
 			"error":   err.Error(),
+			"duration": time.Since(startTime).String(),
 		}
+		logger.Error(cs.ctx, "❌ فحص الصحة فشل",
+			"error", err.Error(),
+			"duration", time.Since(startTime).String(),
+		)
+		return result
 	}
 
 	// حذف الملف التجريبي
 	cs.DeleteImage("nawthtech/tests/health_check")
 
-	return map[string]interface{}{
+	result := map[string]interface{}{
 		"service":    "cloudinary",
 		"status":     "healthy",
 		"cloud_name": cloudName,
+		"duration":   time.Since(startTime).String(),
 	}
+	
+	logger.Info(cs.ctx, "✅ فحص الصحة تم بنجاح",
+		"cloud_name", cloudName,
+		"duration", time.Since(startTime).String(),
+	)
+
+	return result
 }
