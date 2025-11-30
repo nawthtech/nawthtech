@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"html/template"
 	"os"
+ "context"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -171,7 +172,9 @@ func SendEmail(message *EmailMessage) *SendResult {
 	d.TLSConfig = &tls.Config{
 		ServerName: config.Host,
 	}
-	d.Timeout = config.Timeout
+
+dialer := gomail.NewDialer(host, port, username, password)
+// Timeout يتم تعيينه بشكل مختلف
 
 	//发送邮件
 	if err := d.DialAndSend(m); err != nil {
