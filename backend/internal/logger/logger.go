@@ -199,7 +199,7 @@ func MongoDBConnectionAttr(status string, duration time.Duration, err error) slo
 		attrs = append(attrs, ErrAttr(err))
 	}
 	
-	return slog.Group("mongodb_connection", attrs)
+	return logger.With(slog.Group("attrs", attrs...))
 }
 
 // ========== دوال مساعدة للأداء والذاكرة ==========
