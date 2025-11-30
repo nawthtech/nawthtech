@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/nawthtech/nawthtech/backend/logger"
+	"github.com/nawthtech/nawthtech/backend/internal/logger"
 	"gopkg.in/gomail.v2"
 )
 
