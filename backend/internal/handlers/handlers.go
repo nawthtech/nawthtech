@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"mime/multipart"
 	"net/http"
-	"path/filepath"
-	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/nawthtech/nawthtech/backend/internal/cloudinary"
