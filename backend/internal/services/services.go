@@ -522,8 +522,10 @@ func (s *authServiceImpl) Register(ctx context.Context, req AuthRegisterRequest)
 
 	return &AuthResponse{
 		User:         user,
-		AccessToken:  "access_token_" + user.ID.Hex(),
-		RefreshToken: "refresh_token_" + user.ID.Hex(),
+		AccessToken:  "access_token_" + objectID, _ := primitive.ObjectIDFromHex(user.ID)
+objectID.Hex(),
+		RefreshToken: "refresh_token_" + objectID, _ := primitive.ObjectIDFromHex(user.ID)
+objectID.Hex(),
 		ExpiresAt:    time.Now().Add(24 * time.Hour),
 	}, nil
 }
@@ -539,8 +541,10 @@ func (s *authServiceImpl) Login(ctx context.Context, req AuthLoginRequest) (*Aut
 
 	return &AuthResponse{
 		User:         &user,
-		AccessToken:  "access_token_" + user.ID.Hex(),
-		RefreshToken: "refresh_token_" + user.ID.Hex(),
+		AccessToken:  "access_token_" + objectID, _ := primitive.ObjectIDFromHex(user.ID)
+objectID.Hex(),
+		RefreshToken: "refresh_token_" + objectID, _ := primitive.ObjectIDFromHex(user.ID)
+objectID.Hex(),
 		ExpiresAt:    time.Now().Add(24 * time.Hour),
 	}, nil
 }
