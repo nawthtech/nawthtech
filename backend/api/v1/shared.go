@@ -43,11 +43,10 @@ type PaginatedResponse struct {
 
 // ErrorResponse استجابة الخطأ
 type ErrorResponse struct {
-	Success bool        `json:"success"`
-	Message string      `json:"message"`
-	Error   string      `json:"error"`
-	Code    string      `json:"code,omitempty"`
-	Details interface{} `json:"details,omitempty"`
+	Success bool   `json:"success"`
+	Message string `json:"message"`
+	Error   string `json:"error"`
+	Code    string `json:"code,omitempty"`
 }
 
 // UploadResult نتيجة الرفع من Cloudinary
@@ -71,7 +70,7 @@ type RegisterRequest struct {
 	LastName  string `json:"last_name" validate:"required,min=2,max=50"`
 	Email     string `json:"email" validate:"required,email"`
 	Password  string `json:"password" validate:"required,min=8"`
-	Phone     string `json:"phone" validate:"required,phone"`
+	Phone     string `json:"phone" validate:"required"`
 }
 
 // ValidateRegisterRequest التحقق من صحة طلب التسجيل
@@ -206,7 +205,7 @@ func AuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		token := c.GetHeader("Authorization")
 		if token == "" {
-			ErrorResponse(c, http.StatusUnauthorized, "مطلوب مصادقة", "UNAUTHORIZED")
+			SendErrorResponse(c, http.StatusUnauthorized, "مطلوب مصادقة", "UNAUTHORIZED")
 			c.Abort()
 			return
 		}
@@ -228,7 +227,7 @@ func AdminMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userRole, exists := c.Get("userRole")
 		if !exists || userRole != "admin" {
-			ErrorResponse(c, http.StatusForbidden, "غير مسموح بالوصول", "FORBIDDEN")
+			SendErrorResponse(c, http.StatusForbidden, "غير مسموح بالوصول", "FORBIDDEN")
 			c.Abort()
 			return
 		}
@@ -251,8 +250,8 @@ func SuccessResponse(c *gin.Context, statusCode int, message string, data interf
 	c.JSON(statusCode, response)
 }
 
-// ErrorResponse إرسال استجابة خطأ موحدة
-func ErrorResponse(c *gin.Context, statusCode int, message string, errorCode string) {
+// SendErrorResponse إرسال استجابة خطأ موحدة
+func SendErrorResponse(c *gin.Context, statusCode int, message string, errorCode string) {
 	response := APIResponse{
 		Success:   false,
 		Message:   message,
@@ -339,4 +338,33 @@ func GetPaginationParams(c *gin.Context) (page, limit int) {
 	}
 
 	return page, limit
+}
+
+// CreatePaginatedResponse إنشاء استجابة paginated
+func CreatePaginatedResponse(data interface{}, page, limit int, total int64) PaginatedResponse {
+	totalPages := int(total) / limit
+	if int(total)%limit > 0 {
+		totalPages++
+	}
+
+	response := PaginatedResponse{
+		Data: data,
+		Pagination: struct {
+			Page       int   `json:"page"`
+			Limit      int   `json:"limit"`
+			Total      int64 `json:"total"`
+			TotalPages int   `json:"total_pages"`
+			HasNext    bool  `json:"has_next"`
+			HasPrev    bool  `json:"has_prev"`
+		}{
+			Page:       page,
+			Limit:      limit,
+			Total:      total,
+			TotalPages: totalPages,
+			HasNext:    page < totalPages,
+			HasPrev:    page > 1,
+		},
+	}
+
+	return response
 }
