@@ -4,7 +4,6 @@
  */
 
 import { settings, getApiEndpoint } from '../config';
-import type { ApiResponse, RequestConfig, ErrorResponse } from './types';
 
 // ==================== TYPES ====================
 export interface PaginationParams {
@@ -27,9 +26,6 @@ export type UploadProgressCallback = (progress: UploadProgressEvent) => void;
 class APIClient {
   private baseURL: string;
   private defaultHeaders: Record<string, string>;
-  private requestInterceptor?: (config: RequestConfig) => RequestConfig;
-  private responseInterceptor?: (response: Response) => Response | Promise<Response>;
-  private errorInterceptor?: (error: ErrorResponse) => ErrorResponse | Promise<ErrorResponse>;
 
   constructor() {
     this.baseURL = settings.api.baseURL;
@@ -38,19 +34,6 @@ class APIClient {
       'Accept': 'application/json',
       'Accept-Language': settings.localization.defaultLanguage,
     };
-  }
-
-  // ==================== INTERCEPTORS ====================
-  setRequestInterceptor(interceptor: (config: RequestConfig) => RequestConfig): void {
-    this.requestInterceptor = interceptor;
-  }
-
-  setResponseInterceptor(interceptor: (response: Response) => Response | Promise<Response>): void {
-    this.responseInterceptor = interceptor;
-  }
-
-  setErrorInterceptor(interceptor: (error: ErrorResponse) => ErrorResponse | Promise<ErrorResponse>): void {
-    this.errorInterceptor = interceptor;
   }
 
   // ==================== TOKEN MANAGEMENT ====================
@@ -104,7 +87,19 @@ class APIClient {
     if (typeof endpoint === 'string') {
       url = endpoint.startsWith('http') ? endpoint : `${this.baseURL}${endpoint}`;
     } else {
-      url = getApiEndpoint(endpoint.category, endpoint.endpoint);
+      // حل مشكلة type checking للـ category
+      const categories = ['auth', 'users', 'media', 'website', 'ai', 'storage', 'admin'] as const;
+      const endpointCategory = endpoint.category as any;
+      
+      // استخدام any لتجنب مشكلة النوع
+      const endpoints = settings.api.endpoints as any;
+      const endpointPath = endpoints[endpointCategory]?.[endpoint.endpoint];
+      
+      if (!endpointPath) {
+        throw new Error(`Endpoint not found: ${endpointCategory}.${endpoint.endpoint}`);
+      }
+      
+      url = `${this.baseURL}${endpointPath}`;
     }
 
     // Add query parameters
@@ -132,13 +127,7 @@ class APIClient {
     return url;
   }
 
-  private async handleResponse<T>(response: Response): Promise<ApiResponse<T>> {
-    // Apply response interceptor if exists
-    if (this.responseInterceptor) {
-      const interceptorResult = this.responseInterceptor(response);
-      response = interceptorResult instanceof Promise ? await interceptorResult : interceptorResult;
-    }
-
+  private async handleResponse<T>(response: Response): Promise<any> {
     const contentType = response.headers.get('content-type');
     const isJson = contentType?.includes('application/json');
     const status = response.status;
@@ -153,21 +142,13 @@ class APIClient {
         errorData = { message: `HTTP ${status}: ${response.statusText}` };
       }
 
-      const error: ErrorResponse = {
+      throw {
         message: errorData.message || `Request failed with status ${status}`,
         status,
         errors: errorData.errors,
         timestamp: new Date().toISOString(),
         path: response.url,
       };
-
-      // Apply error interceptor if exists
-      if (this.errorInterceptor) {
-        const interceptorResult = this.errorInterceptor(error);
-        throw interceptorResult instanceof Promise ? await interceptorResult : interceptorResult;
-      }
-
-      throw error;
     }
 
     // Handle successful responses
@@ -196,8 +177,15 @@ class APIClient {
     method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE',
     endpoint: string | { category: string; endpoint: string },
     data?: any,
-    config?: RequestConfig
-  ): Promise<ApiResponse<T>> {
+    config?: {
+      headers?: Record<string, string>;
+      params?: Record<string, any>;
+      timeout?: number;
+      signal?: AbortSignal;
+      formData?: boolean;
+      onUploadProgress?: UploadProgressCallback;
+    }
+  ): Promise<any> {
     const {
       headers = {},
       params,
@@ -288,7 +276,7 @@ class APIClient {
             message: 'Network error',
             status: 0,
             timestamp: new Date().toISOString(),
-          } as ErrorResponse);
+          });
         };
 
         xhr.ontimeout = () => {
@@ -296,21 +284,13 @@ class APIClient {
             message: 'Request timeout',
             status: 408,
             timestamp: new Date().toISOString(),
-          } as ErrorResponse);
+          });
         };
 
         xhr.timeout = timeout;
         xhr.send(requestConfig.body as any);
       });
     }
-
-    // Apply request interceptor if exists
-    let finalConfig: RequestInit = { ...requestConfig };
-if (this. requestInterceptor) {
-const interceptorResult =
-this.requestInterceptor(finalConfig as RequestConfig) ;
-finalConfig = interceptorResult as RequestInit;
-}
 
     // Create abort controller for timeout
     const controller = new AbortController();
@@ -322,7 +302,7 @@ finalConfig = interceptorResult as RequestInit;
 
     try {
       const response = await fetch(url, {
-        ...finalConfig,
+        ...requestConfig,
         signal: controller.signal,
       });
 
@@ -336,53 +316,84 @@ finalConfig = interceptorResult as RequestInit;
           message: 'Request timeout',
           status: 408,
           timestamp: new Date().toISOString(),
-        } as ErrorResponse;
+        };
       }
 
       throw {
         message: error instanceof Error ? error.message : 'Network error',
         status: 0,
         timestamp: new Date().toISOString(),
-      } as ErrorResponse;
+      };
     }
   }
 
   // ==================== HTTP METHODS ====================
   get<T = any>(
     endpoint: string | { category: string; endpoint: string },
-    config?: Omit<RequestConfig, 'formData' | 'onUploadProgress'>
-  ): Promise<ApiResponse<T>> {
+    config?: {
+      headers?: Record<string, string>;
+      params?: Record<string, any>;
+      timeout?: number;
+      signal?: AbortSignal;
+    }
+  ): Promise<any> {
     return this.request<T>('GET', endpoint, undefined, config);
   }
 
   post<T = any>(
     endpoint: string | { category: string; endpoint: string },
     data?: any,
-    config?: RequestConfig
-  ): Promise<ApiResponse<T>> {
+    config?: {
+      headers?: Record<string, string>;
+      params?: Record<string, any>;
+      timeout?: number;
+      signal?: AbortSignal;
+      formData?: boolean;
+      onUploadProgress?: UploadProgressCallback;
+    }
+  ): Promise<any> {
     return this.request<T>('POST', endpoint, data, config);
   }
 
   put<T = any>(
     endpoint: string | { category: string; endpoint: string },
     data?: any,
-    config?: RequestConfig
-  ): Promise<ApiResponse<T>> {
+    config?: {
+      headers?: Record<string, string>;
+      params?: Record<string, any>;
+      timeout?: number;
+      signal?: AbortSignal;
+      formData?: boolean;
+      onUploadProgress?: UploadProgressCallback;
+    }
+  ): Promise<any> {
     return this.request<T>('PUT', endpoint, data, config);
   }
 
   patch<T = any>(
     endpoint: string | { category: string; endpoint: string },
     data?: any,
-    config?: RequestConfig
-  ): Promise<ApiResponse<T>> {
+    config?: {
+      headers?: Record<string, string>;
+      params?: Record<string, any>;
+      timeout?: number;
+      signal?: AbortSignal;
+      formData?: boolean;
+      onUploadProgress?: UploadProgressCallback;
+    }
+  ): Promise<any> {
     return this.request<T>('PATCH', endpoint, data, config);
   }
 
   delete<T = any>(
     endpoint: string | { category: string; endpoint: string },
-    config?: Omit<RequestConfig, 'formData' | 'onUploadProgress'>
-  ): Promise<ApiResponse<T>> {
+    config?: {
+      headers?: Record<string, string>;
+      params?: Record<string, any>;
+      timeout?: number;
+      signal?: AbortSignal;
+    }
+  ): Promise<any> {
     return this.request<T>('DELETE', endpoint, undefined, config);
   }
 
@@ -391,7 +402,7 @@ finalConfig = interceptorResult as RequestInit;
     file: File,
     additionalData?: Record<string, any>,
     onProgress?: UploadProgressCallback
-  ): Promise<ApiResponse<T>> {
+  ): Promise<any> {
     const formData = new FormData();
     formData.append('file', file);
 
@@ -417,7 +428,7 @@ finalConfig = interceptorResult as RequestInit;
     files: File[],
     additionalData?: Record<string, any>,
     onProgress?: UploadProgressCallback
-  ): Promise<ApiResponse<T>> {
+  ): Promise<any> {
     const formData = new FormData();
 
     files.forEach((file, index) => {
@@ -445,7 +456,12 @@ finalConfig = interceptorResult as RequestInit;
   async downloadFile(
     endpoint: string | { category: string; endpoint: string },
     filename?: string,
-    config?: Omit<RequestConfig, 'formData' | 'onUploadProgress'>
+    config?: {
+      headers?: Record<string, string>;
+      params?: Record<string, any>;
+      timeout?: number;
+      signal?: AbortSignal;
+    }
   ): Promise<void> {
     const response = await this.get<Blob>(endpoint, {
       ...config,
@@ -469,8 +485,13 @@ finalConfig = interceptorResult as RequestInit;
   async getPaginated<T = any>(
     endpoint: string | { category: string; endpoint: string },
     params: PaginationParams = {},
-    config?: Omit<RequestConfig, 'formData' | 'onUploadProgress'>
-  ): Promise<ApiResponse<T[]>> {
+    config?: {
+      headers?: Record<string, string>;
+      params?: Record<string, any>;
+      timeout?: number;
+      signal?: AbortSignal;
+    }
+  ): Promise<any> {
     const { page = 1, limit = 10, sortBy, sortOrder, search, ...restParams } = params;
 
     const queryParams: Record<string, any> = {
@@ -498,167 +519,8 @@ finalConfig = interceptorResult as RequestInit;
   }
 }
 
-// ==================== HELPER FUNCTIONS ====================
-export const apiHelpers = {
-  /**
-   * Fetch with retry logic
-   */
-  async fetchWithRetry<T = any>(
-    fn: () => Promise<ApiResponse<T>>,
-    maxRetries: number = settings.api.retryAttempts,
-    initialDelay: number = 1000
-  ): Promise<ApiResponse<T>> {
-    let lastError: ErrorResponse;
-    
-    for (let attempt = 0; attempt < maxRetries; attempt++) {
-      try {
-        return await fn();
-      } catch (error: unknown) {
-        const typedError = error as ErrorResponse;
-        lastError = typedError;
-        
-        // Don't retry on 4xx errors (except 429 - Too Many Requests)
-        if (typedError.status >= 400 && typedError.status < 500 && typedError.status !== 429) {
-          throw error;
-        }
-
-        // Wait before retrying (with exponential backoff)
-        if (attempt < maxRetries - 1) {
-          const delay = initialDelay * Math.pow(2, attempt);
-          await new Promise(resolve => setTimeout(resolve, delay));
-        }
-      }
-    }
-    
-    throw lastError!;
-  },
-
-  /**
-   * Create cancelable request
-   */
-  createCancelableRequest() {
-    const controller = new AbortController();
-    
-    return {
-      signal: controller.signal,
-      cancel: () => controller.abort(),
-    };
-  },
-
-  /**
-   * Debounced API call
-   */
-  createDebouncedApiCall<T = any>(
-    fn: (...args: any[]) => Promise<ApiResponse<T>>,
-    delay: number = settings.performance.debounce.search
-  ) {
-    let timeoutId: ReturnType<typeof setTimeout>;
-    let abortController: AbortController | null = null;
-    
-    return (...args: any[]): Promise<ApiResponse<T>> => {
-      return new Promise((resolve, reject) => {
-        if (abortController) {
-          abortController.abort();
-        }
-        
-        abortController = new AbortController();
-        
-        clearTimeout(timeoutId);
-        
-        timeoutId = setTimeout(async () => {
-          try {
-            const result = await fn(...args);
-            abortController = null;
-            resolve(result);
-          } catch (error) {
-            abortController = null;
-            reject(error);
-          }
-        }, delay);
-      });
-    };
-  },
-
-  /**
-   * Validate file before upload
-   */
-  validateFile(file: File): { valid: boolean; errors: string[] } {
-    const errors: string[] = [];
-    const maxSize = settings.upload.maxFileSize;
-    const allowedTypes = [
-      ...settings.upload.allowedImageTypes,
-      ...settings.upload.allowedDocumentTypes,
-      ...settings.upload.allowedVideoTypes,
-    ];
-
-    // Check file size
-    if (file.size > maxSize) {
-      errors.push(`File size exceeds ${maxSize / 1024 / 1024}MB limit`);
-    }
-
-    // Check file type
-    if (!allowedTypes.includes(file.type)) {
-      errors.push(`File type ${file.type} is not allowed`);
-    }
-
-    return {
-      valid: errors.length === 0,
-      errors,
-    };
-  },
-};
-
 // ==================== API INSTANCE ====================
 export const api = new APIClient();
-
-// Set up default interceptors
-api.setRequestInterceptor((config) => {
-  // Add request timestamp
-  const headers = config.headers || {};
-  headers['X-Request-Timestamp'] = Date.now().toString();
-  
-  return {
-    ...config,
-    headers,
-  };
-});
-
-api.setResponseInterceptor(async (response) => {
-  // Handle rate limiting
-  const remaining = response.headers.get('X-RateLimit-Remaining');
-  const reset = response.headers.get('X-RateLimit-Reset');
-  
-  if (remaining && parseInt(remaining, 10) < 10) {
-    console.warn(`Rate limit low: ${remaining} requests remaining`);
-  }
-  
-  return response;
-});
-
-api.setErrorInterceptor(async (error) => {
-  // Log errors in development
-  if (settings.development.debug) {
-    console.error('API Error:', error);
-  }
-
-  // Handle specific error cases
-  if (error.status === 401) {
-    // Token expired, clear auth
-    localStorage.removeItem('nawthtech_auth_token');
-    sessionStorage.removeItem('nawthtech_auth_token');
-    
-    // Redirect to login if not already there
-    if (!window.location.pathname.includes('/auth/login')) {
-      window.location.href = '/auth/login?expired=true';
-    }
-  }
-
-  if (error.status === 429) {
-    error.message = 'Too many requests. Please try again later.';
-  }
-
-  return error;
-});
 
 // ==================== EXPORT ====================
 export default api;
