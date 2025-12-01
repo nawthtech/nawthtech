@@ -4,8 +4,7 @@
  */
 
 import { api } from './api';
-import type { ApiResponse } from './api';
-import type { ApiResponse as LocalApiResponse } from './types';
+import type { ApiResponse, PaginationParams } from './api';
 
 // ==================== TYPES ====================
 export interface DashboardStats {
@@ -593,7 +592,7 @@ export const adminHelpers = {
   formatChartData: (
     data: DashboardData,
     chartType: 'line' | 'bar' | 'pie' | 'donut'
-  ) => {
+  ): any[] => {
     switch (chartType) {
       case 'line':
         return data.revenueTrend.map(item => ({
@@ -609,10 +608,10 @@ export const adminHelpers = {
           { name: 'Services', value: data.stats.activeServices },
         ];
       case 'pie':
-        return data.systemAlerts.reduce((acc, alert) => {
+        return Object.entries(data.systemAlerts.reduce((acc, alert) => {
           acc[alert.type] = (acc[alert.type] || 0) + 1;
           return acc;
-        }, {} as Record<string, number>);
+        }, {} as Record<string, number>)).map(([type, count]) => ({ type, count }));
       default:
         return [];
     }
@@ -624,10 +623,10 @@ export const adminHelpers = {
   calculateMetricsChange: (
     current: DashboardStats,
     previous?: DashboardStats
-  ): Partial<Record<keyof DashboardStats, { value: number; change: number; trend: 'up' | 'down' | 'stable' }>> => {
+  ): Record<string, { value: number; change: number; trend: 'up' | 'down' | 'stable' }> => {
     if (!previous) return {};
 
-    const changes: any = {};
+    const changes: Record<string, { value: number; change: number; trend: 'up' | 'down' | 'stable' }> = {};
     const keys = Object.keys(current) as Array<keyof DashboardStats>;
 
     keys.forEach(key => {
@@ -691,7 +690,6 @@ export const adminHelpers = {
    */
   validateFilters: (filters: AnalyticsFilters): string[] => {
     const errors: string[] = [];
-    const now = new Date();
 
     if (filters.timeRange === 'custom') {
       if (!filters.startDate || !filters.endDate) {
