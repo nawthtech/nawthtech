@@ -4,7 +4,8 @@
  */
 
 import { api } from './api';
-import type { ApiResponse, PaginationParams } from './api/index';
+import type { PaginationParams } from './api';
+import type { ApiResponse } from './types';
 
 // ==================== TYPES ====================
 export interface DashboardStats {
