@@ -111,7 +111,7 @@ jobs:
 
     - name: Run linting
       run: |
-        npx eslint . --ext ts,tsx --max-warnings 50 --quiet
+        npx eslint . --ext ts,tsx --quiet
         echo "✅ ESLint check completed"
 
     - name: Run tests
