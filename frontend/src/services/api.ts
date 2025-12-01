@@ -3,9 +3,27 @@
  * Compatible with Go backend in monorepo
  */
 
-import { settings, getApiEndpoint } from '../config';
+import { settings } from '../config';
 
 // ==================== TYPES ====================
+export interface ApiResponse<T = any> {
+  data: T;
+  status: number;
+  success: boolean;
+  message?: string;
+  meta?: {
+    pagination?: {
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+      hasNext: boolean;
+      hasPrev: boolean;
+    };
+    [key: string]: any;
+  };
+}
+
 export interface PaginationParams {
   page?: number;
   limit?: number;
@@ -21,6 +39,23 @@ export interface UploadProgressEvent {
 }
 
 export type UploadProgressCallback = (progress: UploadProgressEvent) => void;
+
+export interface ErrorResponse {
+  message: string;
+  status: number;
+  errors?: Record<string, string[]>;
+  timestamp: string;
+  path?: string;
+}
+
+export interface RequestConfig {
+  headers?: Record<string, string>;
+  params?: Record<string, any>;
+  timeout?: number;
+  signal?: AbortSignal;
+  formData?: boolean;
+  onUploadProgress?: UploadProgressCallback;
+}
 
 // ==================== API CLIENT ====================
 class APIClient {
@@ -87,16 +122,12 @@ class APIClient {
     if (typeof endpoint === 'string') {
       url = endpoint.startsWith('http') ? endpoint : `${this.baseURL}${endpoint}`;
     } else {
-      // حل مشكلة type checking للـ category
-      const categories = ['auth', 'users', 'media', 'website', 'ai', 'storage', 'admin'] as const;
-      const endpointCategory = endpoint.category as any;
-      
-      // استخدام any لتجنب مشكلة النوع
+      // Access endpoints dynamically
       const endpoints = settings.api.endpoints as any;
-      const endpointPath = endpoints[endpointCategory]?.[endpoint.endpoint];
+      const endpointPath = endpoints[endpoint.category]?.[endpoint.endpoint];
       
       if (!endpointPath) {
-        throw new Error(`Endpoint not found: ${endpointCategory}.${endpoint.endpoint}`);
+        throw new Error(`Endpoint not found: ${endpoint.category}.${endpoint.endpoint}`);
       }
       
       url = `${this.baseURL}${endpointPath}`;
@@ -127,7 +158,7 @@ class APIClient {
     return url;
   }
 
-  private async handleResponse<T>(response: Response): Promise<any> {
+  private async handleResponse<T>(response: Response): Promise<ApiResponse<T>> {
     const contentType = response.headers.get('content-type');
     const isJson = contentType?.includes('application/json');
     const status = response.status;
@@ -148,7 +179,7 @@ class APIClient {
         errors: errorData.errors,
         timestamp: new Date().toISOString(),
         path: response.url,
-      };
+      } as ErrorResponse;
     }
 
     // Handle successful responses
@@ -177,15 +208,8 @@ class APIClient {
     method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE',
     endpoint: string | { category: string; endpoint: string },
     data?: any,
-    config?: {
-      headers?: Record<string, string>;
-      params?: Record<string, any>;
-      timeout?: number;
-      signal?: AbortSignal;
-      formData?: boolean;
-      onUploadProgress?: UploadProgressCallback;
-    }
-  ): Promise<any> {
+    config?: RequestConfig
+  ): Promise<ApiResponse<T>> {
     const {
       headers = {},
       params,
@@ -276,7 +300,7 @@ class APIClient {
             message: 'Network error',
             status: 0,
             timestamp: new Date().toISOString(),
-          });
+          } as ErrorResponse);
         };
 
         xhr.ontimeout = () => {
@@ -284,7 +308,7 @@ class APIClient {
             message: 'Request timeout',
             status: 408,
             timestamp: new Date().toISOString(),
-          });
+          } as ErrorResponse);
         };
 
         xhr.timeout = timeout;
@@ -316,84 +340,53 @@ class APIClient {
           message: 'Request timeout',
           status: 408,
           timestamp: new Date().toISOString(),
-        };
+        } as ErrorResponse;
       }
 
       throw {
         message: error instanceof Error ? error.message : 'Network error',
         status: 0,
         timestamp: new Date().toISOString(),
-      };
+      } as ErrorResponse;
     }
   }
 
   // ==================== HTTP METHODS ====================
   get<T = any>(
     endpoint: string | { category: string; endpoint: string },
-    config?: {
-      headers?: Record<string, string>;
-      params?: Record<string, any>;
-      timeout?: number;
-      signal?: AbortSignal;
-    }
-  ): Promise<any> {
+    config?: Omit<RequestConfig, 'formData' | 'onUploadProgress'>
+  ): Promise<ApiResponse<T>> {
     return this.request<T>('GET', endpoint, undefined, config);
   }
 
   post<T = any>(
     endpoint: string | { category: string; endpoint: string },
     data?: any,
-    config?: {
-      headers?: Record<string, string>;
-      params?: Record<string, any>;
-      timeout?: number;
-      signal?: AbortSignal;
-      formData?: boolean;
-      onUploadProgress?: UploadProgressCallback;
-    }
-  ): Promise<any> {
+    config?: RequestConfig
+  ): Promise<ApiResponse<T>> {
     return this.request<T>('POST', endpoint, data, config);
   }
 
   put<T = any>(
     endpoint: string | { category: string; endpoint: string },
     data?: any,
-    config?: {
-      headers?: Record<string, string>;
-      params?: Record<string, any>;
-      timeout?: number;
-      signal?: AbortSignal;
-      formData?: boolean;
-      onUploadProgress?: UploadProgressCallback;
-    }
-  ): Promise<any> {
+    config?: RequestConfig
+  ): Promise<ApiResponse<T>> {
     return this.request<T>('PUT', endpoint, data, config);
   }
 
   patch<T = any>(
     endpoint: string | { category: string; endpoint: string },
     data?: any,
-    config?: {
-      headers?: Record<string, string>;
-      params?: Record<string, any>;
-      timeout?: number;
-      signal?: AbortSignal;
-      formData?: boolean;
-      onUploadProgress?: UploadProgressCallback;
-    }
-  ): Promise<any> {
+    config?: RequestConfig
+  ): Promise<ApiResponse<T>> {
     return this.request<T>('PATCH', endpoint, data, config);
   }
 
   delete<T = any>(
     endpoint: string | { category: string; endpoint: string },
-    config?: {
-      headers?: Record<string, string>;
-      params?: Record<string, any>;
-      timeout?: number;
-      signal?: AbortSignal;
-    }
-  ): Promise<any> {
+    config?: Omit<RequestConfig, 'formData' | 'onUploadProgress'>
+  ): Promise<ApiResponse<T>> {
     return this.request<T>('DELETE', endpoint, undefined, config);
   }
 
@@ -402,7 +395,7 @@ class APIClient {
     file: File,
     additionalData?: Record<string, any>,
     onProgress?: UploadProgressCallback
-  ): Promise<any> {
+  ): Promise<ApiResponse<T>> {
     const formData = new FormData();
     formData.append('file', file);
 
@@ -428,7 +421,7 @@ class APIClient {
     files: File[],
     additionalData?: Record<string, any>,
     onProgress?: UploadProgressCallback
-  ): Promise<any> {
+  ): Promise<ApiResponse<T>> {
     const formData = new FormData();
 
     files.forEach((file, index) => {
@@ -449,78 +442,3 @@ class APIClient {
       {
         formData: true,
         onUploadProgress: onProgress,
-      }
-    );
-  }
-
-  async downloadFile(
-    endpoint: string | { category: string; endpoint: string },
-    filename?: string,
-    config?: {
-      headers?: Record<string, string>;
-      params?: Record<string, any>;
-      timeout?: number;
-      signal?: AbortSignal;
-    }
-  ): Promise<void> {
-    const response = await this.get<Blob>(endpoint, {
-      ...config,
-      headers: {
-        ...config?.headers,
-        'Accept': 'application/octet-stream',
-      },
-    });
-
-    const blob = new Blob([response.data], { type: response.data.type });
-    const downloadUrl = window.URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = downloadUrl;
-    link.download = filename || 'download';
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    window.URL.revokeObjectURL(downloadUrl);
-  }
-
-  async getPaginated<T = any>(
-    endpoint: string | { category: string; endpoint: string },
-    params: PaginationParams = {},
-    config?: {
-      headers?: Record<string, string>;
-      params?: Record<string, any>;
-      timeout?: number;
-      signal?: AbortSignal;
-    }
-  ): Promise<any> {
-    const { page = 1, limit = 10, sortBy, sortOrder, search, ...restParams } = params;
-
-    const queryParams: Record<string, any> = {
-      page,
-      limit,
-      ...restParams,
-    };
-
-    if (sortBy) {
-      queryParams.sort_by = sortBy;
-    }
-
-    if (sortOrder) {
-      queryParams.sort_order = sortOrder;
-    }
-
-    if (search) {
-      queryParams.search = search;
-    }
-
-    return this.get<T[]>(endpoint, {
-      ...config,
-      params: queryParams,
-    });
-  }
-}
-
-// ==================== API INSTANCE ====================
-export const api = new APIClient();
-
-// ==================== EXPORT ====================
-export default api;
