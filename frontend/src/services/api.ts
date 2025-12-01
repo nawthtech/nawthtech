@@ -3,7 +3,7 @@
  * Compatible with Go backend in monorepo
  */
 
-import { settings, getApiEndpoint, getSetting } from '../config';
+import { settings, getApiEndpoint } from '../config';
 import type { ApiResponse, RequestConfig, ErrorResponse } from './types';
 
 // ==================== TYPES ====================
@@ -135,7 +135,8 @@ class APIClient {
   private async handleResponse<T>(response: Response): Promise<ApiResponse<T>> {
     // Apply response interceptor if exists
     if (this.responseInterceptor) {
-      response = await this.responseInterceptor(response);
+      const interceptorResult = this.responseInterceptor(response);
+      response = interceptorResult instanceof Promise ? await interceptorResult : interceptorResult;
     }
 
     const contentType = response.headers.get('content-type');
@@ -162,7 +163,8 @@ class APIClient {
 
       // Apply error interceptor if exists
       if (this.errorInterceptor) {
-        throw await this.errorInterceptor(error);
+        const interceptorResult = this.errorInterceptor(error);
+        throw interceptorResult instanceof Promise ? await interceptorResult : interceptorResult;
       }
 
       throw error;
@@ -268,11 +270,13 @@ class APIClient {
               xhr.getAllResponseHeaders()
                 .split('\r\n')
                 .filter(Boolean)
-                .reduce((acc, line) => {
+                .reduce((acc: Record<string, string>, line) => {
                   const [key, value] = line.split(': ');
-                  acc[key] = value;
+                  if (key && value) {
+                    acc[key] = value;
+                  }
                   return acc;
-                }, {} as Record<string, string>)
+                }, {})
             ),
           });
 
@@ -284,7 +288,7 @@ class APIClient {
             message: 'Network error',
             status: 0,
             timestamp: new Date().toISOString(),
-          });
+          } as ErrorResponse);
         };
 
         xhr.ontimeout = () => {
@@ -292,7 +296,7 @@ class APIClient {
             message: 'Request timeout',
             status: 408,
             timestamp: new Date().toISOString(),
-          });
+          } as ErrorResponse);
         };
 
         xhr.timeout = timeout;
@@ -330,14 +334,14 @@ class APIClient {
           message: 'Request timeout',
           status: 408,
           timestamp: new Date().toISOString(),
-        };
+        } as ErrorResponse;
       }
 
       throw {
         message: error instanceof Error ? error.message : 'Network error',
         status: 0,
         timestamp: new Date().toISOString(),
-      };
+      } as ErrorResponse;
     }
   }
 
@@ -467,14 +471,23 @@ class APIClient {
   ): Promise<ApiResponse<T[]>> {
     const { page = 1, limit = 10, sortBy, sortOrder, search, ...restParams } = params;
 
-    const queryParams = {
+    const queryParams: Record<string, any> = {
       page,
       limit,
-      ...(sortBy && { sort_by: sortBy }),
-      ...(sortOrder && { sort_order: sortOrder }),
-      ...(search && { search }),
       ...restParams,
     };
+
+    if (sortBy) {
+      queryParams.sort_by = sortBy;
+    }
+
+    if (sortOrder) {
+      queryParams.sort_order = sortOrder;
+    }
+
+    if (search) {
+      queryParams.search = search;
+    }
 
     return this.get<T[]>(endpoint, {
       ...config,
@@ -498,11 +511,12 @@ export const apiHelpers = {
     for (let attempt = 0; attempt < maxRetries; attempt++) {
       try {
         return await fn();
-      } catch (error) {
-        lastError = error as ErrorResponse;
+      } catch (error: unknown) {
+        const typedError = error as ErrorResponse;
+        lastError = typedError;
         
         // Don't retry on 4xx errors (except 429 - Too Many Requests)
-        if (error.status >= 400 && error.status < 500 && error.status !== 429) {
+        if (typedError.status >= 400 && typedError.status < 500 && typedError.status !== 429) {
           throw error;
         }
 
@@ -536,7 +550,7 @@ export const apiHelpers = {
     fn: (...args: any[]) => Promise<ApiResponse<T>>,
     delay: number = settings.performance.debounce.search
   ) {
-    let timeoutId: NodeJS.Timeout;
+    let timeoutId: ReturnType<typeof setTimeout>;
     let abortController: AbortController | null = null;
     
     return (...args: any[]): Promise<ApiResponse<T>> => {
@@ -612,7 +626,7 @@ api.setResponseInterceptor(async (response) => {
   const remaining = response.headers.get('X-RateLimit-Remaining');
   const reset = response.headers.get('X-RateLimit-Reset');
   
-  if (remaining && parseInt(remaining) < 10) {
+  if (remaining && parseInt(remaining, 10) < 10) {
     console.warn(`Rate limit low: ${remaining} requests remaining`);
   }
   
