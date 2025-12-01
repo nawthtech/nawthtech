@@ -442,3 +442,178 @@ class APIClient {
       {
         formData: true,
         onUploadProgress: onProgress,
+      }
+    );
+  }
+
+  async downloadFile(
+    endpoint: string | { category: string; endpoint: string },
+    filename?: string,
+    config?: Omit<RequestConfig, 'formData' | 'onUploadProgress'>
+  ): Promise<void> {
+    const response = await this.get<Blob>(endpoint, {
+      ...config,
+      headers: {
+        ...config?.headers,
+        'Accept': 'application/octet-stream',
+      },
+    });
+
+    const blob = new Blob([response.data], { type: response.data.type });
+    const downloadUrl = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = downloadUrl;
+    link.download = filename || 'download';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(downloadUrl);
+  }
+
+  async getPaginated<T = any>(
+    endpoint: string | { category: string; endpoint: string },
+    params: PaginationParams = {},
+    config?: Omit<RequestConfig, 'formData' | 'onUploadProgress'>
+  ): Promise<ApiResponse<T[]>> {
+    const { page = 1, limit = 10, sortBy, sortOrder, search, ...restParams } = params;
+
+    const queryParams: Record<string, any> = {
+      page,
+      limit,
+      ...restParams,
+    };
+
+    if (sortBy) {
+      queryParams.sort_by = sortBy;
+    }
+
+    if (sortOrder) {
+      queryParams.sort_order = sortOrder;
+    }
+
+    if (search) {
+      queryParams.search = search;
+    }
+
+    return this.get<T[]>(endpoint, {
+      ...config,
+      params: queryParams,
+    });
+  }
+}
+
+// ==================== HELPER FUNCTIONS ====================
+export const apiHelpers = {
+  /**
+   * Fetch with retry logic
+   */
+  async fetchWithRetry<T = any>(
+    fn: () => Promise<ApiResponse<T>>,
+    maxRetries: number = settings.api.retryAttempts,
+    initialDelay: number = 1000
+  ): Promise<ApiResponse<T>> {
+    let lastError: ErrorResponse;
+    
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        return await fn();
+      } catch (error: unknown) {
+        const typedError = error as ErrorResponse;
+        lastError = typedError;
+        
+        // Don't retry on 4xx errors (except 429 - Too Many Requests)
+        if (typedError.status >= 400 && typedError.status < 500 && typedError.status !== 429) {
+          throw error;
+        }
+
+        // Wait before retrying (with exponential backoff)
+        if (attempt < maxRetries - 1) {
+          const delay = initialDelay * Math.pow(2, attempt);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
+      }
+    }
+    
+    throw lastError!;
+  },
+
+  /**
+   * Create cancelable request
+   */
+  createCancelableRequest() {
+    const controller = new AbortController();
+    
+    return {
+      signal: controller.signal,
+      cancel: () => controller.abort(),
+    };
+  },
+
+  /**
+   * Debounced API call
+   */
+  createDebouncedApiCall<T = any>(
+    fn: (...args: any[]) => Promise<ApiResponse<T>>,
+    delay: number = settings.performance.debounce.search
+  ) {
+    let timeoutId: ReturnType<typeof setTimeout>;
+    let abortController: AbortController | null = null;
+    
+    return (...args: any[]): Promise<ApiResponse<T>> => {
+      return new Promise((resolve, reject) => {
+        if (abortController) {
+          abortController.abort();
+        }
+        
+        abortController = new AbortController();
+        
+        clearTimeout(timeoutId);
+        
+        timeoutId = setTimeout(async () => {
+          try {
+            const result = await fn(...args);
+            abortController = null;
+            resolve(result);
+          } catch (error) {
+            abortController = null;
+            reject(error);
+          }
+        }, delay);
+      });
+    };
+  },
+
+  /**
+   * Validate file before upload
+   */
+  validateFile(file: File): { valid: boolean; errors: string[] } {
+    const errors: string[] = [];
+    const maxSize = settings.upload.maxFileSize;
+    const allowedTypes = [
+      ...settings.upload.allowedImageTypes,
+      ...settings.upload.allowedDocumentTypes,
+      ...settings.upload.allowedVideoTypes,
+    ];
+
+    // Check file size
+    if (file.size > maxSize) {
+      errors.push(`File size exceeds ${maxSize / 1024 / 1024}MB limit`);
+    }
+
+    // Check file type
+    if (!allowedTypes.includes(file.type)) {
+      errors.push(`File type ${file.type} is not allowed`);
+    }
+
+    return {
+      valid: errors.length === 0,
+      errors,
+    };
+  },
+};
+
+// ==================== API INSTANCE ====================
+export const api = new APIClient();
+
+// ==================== EXPORT ====================
+export default api;
