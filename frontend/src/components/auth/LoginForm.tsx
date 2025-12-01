@@ -156,7 +156,7 @@ const LoginForm: React.FC = () => {
         }
       );
 
-      handleLoginSuccess(response);
+      handleLoginSuccess(response.data);
       
     } catch (error: any) {
       console.error('Login error:', error);
@@ -213,7 +213,7 @@ const LoginForm: React.FC = () => {
         }
       );
 
-      handleLoginSuccess(response);
+      handleLoginSuccess(response.data);
       
     } catch (error: any) {
       setErrors({ submit: 'تعذر تسجيل الدخول التجريبي' });
