@@ -1,4 +1,4 @@
-name: NawthTech CI/CD
+name: NawthTech CI
 
 on:
   push:
@@ -157,88 +157,35 @@ jobs:
         npm audit --audit-level moderate || true
         echo "✅ NPM audit completed"
 
-  deploy:
-    runs-on: ubuntu-latest
-    needs: [backend, frontend, security]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    
-    environment: production
-    permissions:
-      contents: read
-      packages: write
-
-    steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-
-    - name: Download backend binary
-      uses: actions/download-artifact@v4
-      with:
-        name: backend-binary
-        path: backend/
-
-    - name: Download frontend build
-      uses: actions/download-artifact@v4
-      with:
-        name: frontend-build
-        path: frontend/dist/
-
-    - name: Verify deployment artifacts
-      run: |
-        echo "🔍 Verifying deployment artifacts..."
-        ls -la backend/
-        ls -la frontend/dist/
-        echo "✅ Artifacts verified"
-
-    - name: Install Railway CLI
-      run: |
-        npm install -g @railway/cli
-        railway --version
-        echo "✅ Railway CLI installed"
-
-    - name: Deploy backend to Railway
-      run: |
-        echo "🚀 Deploying NawthTech Backend to Railway..."
-        cd backend
-        railway up --service nawthtech-backend --detach
-        echo "✅ Backend deployment initiated"
-      env:
-        RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-
-    - name: Deploy frontend to Railway
-      run: |
-        echo "🚀 Deploying NawthTech Frontend to Railway..."
-        cd frontend
-        railway up --service nawthtech-frontend --detach
-        echo "✅ Frontend deployment initiated"
-      env:
-        RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-
-    - name: Run smoke tests
-      run: |
-        echo "🧪 Running smoke tests..."
-        # انتظار قليل للنشر ثم اختبار الوصول
-        sleep 30
-        # يمكن إضافة اختبارات HTTP هنا للتحقق من أن التطبيق يعمل
-        echo "✅ Smoke tests completed"
-
-    - name: Notify deployment success
-      if: success()
-      run: |
-        echo "🎉 NawthTech deployed successfully to production!"
-        echo "Backend: https://nawthtech-backend-production.up.railway.app"
-        echo "Frontend: https://nawthtech-frontend-production.up.railway.app"
-
+  # ملاحظة: تمت إزالة job الـ deploy لأن Railway يقوم بالنشر تلقائياً عبر Source Integration
+  # يمكنك تفعيله لاحقاً إذا أردت control إضافي على عملية النشر
+  
   notify:
     runs-on: ubuntu-latest
-    needs: [deploy]
+    needs: [backend, frontend, security]
     if: always()
     
     steps:
-    - name: Notify status
+    - name: Summary Status
       run: |
-        if [ "${{ needs.deploy.result }}" == "success" ]; then
-          echo "✅ Deployment completed successfully"
+        echo "📊 NawthTech CI/CD Summary"
+        echo "=========================="
+        echo "Backend: ${{ needs.backend.result }}"
+        echo "Frontend: ${{ needs.frontend.result }}"
+        echo "Security: ${{ needs.security.result }}"
+        echo ""
+        if [[ "${{ needs.backend.result }}" == "success" && "${{ needs.frontend.result }}" == "success" && "${{ needs.security.result }}" == "success" ]]; then
+          echo "✅ All checks passed! Railway will automatically deploy from GitHub."
+          echo ""
+          echo "🚀 Deployment will be triggered automatically by Railway:"
+          echo "- Backend: https://nawthtech-backend-production.up.railway.app"
+          echo "- Frontend: https://nawthtech-frontend-production.up.railway.app"
         else
-          echo "❌ Deployment failed"
+          echo "❌ Some checks failed. Fix issues before merging to main."
         fi
+
+    - name: Send notification (optional)
+      if: failure()
+      run: |
+        echo "Workflow failed! Check the logs for details."
+        # يمكنك إضافة إشعارات إضافية هنا (Slack, Discord, Email, etc.)
