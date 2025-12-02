@@ -37,4 +37,9 @@
 
 # أمر التشغيل
 [start]
-    cmd = 'exec caddy run --config Caddyfile --adapter caddyfile'
+cmd = "caddy run --config Caddyfile --adapter caddyfile"
+
+# إضافة وصف
+[metadata]
+name = "Vite + React + Caddy"
+description = "React app built with Vite, served by Caddy"
