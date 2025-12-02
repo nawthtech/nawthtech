@@ -70,6 +70,13 @@ jobs:
           exit 1
         fi
 
+    - name: Upload backend binary artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: backend-binary
+        path: backend/nawthtech-backend
+        retention-days: 1
+
     - name: Upload coverage reports
       uses: codecov/codecov-action@v3
       with:
@@ -179,7 +186,7 @@ jobs:
     - name: Verify deployment artifacts
       run: |
         echo "🔍 Verifying deployment artifacts..."
-        ls -la backend/nawthtech-backend
+        ls -la backend/
         ls -la frontend/dist/
         echo "✅ Artifacts verified"
 
