@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { contentService, ContentGenerationOptions } from '../services/content';
+import { contentService, type ContentGenerationOptions } from '../services/content';
 
 interface UseContentGenerationOptions {
   autoSave?: boolean;
@@ -25,7 +25,7 @@ export const useContentGeneration = (options: UseContentGenerationOptions = {}) 
     setIsGenerating(true);
     
     try {
-      let result;
+      let result: any;
       
       switch (type) {
         case 'blog_post':
@@ -48,7 +48,7 @@ export const useContentGeneration = (options: UseContentGenerationOptions = {}) 
           throw new Error('Unsupported content type');
       }
       
-      if (result.success) {
+      if (result?.success) {
         const newContent = result.data.content;
         setGeneratedContent(newContent);
         
