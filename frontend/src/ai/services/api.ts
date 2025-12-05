@@ -1,4 +1,4 @@
-import axios, { type AxiosInstance, type AxiosRequestConfig } from 'axios';
+import axios, { type AxiosInstance, type AxiosRequestConfig, type InternalAxiosRequestConfig } from 'axios';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 
@@ -51,13 +51,15 @@ class AIService {
       },
     });
     
-    // إضافة interceptor للـ JWT token
-    this.axiosInstance.interceptors.request.use((config: AxiosRequestConfig)) => {
+    // إضافة interceptor للـ JWT token - تم التصحيح هنا
+    this.axiosInstance.interceptors.request.use((config: InternalAxiosRequestConfig) => {
       const token = localStorage.getItem('access_token');
-      if (token) {
+      if (token && config.headers) {
         config.headers.Authorization = `Bearer ${token}`;
       }
       return config;
+    }, (error) => {
+      return Promise.reject(error);
     });
   }
   
