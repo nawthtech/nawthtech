@@ -6,8 +6,8 @@ import (
     "os"
     "sync"
     
-    "github.com/nawthtech/nawthech/internal/ai/providers"
-    "github.com/nawthtech/nawthech/internal/ai/services"
+    "github.com/nawthtech/nawthtech/backend/internal/ai/providers"
+    "github.com/nawthtech/nawthtech/backend/internal/ai/services"
 )
 
 type Client struct {
