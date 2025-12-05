@@ -1,6 +1,74 @@
 import { Fragment, useCallback, useEffect, useState } from "react";
 import { mc } from "./assets/mc";
 import './App.css'
+import React from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { ThemeProvider, createTheme } from '@mui/material/styles';
+import CssBaseline from '@mui/material/CssBaseline';
+import { Provider } from 'react-redux';
+import { store } from './store';
+
+// Pages
+import AIDashboard from './pages/AIDashboard/AIDashboard';
+import ContentGenerator from './pages/ContentGenerator/ContentGenerator';
+import MediaStudio from './pages/MediaStudio/MediaStudio';
+import StrategyPlanner from './pages/StrategyPlanner/StrategyPlanner';
+
+// Theme
+const theme = createTheme({
+  palette: {
+    primary: {
+      main: '#7A3EF0',
+    },
+    secondary: {
+      main: '#00F6FF',
+    },
+    background: {
+      default: '#f8fafc',
+    },
+  },
+  typography: {
+    fontFamily: [
+      'Noto Sans Arabic',
+      '-apple-system',
+      'BlinkMacSystemFont',
+      '"Segoe UI"',
+      'Roboto',
+      '"Helvetica Neue"',
+      'Arial',
+      'sans-serif',
+    ].join(','),
+    h1: {
+      fontWeight: 700,
+    },
+    h2: {
+      fontWeight: 600,
+    },
+    h3: {
+      fontWeight: 600,
+    },
+  },
+  direction: 'rtl',
+});
+
+function App() {
+  return (
+    <Provider store={store}>
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        <Router>
+          <Routes>
+            <Route path="/" element={<Navigate to="/ai" />} />
+            <Route path="/ai" element={<AIDashboard />} />
+            <Route path="/ai/content" element={<ContentGenerator />} />
+            <Route path="/ai/media" element={<MediaStudio />} />
+            <Route path="/ai/strategy" element={<StrategyPlanner />} />
+          </Routes>
+        </Router>
+      </ThemeProvider>
+    </Provider>
+  );
+},
 
 function App() {
   const [messages, setMessages] = useState<string[]>([]);
