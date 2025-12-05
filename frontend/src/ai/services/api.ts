@@ -158,7 +158,7 @@ class AIService {
     }
   }
   
-  private handleError(error: any): Error {
+  private handleError(error: unknown): Error {
     if (axios.isAxiosError(error)) {
       return new Error(error.response?.data?.error || 'AI service error');
     }
