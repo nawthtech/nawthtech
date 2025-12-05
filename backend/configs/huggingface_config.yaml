@@ -1,0 +1,101 @@
+# NawthTech Hugging Face Configuration
+# =====================================
+
+token: "hf_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+
+# النماذج المطلوبة
+models:
+  text_generation:
+    - name: "google/flan-t5-xl"
+      type: "text"
+      max_tokens: 500
+      description: "نموذج نصي عام جيد"
+    
+    - name: "mistralai/Mistral-7B-Instruct-v0.2"
+      type: "instruction"
+      max_tokens: 2000
+      description: "نموذج تعليمات متقدم"
+    
+    - name: "Qwen/Qwen2.5-7B-Instruct"
+      type: "instruction"
+      max_tokens: 2000
+      description: "دعم عربي ممتاز"
+    
+    - name: "microsoft/phi-2"
+      type: "text"
+      max_tokens: 1000
+      description: "نموذج صغير وفعال"
+
+  image_generation:
+    - name: "stabilityai/stable-diffusion-xl-base-1.0"
+      type: "image"
+      resolution: "1024x1024"
+      description: "توليد صور عالية الجودة"
+    
+    - name: "runwayml/stable-diffusion-v1-5"
+      type: "image"
+      resolution: "512x512"
+      description: "نسخة أخف"
+
+  audio:
+    - name: "openai/whisper-large-v3"
+      type: "speech-to-text"
+      languages: ["ar", "en", "fr", "es"]
+      description: "تحويل صوت إلى نص"
+    
+    - name: "suno/bark"
+      type: "text-to-speech"
+      languages: ["en", "ar", "es", "fr"]
+      description: "توليد صوت طبيعي"
+    
+    - name: "coqui/XTTS-v2"
+      type: "text-to-speech"
+      languages: ["en", "ar", "es", "fr", "de", "zh"]
+      description: "توليد صوت متعدد اللغات"
+
+  translation:
+    - name: "Helsinki-NLP/opus-mt-ar-en"
+      type: "translation"
+      source: "ar"
+      target: "en"
+      description: "ترجمة عربي إلى إنجليزي"
+    
+    - name: "Helsinki-NLP/opus-mt-en-ar"
+      type: "translation"
+      source: "en"
+      target: "ar"
+      description: "ترجمة إنجليزي إلى عربي"
+
+  summarization:
+    - name: "facebook/bart-large-cnn"
+      type: "summarization"
+      max_length: 200
+      description: "تلخيص النصوص"
+
+# إعدادات API
+api_settings:
+  base_url: "https://api-inference.huggingface.co/models"
+  timeout: 120
+  retry_attempts: 3
+  rate_limit: 30  # requests per minute
+
+# إعدادات الكاش
+cache:
+  enabled: true
+  ttl: "24h"
+  max_size: "10GB"
+  path: "./data/ai/cache/huggingface"
+
+# التسعير (مجاني)
+pricing:
+  text_generation: 0.0  # مجاني
+  image_generation: 0.0  # مجاني
+  audio_processing: 0.0  # مجاني
+  translation: 0.0  # مجاني
+
+  # الحدود المجانية
+  limits:
+    daily_text_requests: 1000
+    daily_image_requests: 50
+    daily_audio_minutes: 60
+    monthly_total_cost: 0.0
