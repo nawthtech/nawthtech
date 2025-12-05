@@ -1,4 +1,4 @@
-import { aiService, AIRequest } from './api';
+import { aiService, type AIRequest } from './api';
 
 export interface ContentGenerationOptions {
   contentType: 'blog_post' | 'social_media' | 'email' | 'ad_copy' | 'product_description';
