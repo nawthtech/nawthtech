@@ -7,6 +7,7 @@ import (
 	"github.com/nawthtech/nawthtech/backend/internal/config"
 	"github.com/nawthtech/nawthtech/backend/internal/middleware"
 	"github.com/nawthtech/nawthtech/backend/internal/services"
+	"github.com/nawthtech/nawthtech/backend/internal/ai
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
@@ -202,6 +203,20 @@ func registerWebhookRoutes(api *gin.RouterGroup, services *services.ServiceConta
 		uploadHandler, _ := NewUploadHandler() // تجاهل الخطأ مؤقتاً
 		webhook.POST("/upload/cloudinary", uploadHandler.UploadImage)
 	}
+}
+
+func SetupRouter(videoHandler *handlers.VideoHandler) *gin.Engine {
+    r := gin.Default()
+    
+    // Video routes
+    video := api.Group("/video")
+    video.Use(middleware.Auth()) // تأمين endpoints الفيديو
+    {
+        video.POST("/generate", videoHandler.GenerateVideoHandler)
+        video.GET("/status/:jobId", videoHandler.GetVideoStatusHandler)
+        video.GET("/download/:jobId", videoHandler.DownloadVideoHandler)
+        video.GET("/types", videoHandler.ListVideoTypesHandler)
+    }
 }
 
 // HealthHandler معالج الصحة
