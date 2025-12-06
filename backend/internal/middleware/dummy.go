@@ -306,25 +306,6 @@ func MockRateLimit(limit, remaining int) gin.HandlerFunc {
 	}
 }
 
-// ==================== دوال التوافق مع الكود القديم ====================
-
-// CORS دالة توافقية للكود القديم (تستخدم DummyCORS في الوضع الوهمي)
-func CORS() gin.HandlerFunc {
-	if IsDummyMode() {
-		return DummyCORS()
-	}
-	// في الوضع الحقيقي، سنستخدم الدالة من middleware.go
-	// لكن هذا يتطلب تجميع مشروط أو استخدام build tags
-	return DummyCORS() // مؤقتاً للتوافق
-}
-
-// Logger دالة توافقية للكود القديم
-func Logger() gin.HandlerFunc {
-	if IsDummyMode() {
-		return DummyLogger()
-	}
-	return DummyLogger() // مؤقتاً للتوافق
-}
 
 // ==================== وظائف المساعدة للوضع الوهمي ====================
 
