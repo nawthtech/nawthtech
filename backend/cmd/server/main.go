@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"net/http"
+  "log"
 	"os"
 	"os/signal"
 	"syscall"
@@ -20,45 +21,6 @@ import (
 	"github.com/nawthtech/nawthtech/backend/internal/middleware"
 	"github.com/nawthtech/nawthtech/backend/internal/mongodb"
 	"github.com/nawthtech/nawthtech/backend/internal/services"
- "github.com/nawthtech/nawthtech/backend/internal/ai"
- "github.com/nawthtech/nawthtech/backend/internal/handlers"
- "github.com/nawthtech/nawthtech/backend/internal/router"
-)
-
-func main() {
-    // إنشاء AI client
-    aiClient, err := ai.NewClient()
-    if err != nil {
-        log.Printf("⚠️ Warning: AI client initialization failed: %v", err)
-        log.Println("⚠️ AI features will be disabled")
-        aiClient = nil
-    }
-    
-    // إنشاء AI handler
-    var aiHandler *handlers.AIHandler
-    if aiClient != nil {
-        aiHandler = handlers.NewAIHandler(aiClient)
-        log.Println("✅ AI services enabled")
-        
-        // عرض providers المتاحة
-        providers := aiClient.GetAvailableProviders()
-        log.Printf("🤖 Available AI providers: %v", providers)
-    }
-    
-    // إعداد router
-    r := router.SetupRouter(aiHandler)
-    
-    port := os.Getenv("PORT")
-    if port == "" {
-        port = "8080"
-    }
-    
-    log.Printf("🚀 NawthTech Platform starting on port %s", port)
-    
-    if err := r.Run(":" + port); err != nil {
-        log.Fatal(err)
-    }
-}
 )
 
 // Run تشغيل خادم API
