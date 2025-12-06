@@ -1,4 +1,4 @@
-package ai
+package models
 
 // RequestOptions خيارات الطلب (محدث)
 type RequestOptions struct {
