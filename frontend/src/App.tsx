@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useState, lazy, Suspense } from "react";
+import { Fragment, useCallback, useEffect, useState } from "react";
 import { mc } from "./assets/mc";
 import './App.css'
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
@@ -6,7 +6,35 @@ import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { Provider } from 'react-redux';
 import { store } from './store';
-import { Box, CircularProgress, Typography } from '@mui/material';
+
+// مكونات بسيطة بديلة
+const AIDashboard = () => (
+  <div style={{ padding: '2rem' }}>
+    <h2>لوحة تحكم الذكاء الاصطناعي</h2>
+    <p>الصفحة الرئيسية لأدوات الذكاء الاصطناعي</p>
+  </div>
+);
+
+const ContentGenerator = () => (
+  <div style={{ padding: '2rem' }}>
+    <h2>مولد المحتوى</h2>
+    <p>أداة توليد المحتوى باستخدام الذكاء الاصطناعي</p>
+  </div>
+);
+
+const MediaStudio = () => (
+  <div style={{ padding: '2rem' }}>
+    <h2>استوديو الوسائط</h2>
+    <p>أداة إنشاء الوسائط باستخدام الذكاء الاصطناعي</p>
+  </div>
+);
+
+const StrategyPlanner = () => (
+  <div style={{ padding: '2rem' }}>
+    <h2>مخطط الاستراتيجيات</h2>
+    <p>أداة تخطيط الاستراتيجيات باستخدام الذكاء الاصطناعي</p>
+  </div>
+);
 
 // Theme
 const theme = createTheme({
@@ -44,80 +72,6 @@ const theme = createTheme({
   },
   direction: 'rtl',
 });
-
-// مكون تحميل
-const LoadingFallback = () => (
-  <Box sx={{ 
-    display: 'flex', 
-    flexDirection: 'column',
-    alignItems: 'center', 
-    justifyContent: 'center', 
-    minHeight: '60vh',
-    gap: 2
-  }}>
-    <CircularProgress size={60} />
-    <Typography variant="h6" color="text.secondary">
-      جاري التحميل...
-    </Typography>
-  </Box>
-);
-
-// مكونات ديناميكية مع معالجة الأخطاء
-const AIDashboardComponent = lazy(() => 
-  import('./pages/AIDashboard/AIDashboard')
-    .then(module => ({ default: module.default }))
-    .catch(() => ({ 
-      default: () => (
-        <Box sx={{ p: 4, textAlign: 'center' }}>
-          <Typography variant="h5" color="error">
-            ⚠️ تعذر تحميل لوحة التحكم
-          </Typography>
-        </Box>
-      )
-    }))
-);
-
-const ContentGeneratorComponent = lazy(() => 
-  import('./pages/ContentGenerator/ContentGenerator')
-    .then(module => ({ default: module.default }))
-    .catch(() => ({ 
-      default: () => (
-        <Box sx={{ p: 4, textAlign: 'center' }}>
-          <Typography variant="h5" color="error">
-            ⚠️ تعذر تحميل مولد المحتوى
-          </Typography>
-        </Box>
-      )
-    }))
-);
-
-const MediaStudioComponent = lazy(() => 
-  import('./pages/MediaStudio/MediaStudio')
-    .then(module => ({ default: module.default }))
-    .catch(() => ({ 
-      default: () => (
-        <Box sx={{ p: 4, textAlign: 'center' }}>
-          <Typography variant="h5" color="error">
-            ⚠️ تعذر تحميل استوديو الوسائط
-          </Typography>
-        </Box>
-      )
-    }))
-);
-
-const StrategyPlannerComponent = lazy(() => 
-  import('./pages/StrategyPlanner/StrategyPlanner')
-    .then(module => ({ default: module.default }))
-    .catch(() => ({ 
-      default: () => (
-        <Box sx={{ p: 4, textAlign: 'center' }}>
-          <Typography variant="h5" color="error">
-            ⚠️ تعذر تحميل مخطط الاستراتيجيات
-          </Typography>
-        </Box>
-      )
-    }))
-);
 
 function App() {
   const [messages, setMessages] = useState<string[]>([]);
@@ -173,17 +127,15 @@ function App() {
         <CssBaseline />
         <Router>
           <div className="app-container">
-            <Suspense fallback={<LoadingFallback />}>
-              <Routes>
-                <Route path="/" element={<Navigate to="/ai" />} />
-                <Route path="/ai" element={<AIDashboardComponent />} />
-                <Route path="/ai/content" element={<ContentGeneratorComponent />} />
-                <Route path="/ai/media" element={<MediaStudioComponent />} />
-                <Route path="/ai/strategy" element={<StrategyPlannerComponent />} />
-              </Routes>
-            </Suspense>
+            <Routes>
+              <Route path="/" element={<Navigate to="/ai" />} />
+              <Route path="/ai" element={<AIDashboard />} />
+              <Route path="/ai/content" element={<ContentGenerator />} />
+              <Route path="/ai/media" element={<MediaStudio />} />
+              <Route path="/ai/strategy" element={<StrategyPlanner />} />
+            </Routes>
             
-            {/* SSE Quotes Section */}
+            {/* SSE Quotes Section - مخفي حالياً */}
             <div className="sse-quotes" style={{ display: 'none' }}>
               <h1 className="text-4xl font-semibold">Here's some unnecessary quotes for you to read...</h1>
 
