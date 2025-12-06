@@ -9,7 +9,10 @@ import (
     "net/http"
     "os"
     "strings"
+    "sync"
     "time"
+    
+    "github.com/nawthtech/nawthtech/backend/internal/ai/types"
 )
 
 // GeminiProvider مزود Google Gemini
@@ -18,7 +21,7 @@ type GeminiProvider struct {
     baseURL string
     client  *http.Client
     mu      sync.RWMutex
-    stats   *ProviderStats
+    stats   *types.ProviderStats
 }
 
 // NewGeminiProvider إنشاء مزود Gemini جديد
@@ -31,7 +34,7 @@ func NewGeminiProvider() *GeminiProvider {
         client: &http.Client{
             Timeout: 120 * time.Second,
         },
-        stats: &ProviderStats{
+        stats: &types.ProviderStats{
             Name:        "Google Gemini",
             Type:        "text",
             IsAvailable: false,
@@ -47,7 +50,7 @@ func NewGeminiProvider() *GeminiProvider {
 }
 
 // GenerateText توليد نص باستخدام Gemini
-func (p *GeminiProvider) GenerateText(req TextRequest) (*TextResponse, error) {
+func (p *GeminiProvider) GenerateText(req types.TextRequest) (*types.TextResponse, error) {
     startTime := time.Now()
     
     p.mu.Lock()
@@ -204,7 +207,7 @@ func (p *GeminiProvider) GenerateText(req TextRequest) (*TextResponse, error) {
     p.stats.LastUsed = time.Now()
     p.mu.Unlock()
     
-    return &TextResponse{
+    return &types.TextResponse{
         Text:         strings.TrimSpace(fullText),
         Tokens:       result.UsageMetadata.TotalTokenCount,
         Cost:         cost,
@@ -215,7 +218,7 @@ func (p *GeminiProvider) GenerateText(req TextRequest) (*TextResponse, error) {
 }
 
 // GenerateImage توليد صور باستخدام Gemini - غير مدعوم مباشرة
-func (p *GeminiProvider) GenerateImage(req ImageRequest) (*ImageResponse, error) {
+func (p *GeminiProvider) GenerateImage(req types.ImageRequest) (*types.ImageResponse, error) {
     startTime := time.Now()
     
     p.mu.Lock()
@@ -237,7 +240,7 @@ func (p *GeminiProvider) GenerateImage(req ImageRequest) (*ImageResponse, error)
     prompt := fmt.Sprintf("Generate a detailed prompt for DALL-E or Stable Diffusion to create an image with the following description: %s. Style: %s, Size: %s, Quality: %s",
         req.Prompt, req.Style, req.Size, req.Quality)
     
-    textReq := TextRequest{
+    textReq := types.TextRequest{
         Prompt: prompt,
         Model:  "gemini-2.5-flash-exp",
     }
@@ -255,7 +258,7 @@ func (p *GeminiProvider) GenerateImage(req ImageRequest) (*ImageResponse, error)
     p.stats.Successful++
     p.mu.Unlock()
     
-    return &ImageResponse{
+    return &types.ImageResponse{
         URL:         "", // لا يوجد URL للصورة
         ImageData:   nil,
         Size:        req.Size,
@@ -268,12 +271,12 @@ func (p *GeminiProvider) GenerateImage(req ImageRequest) (*ImageResponse, error)
 }
 
 // GenerateVideo توليد فيديو - غير مدعوم في Gemini
-func (p *GeminiProvider) GenerateVideo(req VideoRequest) (*VideoResponse, error) {
+func (p *GeminiProvider) GenerateVideo(req types.VideoRequest) (*types.VideoResponse, error) {
     return nil, fmt.Errorf("video generation not supported by Gemini")
 }
 
 // AnalyzeText تحليل نص
-func (p *GeminiProvider) AnalyzeText(req AnalysisRequest) (*AnalysisResponse, error) {
+func (p *GeminiProvider) AnalyzeText(req types.AnalysisRequest) (*types.AnalysisResponse, error) {
     startTime := time.Now()
     
     p.mu.Lock()
@@ -304,7 +307,7 @@ func (p *GeminiProvider) AnalyzeText(req AnalysisRequest) (*AnalysisResponse, er
         analysisPrompt = fmt.Sprintf("Analyze this text and provide insights: %s", req.Text)
     }
     
-    textReq := TextRequest{
+    textReq := types.TextRequest{
         Prompt:      analysisPrompt,
         Model:       model,
         Temperature: 0.3, // أقل درجة حرارة لتحليل أكثر دقة
@@ -322,7 +325,7 @@ func (p *GeminiProvider) AnalyzeText(req AnalysisRequest) (*AnalysisResponse, er
     p.stats.Successful++
     p.mu.Unlock()
     
-    return &AnalysisResponse{
+    return &types.AnalysisResponse{
         Result:     resp.Text,
         Confidence: 0.9, // تقدير ثقة عالي لـ Gemini
         Cost:       resp.Cost,
@@ -331,7 +334,7 @@ func (p *GeminiProvider) AnalyzeText(req AnalysisRequest) (*AnalysisResponse, er
 }
 
 // AnalyzeImage تحليل صور باستخدام Gemini Vision
-func (p *GeminiProvider) AnalyzeImage(req AnalysisRequest) (*AnalysisResponse, error) {
+func (p *GeminiProvider) AnalyzeImage(req types.AnalysisRequest) (*types.AnalysisResponse, error) {
     startTime := time.Now()
     
     p.mu.Lock()
@@ -472,7 +475,7 @@ func (p *GeminiProvider) AnalyzeImage(req AnalysisRequest) (*AnalysisResponse, e
     p.stats.TotalCost += cost
     p.mu.Unlock()
     
-    return &AnalysisResponse{
+    return &types.AnalysisResponse{
         Result:     strings.TrimSpace(fullText),
         Confidence: 0.85, // ثقة عالية في تحليل الصور
         Cost:       cost,
@@ -481,7 +484,7 @@ func (p *GeminiProvider) AnalyzeImage(req AnalysisRequest) (*AnalysisResponse, e
 }
 
 // TranslateText ترجمة نص
-func (p *GeminiProvider) TranslateText(req TranslationRequest) (*TranslationResponse, error) {
+func (p *GeminiProvider) TranslateText(req types.TranslationRequest) (*types.TranslationResponse, error) {
     startTime := time.Now()
     
     p.mu.Lock()
@@ -507,7 +510,7 @@ func (p *GeminiProvider) TranslateText(req TranslationRequest) (*TranslationResp
     prompt := fmt.Sprintf("Translate the following text from %s to %s:\n\n%s",
         req.FromLang, req.ToLang, req.Text)
     
-    textReq := TextRequest{
+    textReq := types.TextRequest{
         Prompt: prompt,
         Model:  model,
     }
@@ -524,7 +527,7 @@ func (p *GeminiProvider) TranslateText(req TranslationRequest) (*TranslationResp
     p.stats.Successful++
     p.mu.Unlock()
     
-    return &TranslationResponse{
+    return &types.TranslationResponse{
         TranslatedText: strings.TrimSpace(resp.Text),
         Cost:           resp.Cost,
         Model:          resp.ModelUsed,
@@ -556,7 +559,7 @@ func (p *GeminiProvider) GetType() string {
 }
 
 // GetStats الحصول على إحصائيات
-func (p *GeminiProvider) GetStats() *ProviderStats {
+func (p *GeminiProvider) GetStats() *types.ProviderStats {
     p.mu.RLock()
     defer p.mu.RUnlock()
     
