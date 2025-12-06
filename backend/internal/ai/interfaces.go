@@ -166,42 +166,46 @@ type UpscaleOptions struct {
     Sharpness   float64
 }
 
-// VideoResponse استجابة الفيديو
-type VideoResponse struct {
+// VideoInfo معلومات الفيديو
+type VideoInfo struct {
+    ID          string
+    Title       string
+    Description string
     URL         string
     Duration    int
     Size        int64
-    Format      string
-    Resolution  string
     Status      string
-    OperationID string
-    Cost        float64
-    ModelUsed   string
     CreatedAt   time.Time
-    ExpiresAt   time.Time
-    Error       string
+    UpdatedAt   time.Time
+    Cost        float64
+    Provider    string
 }
 
-// TextResponse استجابة النص
-type TextResponse struct {
+// Entity كيان في التحليل
+type Entity struct {
     Text        string
-    Tokens      int
-    Cost        float64
-    ModelUsed   string
-    FinishReason string
-    CreatedAt   time.Time
+    Type        string
+    Start       int
+    End         int
+    Confidence  float64
 }
 
-// ImageResponse استجابة الصورة
-type ImageResponse struct {
-    URL         string
-    ImageData   []byte
-    Size        string
-    Format      string
-    Cost        float64
-    ModelUsed   string
-    CreatedAt   time.Time
-    Seed        int64
+// ProviderError خطأ المزود
+type ProviderError struct {
+    Code        string
+    Message     string
+    Timestamp   time.Time
+    Retryable   bool
+}
+
+// CacheStats إحصائيات الذاكرة المؤقتة
+type CacheStats struct {
+    Hits        int64
+    Misses      int64
+    HitRate     float64
+    Size        int
+    Items       int
+    MemoryUsage int64
 }
 
 // AnalysisResult نتيجة التحليل
@@ -233,88 +237,6 @@ type SummaryResult struct {
     KeyPoints   []string
     Cost        float64
     ModelUsed   string
-}
-
-// VideoInfo معلومات الفيديو
-type VideoInfo struct {
-    ID          string
-    Title       string
-    Description string
-    URL         string
-    Duration    int
-    Size        int64
-    Status      string
-    CreatedAt   time.Time
-    UpdatedAt   time.Time
-    Cost        float64
-    Provider    string
-}
-
-// Entity كيان في التحليل
-type Entity struct {
-    Text        string
-    Type        string
-    Start       int
-    End         int
-    Confidence  float64
-}
-
-// ProviderStats إحصائيات المزود
-type ProviderStats struct {
-    Name         string
-    Type         string
-    IsAvailable  bool
-    Requests     int64
-    Successful   int64
-    Failed       int64
-    TotalCost    float64
-    AvgLatency   float64
-    LastUsed     time.Time
-    SuccessRate  float64
-    Errors       []ProviderError
-}
-
-// ProviderError خطأ المزود
-type ProviderError struct {
-    Code        string
-    Message     string
-    Timestamp   time.Time
-    Retryable   bool
-}
-
-// CacheStats إحصائيات الذاكرة المؤقتة
-type CacheStats struct {
-    Hits        int64
-    Misses      int64
-    HitRate     float64
-    Size        int
-    Items       int
-    MemoryUsage int64
-}
-
-// UsageRecord سجل الاستخدام
-type UsageRecord struct {
-    ID          string
-    UserID      string
-    UserTier    string
-    Provider    string
-    Type        string
-    Cost        float64
-    Quantity    int64
-    Latency     float64
-    Success     bool
-    Timestamp   time.Time
-    Metadata    map[string]interface{}
-}
-
-// Quota حصة المستخدم
-type Quota struct {
-    Type          string
-    Used          int64
-    Limit         int64
-    ResetPeriod   string
-    LastReset     time.Time
-    NextReset     time.Time
 }
 
 // ModelInfo معلومات النموذج
