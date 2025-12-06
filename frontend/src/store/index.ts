@@ -13,7 +13,8 @@ export const store = configureStore({
     getDefaultMiddleware({
       serializableCheck: false,
     }),
-  devTools: process.env.NODE_ENV !== 'production',
+  // استخدام متغيرات بيئة Vite
+  devTools: import.meta.env.DEV || import.meta.env.MODE === 'development',
 });
 
 export type RootState = ReturnType<typeof store.getState>;
