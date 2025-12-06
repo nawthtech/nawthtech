@@ -108,3 +108,27 @@ type SystemStats struct {
 	PendingOrders   int64   `json:"pending_orders"`
 	CompletedOrders int64   `json:"completed_orders"`
 }
+
+// APIResponse استجابة API قياسية
+type APIResponse struct {
+	Success bool        `json:"success"`
+	Message string      `json:"message,omitempty"`
+	Data    interface{} `json:"data,omitempty"`
+	Error   string      `json:"error,omitempty"`
+	Code    int         `json:"code,omitempty"`
+}
+
+// PaginationRequest طلب الصفحة
+type PaginationRequest struct {
+	Page    int `json:"page" form:"page" query:"page"`
+	PerPage int `json:"per_page" form:"per_page" query:"per_page"`
+}
+
+// PaginationResponse استجابة الصفحة
+type PaginationResponse struct {
+	Page       int         `json:"page"`
+	PerPage    int         `json:"per_page"`
+	Total      int64       `json:"total"`
+	TotalPages int         `json:"total_pages"`
+	Data       interface{} `json:"data"`
+}
