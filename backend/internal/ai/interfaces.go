@@ -2,6 +2,45 @@ package ai
 
 import "time"
 
+// VideoResponse استجابة الفيديو
+type VideoResponse struct {
+    URL         string
+    Duration    int
+    Size        int64
+    Format      string
+    Resolution  string
+    Status      string
+    OperationID string
+    Cost        float64
+    ModelUsed   string
+    CreatedAt   time.Time
+    ExpiresAt   time.Time
+    Error       string
+}
+
+// TextResponse استجابة النص
+type TextResponse struct {
+    Text        string
+    Tokens      int
+    Cost        float64
+    ModelUsed   string
+    FinishReason string
+    CreatedAt   time.Time
+}
+
+// ImageResponse استجابة الصورة
+type ImageResponse struct {
+    URL         string
+    ImageData   []byte
+    Size        string
+    Format      string
+    Cost        float64
+    ModelUsed   string
+    CreatedAt   time.Time
+    Seed        int64
+}
+
+// بقية الملف كما كان...
 // VideoServiceInterface واجهة لفصل التبعيات
 type VideoServiceInterface interface {
     GenerateVideo(prompt string, options VideoOptions) (*VideoResponse, error)
