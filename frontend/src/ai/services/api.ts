@@ -2,7 +2,6 @@ import axios from 'axios';
 
 export interface AIRequest {
   prompt: string;
-  model?: string;
   options?: Record<string, any>;
 }
 
@@ -10,17 +9,20 @@ export interface AIResponse {
   success: boolean;
   data?: any;
   error?: string;
-  usage?: {
-    tokens: number;
-    cost: number;
-  };
 }
 
 export const aiService = {
   async generateContent(request: AIRequest): Promise<AIResponse> {
     try {
-      const response = await axios.post('/api/ai/generate', request);
-      return response.data;
+      // محاكاة API call
+      await new Promise(resolve => setTimeout(resolve, 500));
+      return {
+        success: true,
+        data: {
+          content: `Generated content for: ${request.prompt}`,
+          options: request.options
+        }
+      };
     } catch (error: any) {
       return {
         success: false,
@@ -31,8 +33,15 @@ export const aiService = {
 
   async getAvailableModels(): Promise<AIResponse> {
     try {
-      const response = await axios.get('/api/ai/models');
-      return response.data;
+      return {
+        success: true,
+        data: {
+          models: [
+            { id: 'text', name: 'Text Generator' },
+            { id: 'image', name: 'Image Generator' },
+          ]
+        }
+      };
     } catch (error: any) {
       return {
         success: false,
@@ -43,8 +52,15 @@ export const aiService = {
 
   async getUsage(): Promise<AIResponse> {
     try {
-      const response = await axios.get('/api/ai/usage');
-      return response.data;
+      return {
+        success: true,
+        data: {
+          usage: {
+            requests: 150,
+            tokens: 12000
+          }
+        }
+      };
     } catch (error: any) {
       return {
         success: false,

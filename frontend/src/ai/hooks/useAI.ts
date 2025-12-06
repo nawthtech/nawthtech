@@ -9,12 +9,6 @@ interface UseAIOptions {
   showNotifications?: boolean;
 }
 
-interface AIGenerateOptions {
-  language?: string;
-  style?: string;
-  model?: string;
-}
-
 export const useAI = (options: UseAIOptions = {}) => {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -58,10 +52,7 @@ export const useAI = (options: UseAIOptions = {}) => {
     }
   }, [options]);
   
-  const generateBlogPost = useCallback(async (
-    topic: string, 
-    language: string = 'ar'
-  ): Promise<any> => {
+  const generateBlogPost = useCallback(async (topic: string, language: string = 'ar'): Promise<any> => {
     setLoading(true);
     setError(null);
     
@@ -111,10 +102,7 @@ export const useAI = (options: UseAIOptions = {}) => {
     }
   }, [generateContent, options.onError]);
   
-  const analyzeMarketTrends = useCallback(async (
-    industry: string, 
-    timeframe: string
-  ): Promise<any> => {
+  const analyzeMarketTrends = useCallback(async (industry: string, timeframe: string): Promise<any> => {
     setLoading(true);
     setError(null);
     
@@ -136,10 +124,7 @@ export const useAI = (options: UseAIOptions = {}) => {
     }
   }, [generateContent, options.onError]);
   
-  const generateImage = useCallback(async (
-    prompt: string, 
-    style: string = 'realistic'
-  ): Promise<any> => {
+  const generateImage = useCallback(async (prompt: string, style: string = 'realistic'): Promise<any> => {
     setLoading(true);
     setError(null);
     
