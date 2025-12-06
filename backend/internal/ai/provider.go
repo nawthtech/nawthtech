@@ -16,15 +16,8 @@ type VideoRequest struct {
     Duration    int    // مدة الفيديو بالثواني
     AspectRatio string // نسبة الأبعاد
     Style       string // النمط
-}
-
-// VideoResponse استجابة توليد فيديو
-type VideoResponse struct {
-    VideoURL    string
-    Duration    int
-    Cost        float64
-    Status      string
-    OperationID string
+    UserID      string // معرف المستخدم
+    UserTier    string // طبقة المستخدم
 }
 
 // TextRequest طلب توليد نص
@@ -34,14 +27,8 @@ type TextRequest struct {
     Temperature float64
     MaxTokens   int
     Language    string
-}
-
-// TextResponse استجابة توليد نص
-type TextResponse struct {
-    Text        string
-    Tokens      int
-    Cost        float64
-    Model       string
+    UserID      string // معرف المستخدم
+    UserTier    string // طبقة المستخدم
 }
 
 // ImageRequest طلب توليد صورة
@@ -51,15 +38,8 @@ type ImageRequest struct {
     Size        string
     Style       string
     Quality     string
-}
-
-// ImageResponse استجابة توليد صورة
-type ImageResponse struct {
-    ImageURL    string
-    ImageData   []byte
-    Size        string
-    Cost        float64
-    Model       string
+    UserID      string // معرف المستخدم
+    UserTier    string // طبقة المستخدم
 }
 
 // AnalysisRequest طلب تحليل
@@ -68,6 +48,8 @@ type AnalysisRequest struct {
     ImageData   []byte
     Prompt      string
     Model       string
+    UserID      string // معرف المستخدم
+    UserTier    string // طبقة المستخدم
 }
 
 // AnalysisResponse استجابة تحليل
@@ -84,6 +66,8 @@ type TranslationRequest struct {
     FromLang    string
     ToLang      string
     Model       string
+    UserID      string // معرف المستخدم
+    UserTier    string // طبقة المستخدم
 }
 
 // TranslationResponse استجابة ترجمة
@@ -91,51 +75,6 @@ type TranslationResponse struct {
     TranslatedText string
     Cost           float64
     Model          string
-}
-
-// ProviderStats إحصائيات المزود
-type ProviderStats struct {
-    Name         string
-    Type         string
-    IsAvailable  bool
-    Requests     int64
-    Errors       int64
-    LastUsed     string
-    TotalCost    float64
-    SuccessRate  float64
-}
-
-// Provider واجهة مشتركة محدثة
-type Provider interface {
-    // توليد نص
-    GenerateText(req TextRequest) (*TextResponse, error)
-    
-    // توليد صور
-    GenerateImage(req ImageRequest) (*ImageResponse, error)
-    
-    // توليد فيديوهات
-    GenerateVideo(req VideoRequest) (*VideoResponse, error)
-    
-    // تحليل صور
-    AnalyzeImage(req AnalysisRequest) (*AnalysisResponse, error)
-    
-    // تحليل نص
-    AnalyzeText(req AnalysisRequest) (*AnalysisResponse, error)
-    
-    // ترجمة نص
-    TranslateText(req TranslationRequest) (*TranslationResponse, error)
-    
-    // تحقق من التوفر
-    IsAvailable() bool
-    
-    // الحصول على التكلفة
-    GetCost() float64
-    
-    // الحصول على اسم المزود
-    GetName() string
-    
-    // الحصول على الإحصائيات (اختياري)
-    GetStats() *ProviderStats
 }
 
 // Option خيارات إضافية
@@ -237,18 +176,4 @@ func (p *ProviderBase) SetAvailability(available bool) {
 // CalculateCost حساب التكلفة
 func (p *ProviderBase) CalculateCost(tokens int, complexity float64) float64 {
     return p.BaseCost * float64(tokens) * complexity
-}
-
-// GetStatsDefault الحصول على إحصائيات افتراضية
-func (p *ProviderBase) GetStatsDefault() *ProviderStats {
-    return &ProviderStats{
-        Name:        p.Name,
-        Type:        "unknown",
-        IsAvailable: p.Available,
-        Requests:    0,
-        Errors:      0,
-        LastUsed:    "",
-        TotalCost:   0,
-        SuccessRate: 100.0,
-    }
 }
