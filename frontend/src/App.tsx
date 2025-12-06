@@ -1,14 +1,13 @@
 import { Fragment, useCallback, useEffect, useState } from "react";
 import { mc } from "./assets/mc";
 import './App.css'
-import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { Provider } from 'react-redux';
 import { store } from './store';
 
-// Pages
+// تصحيح المسارات - استخدم المسار الصحيح
 import AIDashboard from './pages/AIDashboard/AIDashboard';
 import ContentGenerator from './pages/ContentGenerator/ContentGenerator';
 import MediaStudio from './pages/MediaStudio/MediaStudio';
@@ -113,8 +112,8 @@ function App() {
               <Route path="/ai/strategy" element={<StrategyPlanner />} />
             </Routes>
             
-            {/* SSE Quotes Section - يمكنك نقلها إلى صفحة منفصلة إذا أردت */}
-            <div className="sse-quotes">
+            {/* SSE Quotes Section */}
+            <div className="sse-quotes" style={{ display: 'none' }}> {/* مخفي حالياً */}
               <h1 className="text-4xl font-semibold">Here's some unnecessary quotes for you to read...</h1>
 
               {messages.map((message, index, elements) => (
