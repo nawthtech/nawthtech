@@ -2,6 +2,7 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import path from 'path'
 import { visualizer } from 'rollup-plugin-visualizer'
+import type { PluginOption } from 'vite'
 
 // https://vitejs.dev/config/
 export default defineConfig({
@@ -13,7 +14,7 @@ export default defineConfig({
       open: false,
       gzipSize: true,
       brotliSize: true,
-    })
+    }) as PluginOption
   ],
   
   // إعدادات المسارات والاستيراد
@@ -42,6 +43,9 @@ export default defineConfig({
       compress: {
         drop_console: true,
         drop_debugger: true,
+      },
+      format: {
+        comments: false,
       },
     },
     rollupOptions: {
@@ -144,15 +148,6 @@ export default defineConfig({
     deps: {
       inline: ['@testing-library/jest-dom'],
     },
-    // حل مشكلة استيراد الملفات في الاختبارات
-    server: {
-      deps: {
-        inline: [
-          /@mui/,
-          /@testing-library/,
-        ],
-      },
-    },
   },
   
   // إعدادات قاعدة عامة
@@ -162,4 +157,11 @@ export default defineConfig({
   
   // إعدادات التخزين المؤقت
   cacheDir: '.vite',
+  
+  // إعدادات تعريف المتغيرات العالمية
+  define: {
+    'process.env': {},
+    global: 'window',
+    '__VITE_PLUGIN_REACT_PACKAGE': JSON.stringify('@vitejs/plugin-react'),
+  },
 })
