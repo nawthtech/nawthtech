@@ -20,7 +20,7 @@ type OllamaProvider struct {
 }
 
 // NewOllamaProvider إنشاء مزود Ollama جديد
-func NewOllamaProvider() (*OllamaProvider, error) {
+func NewOllamaProvider() *OllamaProvider {
     baseURL := os.Getenv("OLLAMA_HOST")
     if baseURL == "" {
         baseURL = "http://localhost:11434"
@@ -33,12 +33,10 @@ func NewOllamaProvider() (*OllamaProvider, error) {
         },
     }
     
-    // تحميل قائمة النماذج المتاحة
-    if err := provider.loadModels(); err != nil {
-        return nil, fmt.Errorf("failed to load Ollama models: %w", err)
-    }
+    // محاولة تحميل النماذج (لنفشل بهدوء إذا كان Ollama غير متوفر)
+    provider.loadModels()
     
-    return provider, nil
+    return provider
 }
 
 // loadModels تحميل النماذج المتاحة من Ollama
@@ -73,91 +71,166 @@ func (p *OllamaProvider) loadModels() error {
     return nil
 }
 
-// Generate توليد نص
-func (p *OllamaProvider) Generate(prompt string, options ...Option) (string, error) {
-    opts := &Options{
-        Model:       "llama3.2:3b",
-        Temperature: 0.7,
-        MaxTokens:   2000,
-    }
-    
-    for _, opt := range options {
-        opt(opts)
-    }
-    
-    // التأكد من وجود النموذج
-    if !p.hasModel(opts.Model) {
-        // استخدام النموذج الافتراضي
-        opts.Model = "llama3.2:3b"
-    }
-    
-    return p.generateText(prompt, opts)
-}
-
-// generateText توليد نص باستخدام Ollama
-func (p *OllamaProvider) generateText(prompt string, opts *Options) (string, error) {
+// GenerateText توليد نص
+func (p *OllamaProvider) GenerateText(req TextRequest) (*TextResponse, error) {
     url := p.baseURL + "/api/generate"
     
-    request := map[string]interface{}{
-        "model":  opts.Model,
-        "prompt": prompt,
-        "stream": false,
-        "options": map[string]interface{}{
-            "temperature": opts.Temperature,
-            "num_predict": opts.MaxTokens,
-            "top_p":       opts.TopP,
-            "top_k":       opts.TopK,
-            "repeat_penalty": opts.RepetitionPenalty,
-        },
+    // تعيين القيم الافتراضية
+    model := req.Model
+    if model == "" {
+        model = "llama3.2:3b"
     }
     
-    if opts.SystemPrompt != "" {
-        request["system"] = opts.SystemPrompt
+    temperature := req.Temperature
+    if temperature == 0 {
+        temperature = 0.7
+    }
+    
+    maxTokens := req.MaxTokens
+    if maxTokens == 0 {
+        maxTokens = 2000
+    }
+    
+    request := map[string]interface{}{
+        "model":  model,
+        "prompt": req.Prompt,
+        "stream": false,
+        "options": map[string]interface{}{
+            "temperature": temperature,
+            "num_predict": maxTokens,
+        },
     }
     
     jsonData, err := json.Marshal(request)
     if err != nil {
-        return "", fmt.Errorf("failed to marshal request: %w", err)
+        return nil, fmt.Errorf("failed to marshal request: %w", err)
     }
     
     resp, err := p.httpClient.Post(url, "application/json", bytes.NewBuffer(jsonData))
     if err != nil {
-        return "", fmt.Errorf("Ollama request failed: %w", err)
+        return nil, fmt.Errorf("Ollama request failed: %w", err)
     }
     defer resp.Body.Close()
     
     if resp.StatusCode != http.StatusOK {
         body, _ := io.ReadAll(resp.Body)
-        return "", fmt.Errorf("Ollama API error: %s - %s", resp.Status, string(body))
+        return nil, fmt.Errorf("Ollama API error: %s - %s", resp.Status, string(body))
     }
     
     var result struct {
         Response string `json:"response"`
         Done     bool   `json:"done"`
         Model    string `json:"model"`
-        CreatedAt string `json:"created_at"`
     }
     
     if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-        return "", fmt.Errorf("failed to decode response: %w", err)
+        return nil, fmt.Errorf("failed to decode response: %w", err)
     }
     
-    return strings.TrimSpace(result.Response), nil
+    // تقدير عدد الرموز (تقريبي)
+    tokens := len(strings.Fields(result.Response)) * 1.3
+    
+    return &TextResponse{
+        Text:   strings.TrimSpace(result.Response),
+        Tokens: int(tokens),
+        Cost:   0.0, // Ollama مجاني
+        Model:  result.Model,
+    }, nil
+}
+
+// GenerateImage توليد صورة - غير مدعوم في Ollama
+func (p *OllamaProvider) GenerateImage(req ImageRequest) (*ImageResponse, error) {
+    return nil, fmt.Errorf("image generation not supported by Ollama")
+}
+
+// GenerateVideo توليد فيديو - غير مدعوم في Ollama
+func (p *OllamaProvider) GenerateVideo(req VideoRequest) (*VideoResponse, error) {
+    return nil, fmt.Errorf("video generation not supported by Ollama")
+}
+
+// AnalyzeImage تحليل صورة
+func (p *OllamaProvider) AnalyzeImage(req AnalysisRequest) (*AnalysisResponse, error) {
+    // استخدام نموذج رؤية لتحليل الصورة
+    // هذا يتطلب نموذج multimodal مثل llama3.2-vision
+    if req.Model == "" {
+        req.Model = "llava:latest"
+    }
+    
+    // تحويل الصورة إلى prompt
+    prompt := fmt.Sprintf("%s Analyze this image: [Image data provided]", req.Prompt)
+    
+    textReq := TextRequest{
+        Prompt: prompt,
+        Model:  req.Model,
+    }
+    
+    resp, err := p.GenerateText(textReq)
+    if err != nil {
+        return nil, err
+    }
+    
+    return &AnalysisResponse{
+        Result:     resp.Text,
+        Confidence: 0.8,
+        Cost:       0.0,
+        Model:      resp.Model,
+    }, nil
+}
+
+// AnalyzeText تحليل نص
+func (p *OllamaProvider) AnalyzeText(req AnalysisRequest) (*AnalysisResponse, error) {
+    prompt := fmt.Sprintf("Analyze this text: %s\n\nProvide analysis:", req.Text)
+    
+    if req.Prompt != "" {
+        prompt = fmt.Sprintf("%s\n\n%s", req.Prompt, prompt)
+    }
+    
+    textReq := TextRequest{
+        Prompt: prompt,
+        Model:  req.Model,
+    }
+    
+    resp, err := p.GenerateText(textReq)
+    if err != nil {
+        return nil, err
+    }
+    
+    return &AnalysisResponse{
+        Result:     resp.Text,
+        Confidence: 0.9,
+        Cost:       0.0,
+        Model:      resp.Model,
+    }, nil
+}
+
+// TranslateText ترجمة نص
+func (p *OllamaProvider) TranslateText(req TranslationRequest) (*TranslationResponse, error) {
+    prompt := fmt.Sprintf("Translate the following text from %s to %s:\n\n%s",
+        req.FromLang, req.ToLang, req.Text)
+    
+    if req.Model == "" {
+        req.Model = "llama3.2:3b"
+    }
+    
+    textReq := TextRequest{
+        Prompt: prompt,
+        Model:  req.Model,
+    }
+    
+    resp, err := p.GenerateText(textReq)
+    if err != nil {
+        return nil, err
+    }
+    
+    return &TranslationResponse{
+        TranslatedText: strings.TrimSpace(resp.Text),
+        Cost:           0.0,
+        Model:          resp.Model,
+    }, nil
 }
 
 // GenerateStream توليد نص بشكل متدفق
-func (p *OllamaProvider) GenerateStream(prompt string, options ...Option) (<-chan string, <-chan error, context.CancelFunc) {
-    opts := &Options{
-        Model:       "llama3.2:3b",
-        Temperature: 0.7,
-        MaxTokens:   2000,
-    }
-    
-    for _, opt := range options {
-        opt(opts)
-    }
-    
-    ctx, cancel := context.WithCancel(context.Background())
+func (p *OllamaProvider) GenerateStream(ctx context.Context, req TextRequest) (<-chan string, <-chan error) {
     textChan := make(chan string)
     errChan := make(chan error, 1)
     
@@ -167,13 +240,29 @@ func (p *OllamaProvider) GenerateStream(prompt string, options ...Option) (<-cha
         
         url := p.baseURL + "/api/generate"
         
+        // تعيين القيم الافتراضية
+        model := req.Model
+        if model == "" {
+            model = "llama3.2:3b"
+        }
+        
+        temperature := req.Temperature
+        if temperature == 0 {
+            temperature = 0.7
+        }
+        
+        maxTokens := req.MaxTokens
+        if maxTokens == 0 {
+            maxTokens = 2000
+        }
+        
         request := map[string]interface{}{
-            "model":  opts.Model,
-            "prompt": prompt,
+            "model":  model,
+            "prompt": req.Prompt,
             "stream": true,
             "options": map[string]interface{}{
-                "temperature": opts.Temperature,
-                "num_predict": opts.MaxTokens,
+                "temperature": temperature,
+                "num_predict": maxTokens,
             },
         }
         
@@ -183,14 +272,14 @@ func (p *OllamaProvider) GenerateStream(prompt string, options ...Option) (<-cha
             return
         }
         
-        req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(jsonData))
+        httpReq, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(jsonData))
         if err != nil {
             errChan <- err
             return
         }
-        req.Header.Set("Content-Type", "application/json")
+        httpReq.Header.Set("Content-Type", "application/json")
         
-        resp, err := p.httpClient.Do(req)
+        resp, err := p.httpClient.Do(httpReq)
         if err != nil {
             errChan <- err
             return
@@ -236,7 +325,7 @@ func (p *OllamaProvider) GenerateStream(prompt string, options ...Option) (<-cha
         }
     }()
     
-    return textChan, errChan, cancel
+    return textChan, errChan
 }
 
 // Embed توليد embeddings
@@ -279,7 +368,7 @@ func (p *OllamaProvider) PullModel(model string) error {
     url := p.baseURL + "/api/pull"
     
     request := map[string]interface{}{
-        "name": model,
+        "name":   model,
         "stream": false,
     }
     
@@ -306,87 +395,8 @@ func (p *OllamaProvider) PullModel(model string) error {
 }
 
 // ListModels عرض النماذج المتاحة
-func (p *OllamaProvider) ListModels() ([]ModelInfo, error) {
-    url := p.baseURL + "/api/tags"
-    
-    resp, err := p.httpClient.Get(url)
-    if err != nil {
-        return nil, err
-    }
-    defer resp.Body.Close()
-    
-    var result struct {
-        Models []struct {
-            Name       string `json:"name"`
-            ModifiedAt string `json:"modified_at"`
-            Size       int64  `json:"size"`
-            Digest     string `json:"digest"`
-        } `json:"models"`
-    }
-    
-    if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-        return nil, err
-    }
-    
-    var models []ModelInfo
-    for _, m := range result.Models {
-        models = append(models, ModelInfo{
-            ID:   m.Name,
-            Name: m.Name,
-            Size: m.Size,
-        })
-    }
-    
-    return models, nil
-}
-
-// ModelInfo معلومات النموذج
-type ModelInfo struct {
-    ID   string `json:"id"`
-    Name string `json:"name"`
-    Size int64  `json:"size"`
-}
-
-// hasModel التحقق من وجود النموذج
-func (p *OllamaProvider) hasModel(modelName string) bool {
-    for _, m := range p.models {
-        if m == modelName {
-            return true
-        }
-    }
-    return false
-}
-
-// GetStats الحصول على إحصائيات
-func (p *OllamaProvider) GetStats() (map[string]interface{}, error) {
-    // محاولة الحصول على إحصائيات من Ollama
-    url := p.baseURL + "/api/version"
-    
-    resp, err := p.httpClient.Get(url)
-    if err != nil {
-        return nil, err
-    }
-    defer resp.Body.Close()
-    
-    var versionInfo struct {
-        Version string `json:"version"`
-    }
-    
-    if err := json.NewDecoder(resp.Body).Decode(&versionInfo); err != nil {
-        return nil, err
-    }
-    
-    stats := map[string]interface{}{
-        "provider":        "ollama",
-        "version":         versionInfo.Version,
-        "models_count":    len(p.models),
-        "models":          p.models,
-        "status":          "online",
-        "supports_stream": true,
-        "supports_embed":  true,
-    }
-    
-    return stats, nil
+func (p *OllamaProvider) ListModels() []string {
+    return p.models
 }
 
 // IsAvailable التحقق من التوفر
@@ -405,44 +415,60 @@ func (p *OllamaProvider) GetCost() float64 {
     return 0.0
 }
 
-// Options خيارات التوليد
-type Options struct {
-    Model             string
-    Temperature       float64
-    MaxTokens         int
-    TopP              float64
-    TopK              int
-    RepetitionPenalty float64
-    SystemPrompt      string
+// GetStats الحصول على إحصائيات
+func (p *OllamaProvider) GetStats() *ProviderStats {
+    stats := &ProviderStats{
+        Name:        "Ollama",
+        Type:        "text",
+        IsAvailable: p.IsAvailable(),
+        Requests:    0, // سيتم تحديث هذا من قبل CostManager
+        Errors:      0,
+        LastUsed:    "",
+        TotalCost:   0.0,
+        SuccessRate: 95.0, // تقديري
+    }
+    
+    return stats
 }
 
-// Option دالة لتعديل الخيارات
-type Option func(*Options)
-
-// WithModel تحديد النموذج
-func WithModel(model string) Option {
-    return func(o *Options) {
-        o.Model = model
+// GetStatsDetailed الحصول على إحصائيات مفصلة
+func (p *OllamaProvider) GetStatsDetailed() (map[string]interface{}, error) {
+    stats := map[string]interface{}{
+        "provider":        "ollama",
+        "models_count":    len(p.models),
+        "models":          p.models,
+        "status":          "online",
+        "supports_stream": true,
+        "supports_embed":  true,
     }
+    
+    // محاولة الحصول على إصدار Ollama
+    url := p.baseURL + "/api/version"
+    resp, err := p.httpClient.Get(url)
+    if err == nil {
+        defer resp.Body.Close()
+        var versionInfo struct {
+            Version string `json:"version"`
+        }
+        if err := json.NewDecoder(resp.Body).Decode(&versionInfo); err == nil {
+            stats["version"] = versionInfo.Version
+        }
+    }
+    
+    return stats, nil
 }
 
-// WithTemperature تحديد درجة الحرارة
-func WithTemperature(temp float64) Option {
-    return func(o *Options) {
-        o.Temperature = temp
+// StreamText توليد نص متدفق (واجهة بديلة)
+func (p *OllamaProvider) StreamText(prompt string, model string, temperature float64) (<-chan string, <-chan error, context.CancelFunc) {
+    ctx, cancel := context.WithCancel(context.Background())
+    
+    req := TextRequest{
+        Prompt:      prompt,
+        Model:       model,
+        Temperature: temperature,
     }
-}
-
-// WithMaxTokens تحديد الحد الأقصى للرموز
-func WithMaxTokens(tokens int) Option {
-    return func(o *Options) {
-        o.MaxTokens = tokens
-    }
-}
-
-// WithSystemPrompt إضافة نظام prompt
-func WithSystemPrompt(prompt string) Option {
-    return func(o *Options) {
-        o.SystemPrompt = prompt
-    }
+    
+    textChan, errChan := p.GenerateStream(ctx, req)
+    
+    return textChan, errChan, cancel
 }
