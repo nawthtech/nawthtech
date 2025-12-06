@@ -6,12 +6,14 @@ import (
     "os"
     "sync"
     "time"
+    
+    "github.com/nawthtech/nawthtech/backend/internal/ai/types"
 )
 
 // Client عميل AI متكامل
 type Client struct {
     mu                sync.RWMutex
-    providers         map[string]ProviderInterface
+    providers         map[string]types.ProviderInterface
     multiProvider     *MultiProvider
     costManager       *CostManager
 }
@@ -19,7 +21,7 @@ type Client struct {
 // NewClient إنشاء عميل AI جديد
 func NewClient() (*Client, error) {
     c := &Client{
-        providers: make(map[string]ProviderInterface),
+        providers: make(map[string]types.ProviderInterface),
     }
     
     // إنشاء مدير التكاليف
@@ -77,13 +79,13 @@ func (c *Client) GenerateText(prompt, provider string) (string, error) {
     c.mu.RLock()
     defer c.mu.RUnlock()
     
-    var resp *TextResponse
+    var resp *types.TextResponse
     var err error
     
     if provider == "" || provider == "auto" {
         // استخدام MultiProvider للاختيار التلقائي إذا كان متاحاً
         if c.multiProvider != nil && c.multiProvider.IsAvailable() {
-            req := TextRequest{
+            req := types.TextRequest{
                 Prompt: prompt,
                 Model:  "llama3.2:3b",
             }
@@ -93,7 +95,7 @@ func (c *Client) GenerateText(prompt, provider string) (string, error) {
             // استخدام أول مزود متاح
             for _, p := range c.providers {
                 if p.IsAvailable() {
-                    req := TextRequest{
+                    req := types.TextRequest{
                         Prompt: prompt,
                     }
                     resp, err = p.GenerateText(req)
@@ -108,7 +110,7 @@ func (c *Client) GenerateText(prompt, provider string) (string, error) {
             return "", fmt.Errorf("provider %s not found", provider)
         }
         
-        req := TextRequest{
+        req := types.TextRequest{
             Prompt: prompt,
         }
         resp, err = p.GenerateText(req)
@@ -120,7 +122,7 @@ func (c *Client) GenerateText(prompt, provider string) (string, error) {
     
     // تسجيل الاستخدام إذا كان هناك مدير تكاليف
     if c.costManager != nil && resp != nil {
-        record := &UsageRecord{
+        record := &types.UsageRecord{
             Provider:   provider,
             Type:       "text",
             Cost:       resp.Cost,
@@ -139,11 +141,11 @@ func (c *Client) GenerateText(prompt, provider string) (string, error) {
 }
 
 // GenerateTextWithOptions توليد نص مع خيارات متقدمة
-func (c *Client) GenerateTextWithOptions(req TextRequest) (*TextResponse, error) {
+func (c *Client) GenerateTextWithOptions(req types.TextRequest) (*types.TextResponse, error) {
     c.mu.RLock()
     defer c.mu.RUnlock()
     
-    var provider ProviderInterface
+    var provider types.ProviderInterface
     var err error
     
     if req.Model == "" || req.Model == "auto" {
@@ -178,7 +180,7 @@ func (c *Client) GenerateTextWithOptions(req TextRequest) (*TextResponse, error)
     
     // تسجيل الاستخدام
     if c.costManager != nil {
-        record := &UsageRecord{
+        record := &types.UsageRecord{
             Provider:   provider.GetName(),
             Type:       "text",
             Cost:       resp.Cost,
@@ -194,7 +196,7 @@ func (c *Client) GenerateTextWithOptions(req TextRequest) (*TextResponse, error)
 
 // GenerateImage توليد صورة
 func (c *Client) GenerateImage(prompt, provider string) (string, error) {
-    req := ImageRequest{
+    req := types.ImageRequest{
         Prompt: prompt,
     }
     
@@ -207,7 +209,7 @@ func (c *Client) GenerateImage(prompt, provider string) (string, error) {
 }
 
 // GenerateImageWithOptions توليد صورة مع خيارات متقدمة
-func (c *Client) GenerateImageWithOptions(req ImageRequest) (*ImageResponse, error) {
+func (c *Client) GenerateImageWithOptions(req types.ImageRequest) (*types.ImageResponse, error) {
     c.mu.RLock()
     defer c.mu.RUnlock()
     
@@ -218,7 +220,7 @@ func (c *Client) GenerateImageWithOptions(req ImageRequest) (*ImageResponse, err
             if err == nil {
                 // تسجيل الاستخدام
                 if c.costManager != nil {
-                    record := &UsageRecord{
+                    record := &types.UsageRecord{
                         Provider:   p.GetName(),
                         Type:       "image",
                         Cost:       resp.Cost,
@@ -238,7 +240,7 @@ func (c *Client) GenerateImageWithOptions(req ImageRequest) (*ImageResponse, err
 
 // GenerateVideo توليد فيديو
 func (c *Client) GenerateVideo(prompt, provider string) (string, error) {
-    req := VideoRequest{
+    req := types.VideoRequest{
         Prompt:   prompt,
         Duration: 30, // 30 ثانية افتراضياً
     }
@@ -252,7 +254,7 @@ func (c *Client) GenerateVideo(prompt, provider string) (string, error) {
 }
 
 // GenerateVideoWithOptions توليد فيديو مع خيارات متقدمة
-func (c *Client) GenerateVideoWithOptions(req VideoRequest) (*VideoResponse, error) {
+func (c *Client) GenerateVideoWithOptions(req types.VideoRequest) (*types.VideoResponse, error) {
     c.mu.RLock()
     defer c.mu.RUnlock()
     
@@ -263,7 +265,7 @@ func (c *Client) GenerateVideoWithOptions(req VideoRequest) (*VideoResponse, err
             if err == nil {
                 // تسجيل الاستخدام
                 if c.costManager != nil {
-                    record := &UsageRecord{
+                    record := &types.UsageRecord{
                         Provider:   p.GetName(),
                         Type:       "video",
                         Cost:       resp.Cost,
@@ -282,8 +284,8 @@ func (c *Client) GenerateVideoWithOptions(req VideoRequest) (*VideoResponse, err
 }
 
 // AnalyzeText تحليل نص
-func (c *Client) AnalyzeText(text, provider string) (*AnalysisResponse, error) {
-    req := AnalysisRequest{
+func (c *Client) AnalyzeText(text, provider string) (*types.AnalysisResponse, error) {
+    req := types.AnalysisRequest{
         Text: text,
     }
     
@@ -291,7 +293,7 @@ func (c *Client) AnalyzeText(text, provider string) (*AnalysisResponse, error) {
 }
 
 // AnalyzeTextWithOptions تحليل نص مع خيارات متقدمة
-func (c *Client) AnalyzeTextWithOptions(req AnalysisRequest) (*AnalysisResponse, error) {
+func (c *Client) AnalyzeTextWithOptions(req types.AnalysisRequest) (*types.AnalysisResponse, error) {
     c.mu.RLock()
     defer c.mu.RUnlock()
     
@@ -302,7 +304,7 @@ func (c *Client) AnalyzeTextWithOptions(req AnalysisRequest) (*AnalysisResponse,
             if err == nil {
                 // تسجيل الاستخدام
                 if c.costManager != nil {
-                    record := &UsageRecord{
+                    record := &types.UsageRecord{
                         Provider:   p.GetName(),
                         Type:       "analysis",
                         Cost:       resp.Cost,
@@ -322,7 +324,7 @@ func (c *Client) AnalyzeTextWithOptions(req AnalysisRequest) (*AnalysisResponse,
 
 // TranslateText ترجمة نص
 func (c *Client) TranslateText(text, fromLang, toLang, provider string) (string, error) {
-    req := TranslationRequest{
+    req := types.TranslationRequest{
         Text:     text,
         FromLang: fromLang,
         ToLang:   toLang,
@@ -337,7 +339,7 @@ func (c *Client) TranslateText(text, fromLang, toLang, provider string) (string,
 }
 
 // TranslateTextWithOptions ترجمة نص مع خيارات متقدمة
-func (c *Client) TranslateTextWithOptions(req TranslationRequest) (*TranslationResponse, error) {
+func (c *Client) TranslateTextWithOptions(req types.TranslationRequest) (*types.TranslationResponse, error) {
     c.mu.RLock()
     defer c.mu.RUnlock()
     
@@ -348,7 +350,7 @@ func (c *Client) TranslateTextWithOptions(req TranslationRequest) (*TranslationR
             if err == nil {
                 // تسجيل الاستخدام
                 if c.costManager != nil {
-                    record := &UsageRecord{
+                    record := &types.UsageRecord{
                         Provider:   p.GetName(),
                         Type:       "translation",
                         Cost:       resp.Cost,
@@ -367,8 +369,8 @@ func (c *Client) TranslateTextWithOptions(req TranslationRequest) (*TranslationR
 }
 
 // AnalyzeImage تحليل صورة
-func (c *Client) AnalyzeImage(imageData []byte, prompt, provider string) (*AnalysisResponse, error) {
-    req := AnalysisRequest{
+func (c *Client) AnalyzeImage(imageData []byte, prompt, provider string) (*types.AnalysisResponse, error) {
+    req := types.AnalysisRequest{
         ImageData: imageData,
         Prompt:    prompt,
     }
@@ -377,7 +379,7 @@ func (c *Client) AnalyzeImage(imageData []byte, prompt, provider string) (*Analy
 }
 
 // AnalyzeImageWithOptions تحليل صورة مع خيارات متقدمة
-func (c *Client) AnalyzeImageWithOptions(req AnalysisRequest) (*AnalysisResponse, error) {
+func (c *Client) AnalyzeImageWithOptions(req types.AnalysisRequest) (*types.AnalysisResponse, error) {
     c.mu.RLock()
     defer c.mu.RUnlock()
     
@@ -388,7 +390,7 @@ func (c *Client) AnalyzeImageWithOptions(req AnalysisRequest) (*AnalysisResponse
             if err == nil {
                 // تسجيل الاستخدام
                 if c.costManager != nil {
-                    record := &UsageRecord{
+                    record := &types.UsageRecord{
                         Provider:   p.GetName(),
                         Type:       "image_analysis",
                         Cost:       resp.Cost,
@@ -407,7 +409,7 @@ func (c *Client) AnalyzeImageWithOptions(req AnalysisRequest) (*AnalysisResponse
 }
 
 // GetVideoStatus الحصول على حالة فيديو
-func (c *Client) GetVideoStatus(operationID string) (*VideoResponse, error) {
+func (c *Client) GetVideoStatus(operationID string) (*types.VideoResponse, error) {
     // هذه وظيفة تحتاج إلى VideoService
     // سنعود إليها لاحقاً
     return nil, fmt.Errorf("video service not available yet")
@@ -482,7 +484,7 @@ func (c *Client) IsProviderAvailable(providerType, providerName string) bool {
 }
 
 // GetProviderStats الحصول على إحصائيات مزود
-func (c *Client) GetProviderStats(providerName string) (*ProviderStats, error) {
+func (c *Client) GetProviderStats(providerName string) (*types.ProviderStats, error) {
     c.mu.RLock()
     defer c.mu.RUnlock()
     
@@ -528,7 +530,7 @@ func (c *Client) Close() error {
 
 // Helper functions
 
-func (c *Client) getProviderByModel(model string) (ProviderInterface, error) {
+func (c *Client) getProviderByModel(model string) (types.ProviderInterface, error) {
     // بحث مبسط عن المزود المناسب للنموذج
     for _, provider := range c.providers {
         if provider.IsAvailable() {
@@ -541,7 +543,7 @@ func (c *Client) getProviderByModel(model string) (ProviderInterface, error) {
 }
 
 // RegisterProvider تسجيل مزود جديد
-func (c *Client) RegisterProvider(name string, provider ProviderInterface) {
+func (c *Client) RegisterProvider(name string, provider types.ProviderInterface) {
     c.mu.Lock()
     defer c.mu.Unlock()
     
