@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useState, lazy, Suspense } from "react";
 import { mc } from "./assets/mc";
 import './App.css'
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
@@ -6,6 +6,7 @@ import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { Provider } from 'react-redux';
 import { store } from './store';
+import { Box, CircularProgress, Typography } from '@mui/material';
 
 // Theme
 const theme = createTheme({
@@ -44,43 +45,79 @@ const theme = createTheme({
   direction: 'rtl',
 });
 
-// مكونات احتياطية
-const FallbackPage = ({ title }: { title: string }) => (
-  <div style={{ padding: '2rem', textAlign: 'center' }}>
-    <h2>{title}</h2>
-    <p>الصفحة قيد التطوير</p>
-  </div>
+// مكون تحميل
+const LoadingFallback = () => (
+  <Box sx={{ 
+    display: 'flex', 
+    flexDirection: 'column',
+    alignItems: 'center', 
+    justifyContent: 'center', 
+    minHeight: '60vh',
+    gap: 2
+  }}>
+    <CircularProgress size={60} />
+    <Typography variant="h6" color="text.secondary">
+      جاري التحميل...
+    </Typography>
+  </Box>
 );
 
 // مكونات ديناميكية مع معالجة الأخطاء
-let AIDashboardComponent: React.ComponentType;
-let ContentGeneratorComponent: React.ComponentType;
-let MediaStudioComponent: React.ComponentType;
-let StrategyPlannerComponent: React.ComponentType;
+const AIDashboardComponent = lazy(() => 
+  import('./pages/AIDashboard/AIDashboard')
+    .then(module => ({ default: module.default }))
+    .catch(() => ({ 
+      default: () => (
+        <Box sx={{ p: 4, textAlign: 'center' }}>
+          <Typography variant="h5" color="error">
+            ⚠️ تعذر تحميل لوحة التحكم
+          </Typography>
+        </Box>
+      )
+    }))
+);
 
-try {
-  AIDashboardComponent = require('./pages/AIDashboard/AIDashboard').default;
-} catch {
-  AIDashboardComponent = () => <FallbackPage title="لوحة تحكم الذكاء الاصطناعي" />;
-}
+const ContentGeneratorComponent = lazy(() => 
+  import('./pages/ContentGenerator/ContentGenerator')
+    .then(module => ({ default: module.default }))
+    .catch(() => ({ 
+      default: () => (
+        <Box sx={{ p: 4, textAlign: 'center' }}>
+          <Typography variant="h5" color="error">
+            ⚠️ تعذر تحميل مولد المحتوى
+          </Typography>
+        </Box>
+      )
+    }))
+);
 
-try {
-  ContentGeneratorComponent = require('./pages/ContentGenerator/ContentGenerator').default;
-} catch {
-  ContentGeneratorComponent = () => <FallbackPage title="مولد المحتوى" />;
-}
+const MediaStudioComponent = lazy(() => 
+  import('./pages/MediaStudio/MediaStudio')
+    .then(module => ({ default: module.default }))
+    .catch(() => ({ 
+      default: () => (
+        <Box sx={{ p: 4, textAlign: 'center' }}>
+          <Typography variant="h5" color="error">
+            ⚠️ تعذر تحميل استوديو الوسائط
+          </Typography>
+        </Box>
+      )
+    }))
+);
 
-try {
-  MediaStudioComponent = require('./pages/MediaStudio/MediaStudio').default;
-} catch {
-  MediaStudioComponent = () => <FallbackPage title="استوديو الوسائط" />;
-}
-
-try {
-  StrategyPlannerComponent = require('./pages/StrategyPlanner/StrategyPlanner').default;
-} catch {
-  StrategyPlannerComponent = () => <FallbackPage title="مخطط الاستراتيجيات" />;
-}
+const StrategyPlannerComponent = lazy(() => 
+  import('./pages/StrategyPlanner/StrategyPlanner')
+    .then(module => ({ default: module.default }))
+    .catch(() => ({ 
+      default: () => (
+        <Box sx={{ p: 4, textAlign: 'center' }}>
+          <Typography variant="h5" color="error">
+            ⚠️ تعذر تحميل مخطط الاستراتيجيات
+          </Typography>
+        </Box>
+      )
+    }))
+);
 
 function App() {
   const [messages, setMessages] = useState<string[]>([]);
@@ -136,13 +173,15 @@ function App() {
         <CssBaseline />
         <Router>
           <div className="app-container">
-            <Routes>
-              <Route path="/" element={<Navigate to="/ai" />} />
-              <Route path="/ai" element={<AIDashboardComponent />} />
-              <Route path="/ai/content" element={<ContentGeneratorComponent />} />
-              <Route path="/ai/media" element={<MediaStudioComponent />} />
-              <Route path="/ai/strategy" element={<StrategyPlannerComponent />} />
-            </Routes>
+            <Suspense fallback={<LoadingFallback />}>
+              <Routes>
+                <Route path="/" element={<Navigate to="/ai" />} />
+                <Route path="/ai" element={<AIDashboardComponent />} />
+                <Route path="/ai/content" element={<ContentGeneratorComponent />} />
+                <Route path="/ai/media" element={<MediaStudioComponent />} />
+                <Route path="/ai/strategy" element={<StrategyPlannerComponent />} />
+              </Routes>
+            </Suspense>
             
             {/* SSE Quotes Section */}
             <div className="sse-quotes" style={{ display: 'none' }}>
