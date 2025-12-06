@@ -8,7 +8,7 @@
     "moduleResolution": "bundler",
     "allowSyntheticDefaultImports": true,
     "strict": true,
-    "noEmit": false,  // ⚠️ تغيير من true إلى false - هذا هو الإصلاح!
+    "noEmit": false,
     "noUncheckedSideEffectImports": true
   },
   "include": ["vite.config.ts"]
