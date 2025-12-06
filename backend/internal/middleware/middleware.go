@@ -27,8 +27,8 @@ type MiddlewareContainer struct {
 
 // ==================== الوسائط الأساسية ====================
 
-// CORS وسيط CORS
-func CORS() gin.HandlerFunc {
+// CORSMiddleware وسيط CORS (تم تغيير الاسم لتجنب التكرار)
+func CORSMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		origin := c.Request.Header.Get("Origin")
 
@@ -51,6 +51,11 @@ func CORS() gin.HandlerFunc {
 
 		c.Next()
 	}
+}
+
+// CORS اسم بديل للتوافق مع الكود القديم
+func CORS() gin.HandlerFunc {
+	return CORSMiddleware()
 }
 
 // SecurityHeaders وسيط رؤوس الأمان
@@ -352,6 +357,64 @@ func RateLimit() gin.HandlerFunc {
 	}
 }
 
+// RateLimitWithConfig وسيط تحديد المعدل مع تكوين مخصص
+func RateLimitWithConfig(requests int, window time.Duration) gin.HandlerFunc {
+	type clientLimit struct {
+		count    int
+		lastSeen time.Time
+	}
+
+	clients := make(map[string]*clientLimit)
+
+	return func(c *gin.Context) {
+		clientIP := getClientIP(c.Request)
+
+		// تنظيف العملاء القدامى
+		if len(clients) > 1000 {
+			now := time.Now()
+			for ip, limit := range clients {
+				if now.Sub(limit.lastSeen) > window {
+					delete(clients, ip)
+				}
+			}
+		}
+
+		limit, exists := clients[clientIP]
+		if !exists {
+			limit = &clientLimit{count: 0, lastSeen: time.Now()}
+			clients[clientIP] = limit
+		}
+
+		// إعادة تعيين العداد إذا انتهت النافذة الزمنية
+		if time.Since(limit.lastSeen) > window {
+			limit.count = 0
+			limit.lastSeen = time.Now()
+		}
+
+		// التحقق من تجاوز الحد
+		if limit.count >= requests {
+			c.JSON(http.StatusTooManyRequests, gin.H{
+				"success": false,
+				"error":   "تم تجاوز معدل الطلبات المسموح به",
+				"message": fmt.Sprintf("الحد الأقصى هو %d طلب كل %v", requests, window),
+			})
+			c.Abort()
+			return
+		}
+
+		// زيادة العداد
+		limit.count++
+		limit.lastSeen = time.Now()
+
+		// إضافة معلومات التحديد إلى الرأس
+		c.Writer.Header().Set("X-RateLimit-Limit", fmt.Sprintf("%d", requests))
+		c.Writer.Header().Set("X-RateLimit-Remaining", fmt.Sprintf("%d", requests-limit.count))
+		c.Writer.Header().Set("X-RateLimit-Reset", fmt.Sprintf("%d", int(window.Seconds())))
+
+		c.Next()
+	}
+}
+
 // SizeLimit وسيط تحديد حجم الطلب
 func SizeLimit(maxSize int64) gin.HandlerFunc {
 	return func(c *gin.Context) {
@@ -374,11 +437,23 @@ func ValidateContentType() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if c.Request.Method == "POST" || c.Request.Method == "PUT" || c.Request.Method == "PATCH" {
 			contentType := c.GetHeader("Content-Type")
-			if !strings.Contains(contentType, "application/json") {
+			if contentType == "" {
 				c.JSON(http.StatusBadRequest, gin.H{
 					"success": false,
-					"error":   "نوع المحتوى يجب أن يكون JSON",
-					"message": "يرجى استخدام application/json كنوع للمحتوى",
+					"error":   "نوع المحتوى مطلوب",
+					"message": "يرجى تحديد نوع المحتوى في الرأس",
+				})
+				c.Abort()
+				return
+			}
+			
+			if !strings.Contains(contentType, "application/json") && 
+			   !strings.Contains(contentType, "multipart/form-data") &&
+			   !strings.Contains(contentType, "application/x-www-form-urlencoded") {
+				c.JSON(http.StatusBadRequest, gin.H{
+					"success": false,
+					"error":   "نوع محتوى غير مدعوم",
+					"message": "أنواع المحتوى المدعومة: application/json, multipart/form-data, application/x-www-form-urlencoded",
 				})
 				c.Abort()
 				return
@@ -459,6 +534,27 @@ func Timeout(timeout time.Duration) gin.HandlerFunc {
 	}
 }
 
+// ValidateJSON وسيط التحقق من صحة JSON
+func ValidateJSON() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if c.Request.Method == "POST" || c.Request.Method == "PUT" || c.Request.Method == "PATCH" {
+			if strings.Contains(c.GetHeader("Content-Type"), "application/json") {
+				// التحقق من أن الجسم ليس فارغاً
+				if c.Request.ContentLength == 0 {
+					c.JSON(http.StatusBadRequest, gin.H{
+						"success": false,
+						"error":   "جسم الطلب فارغ",
+						"message": "يجب أن يحتوي طلب JSON على جسم",
+					})
+					c.Abort()
+					return
+				}
+			}
+		}
+		c.Next()
+	}
+}
+
 // ==================== الدوال المساعدة ====================
 
 // getClientIP الحصول على عنوان IP العميل
@@ -475,6 +571,10 @@ func getClientIP(r *http.Request) string {
 		return ip
 	}
 
+	if ip := r.Header.Get("CF-Connecting-IP"); ip != "" {
+		return ip
+	}
+
 	// استخدام العنوان المباشر
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
@@ -486,7 +586,7 @@ func getClientIP(r *http.Request) string {
 
 // generateRequestID إنشاء معرف طلب فريد
 func generateRequestID() string {
-	return fmt.Sprintf("req_%d", time.Now().UnixNano())
+	return fmt.Sprintf("req_%d_%d", time.Now().Unix(), time.Now().Nanosecond())
 }
 
 // ==================== دوال مساعدة للسياق ====================
@@ -498,6 +598,15 @@ func GetUserIDFromContext(c *gin.Context) (string, bool) {
 		return "", false
 	}
 	return userID.(string), true
+}
+
+// GetUserEmailFromContext الحصول على البريد الإلكتروني للمستخدم من السياق
+func GetUserEmailFromContext(c *gin.Context) (string, bool) {
+	userEmail, exists := c.Get("userEmail")
+	if !exists {
+		return "", false
+	}
+	return userEmail.(string), true
 }
 
 // GetUserRoleFromContext الحصول على دور المستخدم من السياق
@@ -518,6 +627,15 @@ func GetRequestIDFromContext(c *gin.Context) (string, bool) {
 	return requestID.(string), true
 }
 
+// GetTokenFromContext الحصول على التوكن من السياق
+func GetTokenFromContext(c *gin.Context) (string, bool) {
+	token, exists := c.Get("token")
+	if !exists {
+		return "", false
+	}
+	return token.(string), true
+}
+
 // ==================== تسجيل الوسائط ====================
 
 // RegisterGlobalMiddlewares تسجيل الوسائط العامة
@@ -526,16 +644,22 @@ func RegisterGlobalMiddlewares(router *gin.Engine, cfg *config.Config) {
 	router.Use(Recovery())
 	router.Use(RequestID())
 	router.Use(Logging())
-	router.Use(CORS())
+	router.Use(CORSMiddleware())
 	router.Use(SecurityHeaders())
-	router.Use(RateLimit())
-
-	// وسائط إضافية بناءً على البيئة
+	
+	// تحديد المعدل يختلف حسب البيئة
 	if cfg.Environment == "production" {
+		router.Use(RateLimitWithConfig(100, time.Minute)) // 100 طلب/دقيقة في الإنتاج
 		router.Use(SizeLimit(10 * 1024 * 1024)) // 10MB في الإنتاج
+		router.Use(Timeout(30 * time.Second)) // 30 ثانية في الإنتاج
 	} else {
+		router.Use(RateLimitWithConfig(1000, time.Minute)) // 1000 طلب/دقيقة في التطوير
 		router.Use(SizeLimit(50 * 1024 * 1024)) // 50MB في التطوير
+		router.Use(Timeout(60 * time.Second)) // 60 ثانية في التطوير
 	}
+	
+	router.Use(ValidateContentType())
+	router.Use(ValidateJSON())
 }
 
 // InitializeMiddlewares تهيئة حاوية الوسائط
@@ -543,8 +667,40 @@ func InitializeMiddlewares(authService services.AuthService) *MiddlewareContaine
 	return &MiddlewareContainer{
 		AuthMiddleware:      AuthMiddleware(authService),
 		AdminMiddleware:     AdminMiddleware(),
-		CORSMiddleware:      CORS(),
+		CORSMiddleware:      CORSMiddleware(),
 		SecurityMiddleware:  SecurityHeaders(),
 		RateLimitMiddleware: RateLimit(),
+	}
+}
+
+// RegisterAPIMiddlewares تسجيل وسائط API
+func RegisterAPIMiddlewares(router *gin.RouterGroup, container *MiddlewareContainer) {
+	// تطبيق وسائط الأمان على جميع مسارات API
+	router.Use(container.CORSMiddleware)
+	router.Use(container.SecurityMiddleware)
+	router.Use(container.RateLimitMiddleware)
+}
+
+// RegisterProtectedMiddlewares تسجيل وسائط المسارات المحمية
+func RegisterProtectedMiddlewares(router *gin.RouterGroup, container *MiddlewareContainer) {
+	// تطبيق وسائط المصادقة على المسارات المحمية
+	router.Use(container.AuthMiddleware)
+}
+
+// RegisterAdminMiddlewares تسجيل وسائط مسارات الإدارة
+func RegisterAdminMiddlewares(router *gin.RouterGroup, container *MiddlewareContainer) {
+	// تطبيق وسائط المصادقة والإدارة على مسارات الإدارة
+	router.Use(container.AuthMiddleware)
+	router.Use(container.AdminMiddleware)
+}
+
+// NewMiddlewareContainer إنشاء حاوية وسائط جديدة
+func NewMiddlewareContainer(authService services.AuthService) *MiddlewareContainer {
+	return &MiddlewareContainer{
+		AuthMiddleware:      AuthMiddleware(authService),
+		AdminMiddleware:     AdminMiddleware(),
+		CORSMiddleware:      CORSMiddleware(),
+		SecurityMiddleware:  SecurityHeaders(),
+		RateLimitMiddleware: RateLimitWithConfig(100, time.Minute),
 	}
 }
