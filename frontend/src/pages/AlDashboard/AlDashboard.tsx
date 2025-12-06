@@ -23,9 +23,9 @@ import {
   Refresh,
   Settings,
 } from '@mui/icons-material';
-import AIContentGenerator from '../../ai/components/AIContentGenerator/AIContentGenerator';
-import AIMediaGenerator from '../../ai/components/AIMediaGenerator/AIMediaGenerator';
-import { useAI } from '../../ai/hooks/useAI';
+import AIContentGenerator from '../src/ai/components/AIContentGenerator/AIContentGenerator';
+import AIMediaGenerator from '../src/ai/components/AIMediaGenerator/AIMediaGenerator';
+import { useAI } from '../src/ai/hooks/useAI';
 
 const AIDashboard: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'content' | 'media' | 'analysis' | 'strategy'>('content');
