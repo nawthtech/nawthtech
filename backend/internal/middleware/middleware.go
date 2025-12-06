@@ -53,10 +53,6 @@ func CORSMiddleware() gin.HandlerFunc {
 	}
 }
 
-// CORS اسم بديل للتوافق مع الكود القديم
-func CORS() gin.HandlerFunc {
-	return CORSMiddleware()
-}
 
 // SecurityHeaders وسيط رؤوس الأمان
 func SecurityHeaders() gin.HandlerFunc {
