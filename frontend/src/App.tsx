@@ -7,30 +7,30 @@ import CssBaseline from '@mui/material/CssBaseline';
 import { Provider } from 'react-redux';
 import { store } from './store';
 
-// مكونات بسيطة بديلة
+// مكونات بسيطة مع data-testid للاختبارات
 const AIDashboard = () => (
-  <div style={{ padding: '2rem' }}>
+  <div data-testid="ai-dashboard" style={{ padding: '2rem' }}>
     <h2>لوحة تحكم الذكاء الاصطناعي</h2>
     <p>الصفحة الرئيسية لأدوات الذكاء الاصطناعي</p>
   </div>
 );
 
 const ContentGenerator = () => (
-  <div style={{ padding: '2rem' }}>
+  <div data-testid="content-generator" style={{ padding: '2rem' }}>
     <h2>مولد المحتوى</h2>
     <p>أداة توليد المحتوى باستخدام الذكاء الاصطناعي</p>
   </div>
 );
 
 const MediaStudio = () => (
-  <div style={{ padding: '2rem' }}>
+  <div data-testid="media-studio" style={{ padding: '2rem' }}>
     <h2>استوديو الوسائط</h2>
     <p>أداة إنشاء الوسائط باستخدام الذكاء الاصطناعي</p>
   </div>
 );
 
 const StrategyPlanner = () => (
-  <div style={{ padding: '2rem' }}>
+  <div data-testid="strategy-planner" style={{ padding: '2rem' }}>
     <h2>مخطط الاستراتيجيات</h2>
     <p>أداة تخطيط الاستراتيجيات باستخدام الذكاء الاصطناعي</p>
   </div>
@@ -135,7 +135,7 @@ function App() {
               <Route path="/ai/strategy" element={<StrategyPlanner />} />
             </Routes>
             
-            {/* SSE Quotes Section - مخفي حالياً */}
+            {/* SSE Quotes Section */}
             <div className="sse-quotes" style={{ display: 'none' }}>
               <h1 className="text-4xl font-semibold">Here's some unnecessary quotes for you to read...</h1>
 
@@ -148,6 +148,7 @@ function App() {
               <button 
                 className={mc("hover:opacity-75 duration-200 font-bold text-lg", isConnectionOpen ? "text-[#f06b6b]" : "text-[#6bf06b]")} 
                 onClick={onToggleConnection}
+                data-testid="quotes-button"
               >
                 {isConnectionOpen ? "Stop" : "Start"} Quotes
               </button>
