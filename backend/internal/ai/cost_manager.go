@@ -10,16 +10,6 @@ import (
     "github.com/nawthtech/nawthtech/backend/internal/ai/types"
 )
 
-// ProviderStats إحصائيات المزود
-type ProviderStats struct {
-    ProviderName  string                       `json:"provider_name"`
-    TotalRequests int64                        `json:"total_requests"`
-    TotalCost     float64                      `json:"total_cost"`
-    SuccessRate   float64                      `json:"success_rate"`
-    AvgLatency    float64                      `json:"avg_latency"`
-    LastUsed      time.Time                    `json:"last_used"`
-}
-
 // Quota حصة المستخدم
 type Quota struct {
     Type          string    `json:"type"`           // text, image, video, audio
