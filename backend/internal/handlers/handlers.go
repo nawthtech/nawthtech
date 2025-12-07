@@ -4,15 +4,18 @@ import (
 	"fmt"
 	"mime/multipart"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/nawthtech/nawthtech/backend/internal/cloudinary"
 	"github.com/nawthtech/nawthtech/backend/internal/services"
 	"github.com/nawthtech/nawthtech/backend/internal/utils"
+	"github.com/nawthtech/nawthtech/backend/internal/ai"
+	"github.com/nawthtech/nawthtech/backend/internal/ai/video"
 )
 
 // ================================
-// الواجهات الأساسية للمعاجل
+// الواجهات الأساسية للمعالجات
 // ================================
 
 type (
@@ -46,6 +49,8 @@ type (
 		UpdateService(c *gin.Context)
 		DeleteService(c *gin.Context)
 		GetMyServices(c *gin.Context)
+		GetSellerOrders(c *gin.Context)  // أضفنا هذه الدالة
+		GetAllOrders(c *gin.Context)     // أضفنا هذه الدالة
 	}
 
 	// CategoryHandler معالج الفئات
@@ -64,6 +69,8 @@ type (
 		GetUserOrders(c *gin.Context)
 		UpdateOrderStatus(c *gin.Context)
 		CancelOrder(c *gin.Context)
+		GetSellerOrders(c *gin.Context) // أضفنا هذه الدالة
+		GetAllOrders(c *gin.Context)    // أضفنا هذه الدالة
 	}
 
 	// PaymentHandler معالج الدفع
@@ -71,6 +78,8 @@ type (
 		CreatePaymentIntent(c *gin.Context)
 		ConfirmPayment(c *gin.Context)
 		GetPaymentHistory(c *gin.Context)
+		HandleStripeWebhook(c *gin.Context)  // أضفنا هذه الدالة
+		HandlePayPalWebhook(c *gin.Context)  // أضفنا هذه الدالة
 	}
 
 	// UploadHandler معالج الرفع
@@ -80,6 +89,7 @@ type (
 		DeleteImage(c *gin.Context)
 		GetImageInfo(c *gin.Context)
 		GetUserImages(c *gin.Context)
+		HandleCloudinaryWebhook(c *gin.Context)  // أضفنا هذه الدالة
 	}
 
 	// NotificationHandler معالج الإشعارات
@@ -97,11 +107,32 @@ type (
 		GetUsers(c *gin.Context)
 		UpdateUserStatus(c *gin.Context)
 		GetSystemLogs(c *gin.Context)
+		GetAllOrders(c *gin.Context)  // أضفنا هذه الدالة
+	}
+
+	// AIHandler معالج الذكاء الاصطناعي
+	AIHandler interface {
+		GenerateContentHandler(c *gin.Context)
+		AnalyzeImageHandler(c *gin.Context)
+		TranslateTextHandler(c *gin.Context)
+		SummarizeTextHandler(c *gin.Context)
+		GetAICapabilitiesHandler(c *gin.Context)
+	}
+
+	// VideoHandler معالج الفيديو
+	VideoHandler interface {
+		GenerateVideoHandler(c *gin.Context)
+		GetVideoStatusHandler(c *gin.Context)
+		ListVideoJobsHandler(c *gin.Context)
+		CancelVideoJobHandler(c *gin.Context)
+		DownloadVideoHandler(c *gin.Context)
+		GetVideoCapabilitiesHandler(c *gin.Context)
+		GetVideoStatsHandler(c *gin.Context)
 	}
 )
 
 // ================================
-// التطبيقات الفعلية للمعاجل
+// التطبيقات الفعلية للمعالجات
 // ================================
 
 type (
@@ -140,10 +171,18 @@ type (
 	adminHandler struct {
 		adminService services.AdminService
 	}
+
+	aiHandler struct {
+		aiClient *ai.Client
+	}
+
+	videoHandler struct {
+		videoService *video.VideoService
+	}
 )
 
 // ================================
-// دوال إنشاء المعاجل
+// دوال إنشاء المعالجات
 // ================================
 
 func NewAuthHandler(authService services.AuthService) AuthHandler {
@@ -190,8 +229,16 @@ func NewAdminHandler(adminService services.AdminService) AdminHandler {
 	return &adminHandler{adminService: adminService}
 }
 
+func NewAIHandler(aiClient *ai.Client) AIHandler {
+	return &aiHandler{aiClient: aiClient}
+}
+
+func NewVideoHandler(videoService *video.VideoService) VideoHandler {
+	return &videoHandler{videoService: videoService}
+}
+
 // ================================
-// التطبيقات الأساسية للمعاجل
+// التطبيقات الأساسية للمعالجات
 // ================================
 
 // AuthHandler implementations
@@ -248,14 +295,22 @@ func (h *authHandler) VerifyToken(c *gin.Context) {
 
 // UserHandler implementations
 func (h *userHandler) GetProfile(c *gin.Context) {
+	// الحصول على معرف المستخدم من السياق (من middleware المصادقة)
+	userID := utils.GetUserIDFromContext(c)
+	if userID == "" {
+		utils.ErrorResponse(c, http.StatusUnauthorized, "يجب تسجيل الدخول", "UNAUTHORIZED")
+		return
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "Get profile endpoint - MongoDB Ready",
 		"data": gin.H{
 			"user": gin.H{
-				"id":    "user123",
-				"name":  "نوذ تك",
-				"email": "info@nawthtech.com",
+				"id":        userID,
+				"name":      "نوذ تك",
+				"email":     "info@nawthtech.com",
+				"createdAt": time.Now().Format(time.RFC3339),
 			},
 			"database": "MongoDB",
 		},
@@ -263,27 +318,49 @@ func (h *userHandler) GetProfile(c *gin.Context) {
 }
 
 func (h *userHandler) UpdateProfile(c *gin.Context) {
+	userID := utils.GetUserIDFromContext(c)
+	if userID == "" {
+		utils.ErrorResponse(c, http.StatusUnauthorized, "يجب تسجيل الدخول", "UNAUTHORIZED")
+		return
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "Update profile endpoint",
+		"user_id": userID,
 	})
 }
 
 func (h *userHandler) ChangePassword(c *gin.Context) {
+	userID := utils.GetUserIDFromContext(c)
+	if userID == "" {
+		utils.ErrorResponse(c, http.StatusUnauthorized, "يجب تسجيل الدخول", "UNAUTHORIZED")
+		return
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "Change password endpoint",
+		"user_id": userID,
 	})
 }
 
 func (h *userHandler) GetUserStats(c *gin.Context) {
+	userID := utils.GetUserIDFromContext(c)
+	if userID == "" {
+		utils.ErrorResponse(c, http.StatusUnauthorized, "يجب تسجيل الدخول", "UNAUTHORIZED")
+		return
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "Get user stats endpoint",
 		"data": gin.H{
-			"total_services": 15,
-			"total_orders":   47,
-			"joined_date":    "2023-01-15",
+			"user_id":         userID,
+			"total_services":  15,
+			"total_orders":    47,
+			"joined_date":     "2023-01-15",
+			"account_status":  "active",
 		},
 	})
 }
@@ -366,11 +443,18 @@ func (h *serviceHandler) GetCategories(c *gin.Context) {
 }
 
 func (h *serviceHandler) CreateService(c *gin.Context) {
+	userID := utils.GetUserIDFromContext(c)
+	if userID == "" {
+		utils.ErrorResponse(c, http.StatusUnauthorized, "يجب تسجيل الدخول", "UNAUTHORIZED")
+		return
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "Create service endpoint",
 		"data": gin.H{
 			"service_id": "new_service_123",
+			"created_by": userID,
 			"database":   "MongoDB",
 		},
 	})
@@ -401,12 +485,48 @@ func (h *serviceHandler) DeleteService(c *gin.Context) {
 }
 
 func (h *serviceHandler) GetMyServices(c *gin.Context) {
+	userID := utils.GetUserIDFromContext(c)
+	if userID == "" {
+		utils.ErrorResponse(c, http.StatusUnauthorized, "يجب تسجيل الدخول", "UNAUTHORIZED")
+		return
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "Get my services endpoint",
 		"data": gin.H{
 			"my_services": []gin.H{},
+			"user_id":     userID,
 			"database":    "MongoDB",
+		},
+	})
+}
+
+func (h *serviceHandler) GetSellerOrders(c *gin.Context) {
+	userID := utils.GetUserIDFromContext(c)
+	if userID == "" {
+		utils.ErrorResponse(c, http.StatusUnauthorized, "يجب تسجيل الدخول", "UNAUTHORIZED")
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "Get seller orders endpoint",
+		"data": gin.H{
+			"orders":   []gin.H{},
+			"seller_id": userID,
+			"database": "MongoDB",
+		},
+	})
+}
+
+func (h *serviceHandler) GetAllOrders(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "Get all orders endpoint (admin)",
+		"data": gin.H{
+			"orders":   []gin.H{},
+			"database": "MongoDB",
 		},
 	})
 }
@@ -479,13 +599,20 @@ func (h *categoryHandler) DeleteCategory(c *gin.Context) {
 
 // OrderHandler implementations
 func (h *orderHandler) CreateOrder(c *gin.Context) {
+	userID := utils.GetUserIDFromContext(c)
+	if userID == "" {
+		utils.ErrorResponse(c, http.StatusUnauthorized, "يجب تسجيل الدخول", "UNAUTHORIZED")
+		return
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "Create order endpoint",
 		"data": gin.H{
-			"order_id": "order_123",
-			"status":   "pending",
-			"database": "MongoDB",
+			"order_id":  "order_123",
+			"status":    "pending",
+			"user_id":   userID,
+			"database":  "MongoDB",
 		},
 	})
 }
@@ -505,11 +632,18 @@ func (h *orderHandler) GetOrderByID(c *gin.Context) {
 }
 
 func (h *orderHandler) GetUserOrders(c *gin.Context) {
+	userID := utils.GetUserIDFromContext(c)
+	if userID == "" {
+		utils.ErrorResponse(c, http.StatusUnauthorized, "يجب تسجيل الدخول", "UNAUTHORIZED")
+		return
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "Get user orders endpoint",
 		"data": gin.H{
 			"orders":   []gin.H{},
+			"user_id":  userID,
 			"database": "MongoDB",
 		},
 	})
@@ -541,6 +675,35 @@ func (h *orderHandler) CancelOrder(c *gin.Context) {
 	})
 }
 
+func (h *orderHandler) GetSellerOrders(c *gin.Context) {
+	userID := utils.GetUserIDFromContext(c)
+	if userID == "" {
+		utils.ErrorResponse(c, http.StatusUnauthorized, "يجب تسجيل الدخول", "UNAUTHORIZED")
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "Get seller orders endpoint",
+		"data": gin.H{
+			"orders":    []gin.H{},
+			"seller_id": userID,
+			"database":  "MongoDB",
+		},
+	})
+}
+
+func (h *orderHandler) GetAllOrders(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "Get all orders endpoint (admin)",
+		"data": gin.H{
+			"orders":   []gin.H{},
+			"database": "MongoDB",
+		},
+	})
+}
+
 // PaymentHandler implementations
 func (h *paymentHandler) CreatePaymentIntent(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
@@ -565,11 +728,40 @@ func (h *paymentHandler) ConfirmPayment(c *gin.Context) {
 }
 
 func (h *paymentHandler) GetPaymentHistory(c *gin.Context) {
+	userID := utils.GetUserIDFromContext(c)
+	if userID == "" {
+		utils.ErrorResponse(c, http.StatusUnauthorized, "يجب تسجيل الدخول", "UNAUTHORIZED")
+		return
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "Get payment history endpoint",
 		"data": gin.H{
 			"payments": []gin.H{},
+			"user_id":  userID,
+			"database": "MongoDB",
+		},
+	})
+}
+
+func (h *paymentHandler) HandleStripeWebhook(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "Stripe webhook endpoint",
+		"data": gin.H{
+			"received": true,
+			"database": "MongoDB",
+		},
+	})
+}
+
+func (h *paymentHandler) HandlePayPalWebhook(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "PayPal webhook endpoint",
+		"data": gin.H{
+			"received": true,
 			"database": "MongoDB",
 		},
 	})
@@ -737,13 +929,29 @@ func (h *uploadHandler) GetUserImages(c *gin.Context) {
 	})
 }
 
+func (h *uploadHandler) HandleCloudinaryWebhook(c *gin.Context) {
+	// معالجة webhook من Cloudinary
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "Cloudinary webhook received",
+		"data":    gin.H{"received": true},
+	})
+}
+
 // NotificationHandler implementations
 func (h *notificationHandler) GetUserNotifications(c *gin.Context) {
+	userID := utils.GetUserIDFromContext(c)
+	if userID == "" {
+		utils.ErrorResponse(c, http.StatusUnauthorized, "يجب تسجيل الدخول", "UNAUTHORIZED")
+		return
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "Get user notifications endpoint",
 		"data": gin.H{
 			"notifications": []gin.H{},
+			"user_id":       userID,
 			"database":      "MongoDB",
 		},
 	})
@@ -774,11 +982,18 @@ func (h *notificationHandler) MarkAllAsRead(c *gin.Context) {
 }
 
 func (h *notificationHandler) GetUnreadCount(c *gin.Context) {
+	userID := utils.GetUserIDFromContext(c)
+	if userID == "" {
+		utils.ErrorResponse(c, http.StatusUnauthorized, "يجب تسجيل الدخول", "UNAUTHORIZED")
+		return
+	}
+
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "Get unread count endpoint",
 		"data": gin.H{
 			"unread_count": 0,
+			"user_id":      userID,
 			"database":     "MongoDB",
 		},
 	})
@@ -853,6 +1068,115 @@ func (h *adminHandler) GetSystemLogs(c *gin.Context) {
 			"logs":     []gin.H{},
 			"database": "MongoDB",
 		},
+	})
+}
+
+func (h *adminHandler) GetAllOrders(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"message": "Get all orders endpoint (admin)",
+		"data": gin.H{
+			"orders":   []gin.H{},
+			"database": "MongoDB",
+		},
+	})
+}
+
+// AIHandler implementations (ستكون في ai_handler.go، هنا فقط للتوافق)
+func (h *aiHandler) GenerateContentHandler(c *gin.Context) {
+	// سيتم تنفيذها في ai_handler.go
+	c.JSON(http.StatusNotImplemented, gin.H{
+		"success": false,
+		"error":   "AI handler not implemented in this file",
+	})
+}
+
+func (h *aiHandler) AnalyzeImageHandler(c *gin.Context) {
+	// سيتم تنفيذها في ai_handler.go
+	c.JSON(http.StatusNotImplemented, gin.H{
+		"success": false,
+		"error":   "AI handler not implemented in this file",
+	})
+}
+
+func (h *aiHandler) TranslateTextHandler(c *gin.Context) {
+	// سيتم تنفيذها في ai_handler.go
+	c.JSON(http.StatusNotImplemented, gin.H{
+		"success": false,
+		"error":   "AI handler not implemented in this file",
+	})
+}
+
+func (h *aiHandler) SummarizeTextHandler(c *gin.Context) {
+	// سيتم تنفيذها في ai_handler.go
+	c.JSON(http.StatusNotImplemented, gin.H{
+		"success": false,
+		"error":   "AI handler not implemented in this file",
+	})
+}
+
+func (h *aiHandler) GetAICapabilitiesHandler(c *gin.Context) {
+	// سيتم تنفيذها في ai_handler.go
+	c.JSON(http.StatusNotImplemented, gin.H{
+		"success": false,
+		"error":   "AI handler not implemented in this file",
+	})
+}
+
+// VideoHandler implementations (ستكون في video_handler.go، هنا فقط للتوافق)
+func (h *videoHandler) GenerateVideoHandler(c *gin.Context) {
+	// سيتم تنفيذها في video_handler.go
+	c.JSON(http.StatusNotImplemented, gin.H{
+		"success": false,
+		"error":   "Video handler not implemented in this file",
+	})
+}
+
+func (h *videoHandler) GetVideoStatusHandler(c *gin.Context) {
+	// سيتم تنفيذها في video_handler.go
+	c.JSON(http.StatusNotImplemented, gin.H{
+		"success": false,
+		"error":   "Video handler not implemented in this file",
+	})
+}
+
+func (h *videoHandler) ListVideoJobsHandler(c *gin.Context) {
+	// سيتم تنفيذها في video_handler.go
+	c.JSON(http.StatusNotImplemented, gin.H{
+		"success": false,
+		"error":   "Video handler not implemented in this file",
+	})
+}
+
+func (h *videoHandler) CancelVideoJobHandler(c *gin.Context) {
+	// سيتم تنفيذها في video_handler.go
+	c.JSON(http.StatusNotImplemented, gin.H{
+		"success": false,
+		"error":   "Video handler not implemented in this file",
+	})
+}
+
+func (h *videoHandler) DownloadVideoHandler(c *gin.Context) {
+	// سيتم تنفيذها في video_handler.go
+	c.JSON(http.StatusNotImplemented, gin.H{
+		"success": false,
+		"error":   "Video handler not implemented in this file",
+	})
+}
+
+func (h *videoHandler) GetVideoCapabilitiesHandler(c *gin.Context) {
+	// سيتم تنفيذها في video_handler.go
+	c.JSON(http.StatusNotImplemented, gin.H{
+		"success": false,
+		"error":   "Video handler not implemented in this file",
+	})
+}
+
+func (h *videoHandler) GetVideoStatsHandler(c *gin.Context) {
+	// سيتم تنفيذها في video_handler.go
+	c.JSON(http.StatusNotImplemented, gin.H{
+		"success": false,
+		"error":   "Video handler not implemented in this file",
 	})
 }
 
