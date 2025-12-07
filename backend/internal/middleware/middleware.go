@@ -18,16 +18,27 @@ import (
 
 // MiddlewareContainer حاوية الوسائط
 type MiddlewareContainer struct {
-	AuthMiddleware      gin.HandlerFunc
-	AdminMiddleware     gin.HandlerFunc
+	AuthMiddleware      *AuthMiddleware
+	AdminMiddleware     *AdminMiddleware
 	CORSMiddleware      gin.HandlerFunc
 	SecurityMiddleware  gin.HandlerFunc
 	RateLimitMiddleware gin.HandlerFunc
 }
 
+// AuthMiddleware واجهة لمصادقة المستخدم
+type AuthMiddleware struct {
+	authService services.AuthService
+}
+
+// AdminMiddleware واجهة لمصادقة المسؤول
+type AdminMiddleware struct{}
+
+// SellerMiddleware واجهة لمصادقة البائعين
+type SellerMiddleware struct{}
+
 // ==================== الوسائط الأساسية ====================
 
-// CORSMiddleware وسيط CORS (تم تغيير الاسم لتجنب التكرار)
+// CORSMiddleware وسيط CORS
 func CORSMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		origin := c.Request.Header.Get("Origin")
@@ -52,7 +63,6 @@ func CORSMiddleware() gin.HandlerFunc {
 		c.Next()
 	}
 }
-
 
 // SecurityHeaders وسيط رؤوس الأمان
 func SecurityHeaders() gin.HandlerFunc {
@@ -126,10 +136,32 @@ func Logging() gin.HandlerFunc {
 	}
 }
 
+// Logger وظيفة logger بسيطة
+func Logger() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		start := time.Now()
+		c.Next()
+		duration := time.Since(start)
+		
+		logger.Stdout.Info("HTTP Request",
+			"method", c.Request.Method,
+			"path", c.Request.URL.Path,
+			"status", c.Writer.Status(),
+			"duration", duration.String(),
+			"ip", getClientIP(c.Request),
+		)
+	}
+}
+
 // ==================== وسائط المصادقة ====================
 
-// AuthMiddleware وسيط المصادقة باستخدام AuthService
-func AuthMiddleware(authService services.AuthService) gin.HandlerFunc {
+// NewAuthMiddleware إنشاء وسيط مصادقة جديد
+func NewAuthMiddleware(authService services.AuthService) *AuthMiddleware {
+	return &AuthMiddleware{authService: authService}
+}
+
+// Handle معالجة طلب المصادقة
+func (m *AuthMiddleware) Handle() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// الحصول على التوكن من الرأس
 		authHeader := c.GetHeader("Authorization")
@@ -158,7 +190,7 @@ func AuthMiddleware(authService services.AuthService) gin.HandlerFunc {
 		token := parts[1]
 
 		// التحقق من صحة التوكن باستخدام AuthService
-		claims, err := authService.VerifyToken(c.Request.Context(), token)
+		claims, err := m.authService.VerifyToken(c.Request.Context(), token)
 		if err != nil {
 			c.JSON(http.StatusUnauthorized, gin.H{
 				"success": false,
@@ -213,8 +245,13 @@ func OptionalAuth(authService services.AuthService) gin.HandlerFunc {
 
 // ==================== وسائط الأدوار والصلاحيات ====================
 
-// AdminMiddleware وسيط مصادقة المسؤول
-func AdminMiddleware() gin.HandlerFunc {
+// NewAdminMiddleware إنشاء وسيط مصادقة المسؤول
+func NewAdminMiddleware() *AdminMiddleware {
+	return &AdminMiddleware{}
+}
+
+// Handle معالجة طلب مصادقة المسؤول
+func (m *AdminMiddleware) Handle() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userRole, exists := c.Get("userRole")
 		if !exists {
@@ -241,13 +278,13 @@ func AdminMiddleware() gin.HandlerFunc {
 	}
 }
 
-// AdminRequired اسم بديل لـ AdminMiddleware للتوافق مع الشفرة الحالية
-func AdminRequired() gin.HandlerFunc {
-	return AdminMiddleware()
+// NewSellerMiddleware إنشاء وسيط مصادقة البائعين
+func NewSellerMiddleware() *SellerMiddleware {
+	return &SellerMiddleware{}
 }
 
-// SellerMiddleware وسيط مصادقة البائعين
-func SellerMiddleware() gin.HandlerFunc {
+// Handle معالجة طلب مصادقة البائعين
+func (m *SellerMiddleware) Handle() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userRole, exists := c.Get("userRole")
 		if !exists {
@@ -296,61 +333,7 @@ func UserMiddleware() gin.HandlerFunc {
 
 // RateLimit وسيط تحديد المعدل
 func RateLimit() gin.HandlerFunc {
-	type clientLimit struct {
-		count    int
-		lastSeen time.Time
-	}
-
-	clients := make(map[string]*clientLimit)
-	requests := 100 // 100 طلب في الدقيقة
-	window := time.Minute
-
-	return func(c *gin.Context) {
-		clientIP := getClientIP(c.Request)
-
-		// تنظيف العملاء القدامى
-		if len(clients) > 1000 {
-			now := time.Now()
-			for ip, limit := range clients {
-				if now.Sub(limit.lastSeen) > window {
-					delete(clients, ip)
-				}
-			}
-		}
-
-		limit, exists := clients[clientIP]
-		if !exists {
-			limit = &clientLimit{count: 0, lastSeen: time.Now()}
-			clients[clientIP] = limit
-		}
-
-		// إعادة تعيين العداد إذا انتهت النافذة الزمنية
-		if time.Since(limit.lastSeen) > window {
-			limit.count = 0
-			limit.lastSeen = time.Now()
-		}
-
-		// التحقق من تجاوز الحد
-		if limit.count >= requests {
-			c.JSON(http.StatusTooManyRequests, gin.H{
-				"success": false,
-				"error":   "تم تجاوز معدل الطلبات المسموح به",
-				"message": "يرجى المحاولة مرة أخرى لاحقاً",
-			})
-			c.Abort()
-			return
-		}
-
-		// زيادة العداد
-		limit.count++
-		limit.lastSeen = time.Now()
-
-		// إضافة معلومات التحديد إلى الرأس
-		c.Writer.Header().Set("X-RateLimit-Limit", fmt.Sprintf("%d", requests))
-		c.Writer.Header().Set("X-RateLimit-Remaining", fmt.Sprintf("%d", requests-limit.count))
-
-		c.Next()
-	}
+	return RateLimitWithConfig(100, time.Minute)
 }
 
 // RateLimitWithConfig وسيط تحديد المعدل مع تكوين مخصص
@@ -464,35 +447,7 @@ func ValidateContentType() gin.HandlerFunc {
 
 // Recovery وسيط استعادة الأخطاء
 func Recovery() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		defer func() {
-			if err := recover(); err != nil {
-				// الحصول على معرف الطلب
-				requestID, _ := c.Get("requestID")
-
-				// تسجيل الخطأ
-				logger.Stderr.Error("تعافى من حالة panic",
-					"error", err,
-					"request_id", requestID,
-					"path", c.Request.URL.Path,
-					"method", c.Request.Method,
-					"ip", getClientIP(c.Request),
-				)
-
-				// إرسال استجابة خطأ
-				c.JSON(http.StatusInternalServerError, gin.H{
-					"success":    false,
-					"error":      "خطأ داخلي في الخادم",
-					"message":    "حدث خطأ غير متوقع",
-					"request_id": requestID,
-				})
-
-				c.Abort()
-			}
-		}()
-
-		c.Next()
-	}
+	return gin.Recovery()
 }
 
 // ==================== وسائط الوقت والتحقق ====================
@@ -661,8 +616,8 @@ func RegisterGlobalMiddlewares(router *gin.Engine, cfg *config.Config) {
 // InitializeMiddlewares تهيئة حاوية الوسائط
 func InitializeMiddlewares(authService services.AuthService) *MiddlewareContainer {
 	return &MiddlewareContainer{
-		AuthMiddleware:      AuthMiddleware(authService),
-		AdminMiddleware:     AdminMiddleware(),
+		AuthMiddleware:      NewAuthMiddleware(authService),
+		AdminMiddleware:     NewAdminMiddleware(),
 		CORSMiddleware:      CORSMiddleware(),
 		SecurityMiddleware:  SecurityHeaders(),
 		RateLimitMiddleware: RateLimit(),
@@ -680,21 +635,21 @@ func RegisterAPIMiddlewares(router *gin.RouterGroup, container *MiddlewareContai
 // RegisterProtectedMiddlewares تسجيل وسائط المسارات المحمية
 func RegisterProtectedMiddlewares(router *gin.RouterGroup, container *MiddlewareContainer) {
 	// تطبيق وسائط المصادقة على المسارات المحمية
-	router.Use(container.AuthMiddleware)
+	router.Use(container.AuthMiddleware.Handle())
 }
 
 // RegisterAdminMiddlewares تسجيل وسائط مسارات الإدارة
 func RegisterAdminMiddlewares(router *gin.RouterGroup, container *MiddlewareContainer) {
 	// تطبيق وسائط المصادقة والإدارة على مسارات الإدارة
-	router.Use(container.AuthMiddleware)
-	router.Use(container.AdminMiddleware)
+	router.Use(container.AuthMiddleware.Handle())
+	router.Use(container.AdminMiddleware.Handle())
 }
 
 // NewMiddlewareContainer إنشاء حاوية وسائط جديدة
 func NewMiddlewareContainer(authService services.AuthService) *MiddlewareContainer {
 	return &MiddlewareContainer{
-		AuthMiddleware:      AuthMiddleware(authService),
-		AdminMiddleware:     AdminMiddleware(),
+		AuthMiddleware:      NewAuthMiddleware(authService),
+		AdminMiddleware:     NewAdminMiddleware(),
 		CORSMiddleware:      CORSMiddleware(),
 		SecurityMiddleware:  SecurityHeaders(),
 		RateLimitMiddleware: RateLimitWithConfig(100, time.Minute),
