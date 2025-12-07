@@ -9,6 +9,7 @@ import (
 	"io"
 	"math"
 	"math/big"
+	"net"
 	"net/http"
 	"reflect"
 	"regexp"
@@ -19,7 +20,6 @@ import (
 	"unicode"
 
 	"github.com/gin-gonic/gin"
-	"github.com/nawthtech/nawthtech/backend/internal/logger"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -672,32 +672,6 @@ func CalculateOrderTotal(subtotal, tax, shipping, discount float64) float64 {
 	return subtotal + tax + shipping - discount
 }
 
-// ========== دوال التسجيل والتصحيح ==========
-
-// LogOperation تسجيل عملية مع الوقت
-func LogOperation(ctx context.Context, operation string, fn func() error) error {
-	start := time.Now()
-
-	err := fn()
-
-	duration := time.Since(start)
-	if err != nil {
-		// تسجيل الخطأ
-		return err
-	}
-
-	// تسجيل النجاح
-	_ = duration
-	return nil
-}
-
-// MeasureExecutionTime قياس وقت التنفيذ
-func MeasureExecutionTime(ctx context.Context, name string, fn func()) time.Duration {
-	start := time.Now()
-	fn()
-	return time.Since(start)
-}
-
 // ========== دوال الشبكة والـ HTTP ==========
 
 // GetClientIP الحصول على IP العميل
@@ -770,7 +744,7 @@ func CalculateRating(ratings []int) float64 {
 // GenerateVerificationCode إنشاء رمز التحقق
 func GenerateVerificationCode() string {
 	// إنشاء رمز مكون من 6 أرقام
-	random, _ := GenerateRandomNumber(0, 999999)
+	random := GenerateRandomNumber(0, 999999)
 	return fmt.Sprintf("%06d", random)
 }
 
