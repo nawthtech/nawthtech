@@ -32,32 +32,35 @@ func (s *MediaService) AnalyzeImage(ctx context.Context, imageData []byte, promp
         return nil, fmt.Errorf("image provider not configured")
     }
     
-    // التحقق من أن المزود يدعم تحليل الصور
-    if provider, ok := s.imageProvider.(interface {
-        AnalyzeImage(imageData []byte, prompt string, userID string) (*types.AnalysisResponse, error)
-    }); ok {
-        return provider.AnalyzeImage(imageData, prompt, extractUserIDFromContext(ctx))
+    // تحضير طلب التحليل
+    req := types.AnalysisRequest{
+        ImageData: imageData,
+        Prompt:    prompt,
+        UserID:    extractUserIDFromContext(ctx),
     }
     
-    return nil, fmt.Errorf("image analysis not supported by provider")
+    return s.imageProvider.AnalyzeImage(req)
 }
 
 // GetImageInfo الحصول على معلومات الصورة
 func (s *MediaService) GetImageInfo(ctx context.Context, imageData []byte) (*types.ImageInfo, error) {
     // فك ترميز الصورة للحصول على المعلومات الأساسية
     reader := strings.NewReader(string(imageData))
-    config, format, err := image.DecodeConfig(reader)
+    imgConfig, format, err := image.DecodeConfig(reader)
     if err != nil {
         return nil, fmt.Errorf("failed to decode image: %w", err)
     }
     
+    // الحصول على اسم نموذج الألوان
+    colorModel := fmt.Sprintf("%T", imgConfig.ColorModel)
+    
     return &types.ImageInfo{
-        Width:      config.Width,
-        Height:     config.Height,
+        Width:      imgConfig.Width,
+        Height:     imgConfig.Height,
         Format:     format,
         SizeBytes:  len(imageData),
         HasAlpha:   format == "png" || format == "gif",
-        ColorModel: config.ColorModel.String(),
+        ColorModel: colorModel,
     }, nil
 }
 
@@ -94,14 +97,35 @@ func (s *MediaService) GenerateImageFromText(ctx context.Context, prompt string,
         return nil, fmt.Errorf("image generation not supported")
     }
     
-    // التحقق من أن المزود يدعم توليد الصور
-    if provider, ok := s.imageProvider.(interface {
-        GenerateImage(prompt string, options types.ImageGenerationOptions, userID string) (*types.GeneratedImage, error)
-    }); ok {
-        return provider.GenerateImage(prompt, options, extractUserIDFromContext(ctx))
+    // تحضير طلب توليد الصورة
+    req := types.ImageRequest{
+        Prompt:   prompt,
+        Size:     options.Size,
+        Style:    options.Style,
+        Quality:  options.Quality,
+        UserID:   extractUserIDFromContext(ctx),
     }
     
-    return nil, fmt.Errorf("image generation not supported by provider")
+    resp, err := s.imageProvider.GenerateImage(req)
+    if err != nil {
+        return nil, err
+    }
+    
+    // تحويل ImageResponse إلى GeneratedImage
+    return &types.GeneratedImage{
+        URL:       resp.URL,
+        ImageData: resp.ImageData,
+        Width:     resp.Width,
+        Height:    resp.Height,
+        Format:    resp.Format,
+        SizeBytes: len(resp.ImageData),
+        CreatedAt: resp.CreatedAt,
+        Provider:  resp.ModelUsed,
+        Model:     resp.ModelUsed,
+        Cost:      resp.Cost,
+        Prompt:    prompt,
+        Seed:      resp.Seed,
+    }, nil
 }
 
 // RemoveBackground إزالة خلفية الصورة
@@ -250,4 +274,16 @@ func (s *MediaService) ReadImageFromReader(ctx context.Context, reader io.Reader
 func (s *MediaService) WriteImageToWriter(ctx context.Context, imageData []byte, writer io.Writer) error {
     _, err := writer.Write(imageData)
     return err
+}
+
+// ==================== دالة مساعدة ====================
+
+// extractUserIDFromContext استخراج معرف المستخدم من السياق
+func extractUserIDFromContext(ctx context.Context) string {
+    // في تطبيق حقيقي، يمكن استخراج معرف المستخدم من السياق
+    // هنا نعيد قيمة افتراضية
+    if userID, ok := ctx.Value("userID").(string); ok {
+        return userID
+    }
+    return "anonymous"
 }
