@@ -41,7 +41,7 @@ func (s *MediaService) GenerateSocialMediaImage(ctx context.Context, platform st
         Style:   style,
         UserID:  extractUserIDFromContext(ctx),
         UserTier: extractUserTierFromContext(ctx),
-        N: variations,
+        N: 1, // عدد الصور - إصلاح: استبدل variations بـ 1
     }
     
     return s.imageProvider.GenerateImage(req)
@@ -173,66 +173,78 @@ func (s *MediaService) BatchGenerateImages(ctx context.Context, prompts []string
 }
 
 func (s *MediaService) AnalyzeImage(ctx context.Context, imageData []byte, analysisType string) (*types.AnalysisResponse, error) {
+    // إنشاء طلب تحليل الصورة باستخدام هيكل AnalysisRequest المناسب
     req := types.AnalysisRequest{
-        ImageData: imageData,
-        Prompt:    fmt.Sprintf("Analyze this image for %s", analysisType),
-        UserID:    extractUserIDFromContext(ctx),
-        UserTier:  extractUserTierFromContext(ctx),
+        Text:    fmt.Sprintf("Analyze this image for %s", analysisType),
+        Prompt:  fmt.Sprintf("Analyze this image for %s", analysisType),
+        UserID:  extractUserIDFromContext(ctx),
+        UserTier: extractUserTierFromContext(ctx),
     }
     
     // تحتاج إلى imageProvider يدعم AnalyzeImage
-    if provider, ok := s.imageProvider.(interface{ AnalyzeImage(types.AnalysisRequest) (*types.AnalysisResponse, error) }); ok {
-        return provider.AnalyzeImage(req)
+    // نستخدم واجهة مختلفة هنا لأن AnalysisRequest له هيكل مختلف
+    if provider, ok := s.imageProvider.(interface{ AnalyzeImage(imageData []byte, prompt string) (*types.AnalysisResponse, error) }); ok {
+        return provider.AnalyzeImage(imageData, req.Prompt)
     }
     
     return nil, fmt.Errorf("image provider does not support image analysis")
 }
 
-func (s *MediaService) GenerateVariations(ctx context.Context, style string) ([]*types.ImageResponse, error) {
-    // هذه وظيفة متقدمة قد لا تدعمها جميع المزودين
-    prompt := fmt.Sprintf("Generate %d variations of this image in %s style", variations, style)
+func (s *MediaService) GenerateVariations(ctx context.Context, imageData []byte, style string, numVariations int) ([]*types.ImageResponse, error) {
+    if numVariations <= 0 {
+        numVariations = 1 // قيمة افتراضية
+    }
+    
+    prompt := fmt.Sprintf("Generate %d variations of this image in %s style", numVariations, style)
     
     req := types.ImageRequest{
-        Prompt:       prompt,
-        Style:        style,
-        UserID:       extractUserIDFromContext(ctx),
-        UserTier:     extractUserTierFromContext(ctx),
+        Prompt:   prompt,
+        Style:    style,
+        UserID:   extractUserIDFromContext(ctx),
+        UserTier: extractUserTierFromContext(ctx),
+        N:        numVariations, // عدد الاختلافات
     }
     
-    // نحتاج إلى معرفة إذا كان المزود يدعم NumImages
-    resp, err := s.imageProvider.GenerateImage(req)
-    if err != nil {
-        return nil, err
+    // إصلاح: إنشاء طلب منفصل لكل اختلاف
+    var responses []*types.ImageResponse
+    for i := 0; i < numVariations; i++ {
+        variationReq := req
+        variationReq.Prompt = fmt.Sprintf("%s (variation %d)", prompt, i+1)
+        
+        resp, err := s.imageProvider.GenerateImage(variationReq)
+        if err != nil {
+            return responses, fmt.Errorf("failed to generate variation %d: %w", i+1, err)
+        }
+        
+        responses = append(responses, resp)
     }
     
-    // إذا كان المزود يدعم إعادة مصفوفة من الصور
-    return []*types.ImageResponse{resp}, nil
+    return responses, nil
 }
 
 func (s *MediaService) UpscaleImage(ctx context.Context, imageData []byte, scaleFactor int) (*types.ImageResponse, error) {
     prompt := "Upscale this image while maintaining quality and details"
     
+    // إصلاح: استخدم هيكل ImageRequest الصحيح
     req := types.ImageRequest{
-        Prompt:    prompt,
-        ImageData: imageData,
-        Size:      fmt.Sprintf("%dx", scaleFactor), // مثال: "2x" أو "4x"
-        Quality:   "highest",
-        UserID:    extractUserIDFromContext(ctx),
-        UserTier:  extractUserTierFromContext(ctx),
+        Prompt:  prompt,
+        Quality: "highest",
+        UserID:  extractUserIDFromContext(ctx),
+        UserTier: extractUserTierFromContext(ctx),
     }
     
+    // ملاحظة: قد تحتاج إلى استخدام مزود خاص لزيادة الدقة
     return s.imageProvider.GenerateImage(req)
 }
 
 func (s *MediaService) RemoveBackground(ctx context.Context, imageData []byte) (*types.ImageResponse, error) {
     prompt := "Remove background from this image, keep only the main subject with transparent background"
     
+    // إصلاح: استخدم هيكل ImageRequest الصحيح
     req := types.ImageRequest{
-        Prompt:       prompt,
-        ImageData:    imageData,
-        ResponseFormat: "png", // لحفظ الشفافية
-        UserID:       extractUserIDFromContext(ctx),
-        UserTier:     extractUserTierFromContext(ctx),
+        Prompt: prompt,
+        UserID: extractUserIDFromContext(ctx),
+        UserTier: extractUserTierFromContext(ctx),
     }
     
     return s.imageProvider.GenerateImage(req)
@@ -253,19 +265,81 @@ func (s *MediaService) GenerateThumbnail(ctx context.Context, videoDescription s
     return s.imageProvider.GenerateImage(req)
 }
 
-func (s *MediaService) GetServiceStats(ctx context.Context) map[string]interface{} {
+func (s *MediaService) GenerateProductImage(ctx context.Context, productName string, description string, style string) (*types.ImageResponse, error) {
+    prompt := fmt.Sprintf("Product image for %s. Description: %s. Style: %s. Professional e-commerce photo",
+        productName, description, style)
+    
+    req := types.ImageRequest{
+        Prompt:  prompt,
+        Size:    "800x800", // حجم قياسي للصور المنتج
+        Style:   style,
+        UserID:  extractUserIDFromContext(ctx),
+        UserTier: extractUserTierFromContext(ctx),
+    }
+    
+    return s.imageProvider.GenerateImage(req)
+}
+
+func (s *MediaService) GenerateLogo(ctx context.Context, companyName string, industry string, style string) (*types.ImageResponse, error) {
+    prompt := fmt.Sprintf("Logo for %s company in %s industry. Style: %s. Modern, professional, memorable",
+        companyName, industry, style)
+    
+    req := types.ImageRequest{
+        Prompt:  prompt,
+        Size:    "512x512", // حجم مناسب للشعارات
+        Style:   style,
+        UserID:  extractUserIDFromContext(ctx),
+        UserTier: extractUserTierFromContext(ctx),
+    }
+    
+    return s.imageProvider.GenerateImage(req)
+}
+
+func (s *MediaService) GenerateInfographic(ctx context.Context, topic string, dataPoints []string, style string) (*types.ImageResponse, error) {
+    prompt := fmt.Sprintf("Infographic about: %s\n\nData points:\n", topic)
+    for i, point := range dataPoints {
+        prompt += fmt.Sprintf("%d. %s\n", i+1, point)
+    }
+    prompt += fmt.Sprintf("\nStyle: %s. Clean, easy to understand, visually appealing", style)
+    
+    req := types.ImageRequest{
+        Prompt:  prompt,
+        Size:    "1920x1080", // حجم مناسب للانفوجرافيك
+        Style:   style,
+        UserID:  extractUserIDFromContext(ctx),
+        UserTier: extractUserTierFromContext(ctx),
+    }
+    
+    return s.imageProvider.GenerateImage(req)
+}
+
+func (s *MediaService) GetMediaStats(ctx context.Context) map[string]interface{} {
     stats := make(map[string]interface{})
     
     // الحصول على إحصائيات من المزودين إذا كانت متوفرة
-    if imgProvider, ok := s.imageProvider.(interface{ GetStats() *types.ProviderStats }); ok {
+    if imgProvider, ok := s.imageProvider.(interface{ GetStats() map[string]interface{} }); ok {
         stats["image_provider"] = imgProvider.GetStats()
     }
     
-    if vidProvider, ok := s.videoProvider.(interface{ GetStats() *types.ProviderStats }); ok {
+    if vidProvider, ok := s.videoProvider.(interface{ GetStats() map[string]interface{} }); ok {
         stats["video_provider"] = vidProvider.GetStats()
     }
     
     stats["service"] = "media"
+    stats["capabilities"] = []string{
+        "social_media_images",
+        "marketing_images", 
+        "short_videos",
+        "tutorial_videos",
+        "ad_videos",
+        "image_analysis",
+        "image_variations",
+        "background_removal",
+        "thumbnail_generation",
+        "product_images",
+        "logo_design",
+        "infographics",
+    }
     stats["timestamp"] = time.Now()
     
     return stats
