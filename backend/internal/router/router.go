@@ -8,10 +8,11 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/nawthtech/nawthtech/backend/internal/handlers"
 	"github.com/nawthtech/nawthtech/backend/internal/middleware"
+	"github.com/nawthtech/nawthtech/backend/internal/services"
 )
 
 // NewRouter creates and configures the main application router
-func NewRouter() *gin.Engine {
+func NewRouter(serviceContainer *services.ServiceContainer) *gin.Engine {
 	// Set Gin mode
 	gin.SetMode(gin.ReleaseMode)
 	
@@ -21,11 +22,29 @@ func NewRouter() *gin.Engine {
 	// Global middleware
 	router.Use(gin.Recovery()) // Recover from panics
 	router.Use(middleware.Logger()) // Custom logging
-	router.Use(middleware.CORS()) // CORS middleware
+	router.Use(CORSMiddleware()) // CORS middleware
 	
 	// Static files
 	router.Static("/static", "./static")
 	router.StaticFile("/favicon.ico", "./static/favicon.ico")
+	
+	// Create handlers
+	authHandler := handlers.NewAuthHandler(serviceContainer.AuthService)
+	userHandler := handlers.NewUserHandler(serviceContainer.UserService)
+	serviceHandler := handlers.NewServiceHandler(serviceContainer.ServiceService)
+	categoryHandler := handlers.NewCategoryHandler(serviceContainer.CategoryService)
+	orderHandler := handlers.NewOrderHandler(serviceContainer.OrderService)
+	paymentHandler := handlers.NewPaymentHandler(serviceContainer.PaymentService)
+	
+	// Create upload handler
+	uploadHandler, err := handlers.NewUploadHandler()
+	if err != nil {
+		// Fallback to nil handler if upload service fails
+		uploadHandler = nil
+	}
+	
+	notificationHandler := handlers.NewNotificationHandler(serviceContainer.NotificationService)
+	adminHandler := handlers.NewAdminHandler(serviceContainer.AdminService)
 	
 	// Health check
 	router.GET("/health", func(c *gin.Context) {
@@ -42,52 +61,105 @@ func NewRouter() *gin.Engine {
 		// API v1
 		v1 := api.Group("/v1")
 		{
-			// AI routes
-			ai := v1.Group("/ai")
-			ai.Use(middleware.AuthMiddleware()) // Require auth for AI endpoints
+			// Auth routes
+			auth := v1.Group("/auth")
 			{
-				ai.POST("/generate", handlers.GenerateAIHandler)
-				ai.POST("/generate/text", handlers.GenerateTextHandler)
-				ai.POST("/generate/image", handlers.GenerateImageHandler)
-				ai.POST("/generate/video", handlers.GenerateVideoHandler)
-				ai.POST("/translate", handlers.TranslateHandler)
-				ai.POST("/analyze", handlers.AnalyzeHandler)
-				ai.GET("/models", handlers.GetModelsHandler)
-				ai.GET("/usage", handlers.GetUsageHandler)
-				ai.GET("/history", handlers.GetHistoryHandler)
-			}
-			
-			// Content routes
-			content := v1.Group("/content")
-			{
-				content.POST("/blog", handlers.GenerateBlogHandler)
-				content.POST("/social", handlers.GenerateSocialHandler)
-				content.POST("/product", handlers.GenerateProductHandler)
-			}
-			
-			// Media routes
-			media := v1.Group("/media")
-			{
-				media.POST("/upload", handlers.UploadMediaHandler)
-				media.GET("/:id", handlers.GetMediaHandler)
+				auth.POST("/register", authHandler.Register)
+				auth.POST("/login", authHandler.Login)
+				auth.POST("/logout", authHandler.Logout)
+				auth.POST("/refresh-token", authHandler.RefreshToken)
+				auth.POST("/forgot-password", authHandler.ForgotPassword)
+				auth.POST("/reset-password", authHandler.ResetPassword)
+				auth.POST("/verify-token", authHandler.VerifyToken)
 			}
 			
 			// User routes
 			users := v1.Group("/users")
 			{
-				users.POST("/register", handlers.RegisterHandler)
-				users.POST("/login", handlers.LoginHandler)
-				users.GET("/profile", middleware.AuthMiddleware(), handlers.GetProfileHandler)
-				users.PUT("/profile", middleware.AuthMiddleware(), handlers.UpdateProfileHandler)
+				users.GET("/profile", userHandler.GetProfile)
+				users.PUT("/profile", userHandler.UpdateProfile)
+				users.PUT("/change-password", userHandler.ChangePassword)
+				users.GET("/stats", userHandler.GetUserStats)
+			}
+			
+			// Service routes
+			servicesGroup := v1.Group("/services")
+			{
+				servicesGroup.GET("/", serviceHandler.GetServices)
+				servicesGroup.GET("/search", serviceHandler.SearchServices)
+				servicesGroup.GET("/featured", serviceHandler.GetFeaturedServices)
+				servicesGroup.GET("/categories", serviceHandler.GetCategories)
+				servicesGroup.GET("/my-services", serviceHandler.GetMyServices)
+				servicesGroup.GET("/seller-orders", serviceHandler.GetSellerOrders)
+				servicesGroup.GET("/:id", serviceHandler.GetServiceByID)
+				servicesGroup.POST("/", serviceHandler.CreateService)
+				servicesGroup.PUT("/:id", serviceHandler.UpdateService)
+				servicesGroup.DELETE("/:id", serviceHandler.DeleteService)
+			}
+			
+			// Category routes
+			categories := v1.Group("/categories")
+			{
+				categories.GET("/", categoryHandler.GetCategories)
+				categories.GET("/:id", categoryHandler.GetCategoryByID)
+				categories.POST("/", categoryHandler.CreateCategory)
+				categories.PUT("/:id", categoryHandler.UpdateCategory)
+				categories.DELETE("/:id", categoryHandler.DeleteCategory)
+			}
+			
+			// Order routes
+			orders := v1.Group("/orders")
+			{
+				orders.POST("/", orderHandler.CreateOrder)
+				orders.GET("/my-orders", orderHandler.GetUserOrders)
+				orders.GET("/seller-orders", orderHandler.GetSellerOrders)
+				orders.GET("/:id", orderHandler.GetOrderByID)
+				orders.PUT("/:id/status", orderHandler.UpdateOrderStatus)
+				orders.PUT("/:id/cancel", orderHandler.CancelOrder)
+			}
+			
+			// Payment routes
+			payments := v1.Group("/payments")
+			{
+				payments.POST("/create-intent", paymentHandler.CreatePaymentIntent)
+				payments.POST("/confirm", paymentHandler.ConfirmPayment)
+				payments.GET("/history", paymentHandler.GetPaymentHistory)
+				payments.POST("/stripe-webhook", paymentHandler.HandleStripeWebhook)
+				payments.POST("/paypal-webhook", paymentHandler.HandlePayPalWebhook)
+			}
+			
+			// Upload routes
+			if uploadHandler != nil {
+				uploads := v1.Group("/uploads")
+				{
+					uploads.POST("/image", uploadHandler.UploadImage)
+					uploads.POST("/images", uploadHandler.UploadMultipleImages)
+					uploads.GET("/my-images", uploadHandler.GetUserImages)
+					uploads.GET("/image/:public_id", uploadHandler.GetImageInfo)
+					uploads.DELETE("/image/:public_id", uploadHandler.DeleteImage)
+					uploads.POST("/cloudinary-webhook", uploadHandler.HandleCloudinaryWebhook)
+				}
+			}
+			
+			// Notification routes
+			notifications := v1.Group("/notifications")
+			{
+				notifications.GET("/", notificationHandler.GetUserNotifications)
+				notifications.GET("/unread-count", notificationHandler.GetUnreadCount)
+				notifications.PUT("/:id/read", notificationHandler.MarkAsRead)
+				notifications.PUT("/read-all", notificationHandler.MarkAllAsRead)
 			}
 			
 			// Admin routes
 			admin := v1.Group("/admin")
-			admin.Use(middleware.AdminMiddleware())
+			admin.Use(middleware.AdminRequired()) // Admin middleware
 			{
-				admin.GET("/users", handlers.AdminGetUsersHandler)
-				admin.GET("/stats", handlers.AdminGetStatsHandler)
-				admin.POST("/config", handlers.AdminUpdateConfigHandler)
+				admin.GET("/dashboard", adminHandler.GetDashboard)
+				admin.GET("/dashboard/stats", adminHandler.GetDashboardStats)
+				admin.GET("/users", adminHandler.GetUsers)
+				admin.GET("/orders", adminHandler.GetAllOrders)
+				admin.GET("/system-logs", adminHandler.GetSystemLogs)
+				admin.PUT("/users/:id/status", adminHandler.UpdateUserStatus)
 			}
 		}
 		
@@ -103,12 +175,6 @@ func NewRouter() *gin.Engine {
 		}
 	}
 	
-	// SSE (Server-Sent Events) for real-time updates
-	router.GET("/sse/ai-progress", handlers.SSEAIProgressHandler)
-	
-	// WebSocket for real-time communication
-	router.GET("/ws/ai", handlers.WebSocketAIHandler)
-	
 	// Documentation
 	router.GET("/docs", func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
@@ -117,15 +183,19 @@ func NewRouter() *gin.Engine {
 				"v2": "/api/v2",
 			},
 			"endpoints": map[string][]string{
-				"ai": {
-					"POST /api/v1/ai/generate",
-					"POST /api/v1/ai/generate/text",
-					"POST /api/v1/ai/generate/image",
-					"GET /api/v1/ai/models",
+				"auth": {
+					"POST /api/v1/auth/register",
+					"POST /api/v1/auth/login",
+					"POST /api/v1/auth/logout",
 				},
-				"content": {
-					"POST /api/v1/content/blog",
-					"POST /api/v1/content/social",
+				"users": {
+					"GET /api/v1/users/profile",
+					"PUT /api/v1/users/profile",
+				},
+				"services": {
+					"GET /api/v1/services/",
+					"POST /api/v1/services/",
+					"GET /api/v1/services/:id",
 				},
 				"health": {
 					"GET /health",
@@ -179,9 +249,9 @@ func CORSMiddleware() gin.HandlerFunc {
 }
 
 // DevelopmentRouter creates a router with development settings
-func DevelopmentRouter() *gin.Engine {
+func DevelopmentRouter(serviceContainer *services.ServiceContainer) *gin.Engine {
 	gin.SetMode(gin.DebugMode)
-	router := NewRouter()
+	router := NewRouter(serviceContainer)
 	
 	// Add development-only middleware
 	router.Use(gin.Logger()) // Detailed logging in dev
@@ -190,8 +260,8 @@ func DevelopmentRouter() *gin.Engine {
 }
 
 // ProductionRouter creates a router with production settings
-func ProductionRouter() *gin.Engine {
-	router := NewRouter()
+func ProductionRouter(serviceContainer *services.ServiceContainer) *gin.Engine {
+	router := NewRouter(serviceContainer)
 	
 	// Add production-only middleware
 	router.Use(middleware.RateLimitMiddleware()) // Rate limiting
