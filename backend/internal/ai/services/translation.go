@@ -179,7 +179,7 @@ func (s *TranslationService) translateMarkdown(ctx context.Context, markdown str
 }
 
 func extractContentFromMarkdown(line string) string {
-    // إزالة علامات التنسيق
+    // إزالة علامات التنسيز
     line = strings.TrimSpace(line)
     
     // إزالة علامات العناوين
@@ -257,8 +257,8 @@ func (s *TranslationService) GetSupportedLanguages(ctx context.Context) ([]strin
 
 func (s *TranslationService) TranslateWithGlossary(ctx context.Context, text string, sourceLang string, targetLang string, glossary map[string]string) (*types.TranslationResponse, error) {
     // تطبيق المصطلحات قبل الترجمة
-    for original, translation := range glossary {
-        text = strings.ReplaceAll(text, original, fmt.Sprintf("[%s]", translation))
+    for originalTerm, translation := range glossary {
+        text = strings.ReplaceAll(text, originalTerm, fmt.Sprintf("[%s]", translation))
     }
     
     req := types.TranslationRequest{
@@ -276,7 +276,7 @@ func (s *TranslationService) TranslateWithGlossary(ctx context.Context, text str
     
     // استبدال العلامات بالمصطلحات المترجمة
     translatedText := resp.TranslatedText
-    for original, translation := range glossary {
+    for _, translation := range glossary {
         marker := fmt.Sprintf("[%s]", translation)
         translatedText = strings.ReplaceAll(translatedText, marker, translation)
     }
