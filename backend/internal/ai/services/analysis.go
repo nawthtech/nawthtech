@@ -18,14 +18,27 @@ func NewAnalysisService(provider types.TextProvider) *AnalysisService {
     }
 }
 
-req := types.TextRequest{
-    Prompt:      prompt,
-    MaxTokens:   2000,
-    Temperature: 0.6,
-    UserID:      extractUserIDFromContext(ctx),
-    UserTier:    extractUserTierFromContext(ctx),
+// تحسين: إضافة دوال مساعدة لاستخراج معلومات المستخدم من السياق
+func extractUserIDFromContext(ctx context.Context) string {
+    if ctx == nil {
+        return ""
+    }
+    // يمكن تنفيذ منطق استخراج UserID من السياق
+    // مثلاً: إذا كنت تستخدم JWT أو جلسات
+    return ""
 }
-return s.textProvider.GenerateText(req)
+
+func extractUserTierFromContext(ctx context.Context) string {
+    if ctx == nil {
+        return "free"
+    }
+    // يمكن تنفيذ منطق استخراج Tier من السياق
+    return "free"
+}
+
+// AnalyzeMarketTrends تحليل اتجاهات السوق
+func (s *AnalysisService) AnalyzeMarketTrends(ctx context.Context, industry string, timeframe string) (*types.TextResponse, error) {
+    prompt := fmt.Sprintf(`Analyze market trends for the %s industry over the %s timeframe.
 
 Provide a comprehensive analysis including:
 
@@ -103,7 +116,7 @@ Provide the analysis in a structured format with confidence scores.`, sourceType
     }
     
     // نحتاج إلى معرفة إذا كان المزود يدعم AnalyzeText مباشرة
-    if provider, ok := s.textProvider.(interface{ AnalyzeText(types.AnalysisRequest) (*types.AnalysisResponse, error) }); ok {
+    if provider, ok := s.textProvider.(interface{ AnalyzeText(req types.AnalysisRequest) (*types.AnalysisResponse, error) }); ok {
         return provider.AnalyzeText(req)
     }
     
@@ -314,7 +327,7 @@ Provide structured analysis with specific action items.`, product, feedbackStr)
         UserTier: extractUserTierFromContext(ctx),
     }
     
-    if provider, ok := s.textProvider.(interface{ AnalyzeText(types.AnalysisRequest) (*types.AnalysisResponse, error) }); ok {
+    if provider, ok := s.textProvider.(interface{ AnalyzeText(req types.AnalysisRequest) (*types.AnalysisResponse, error) }); ok {
         return provider.AnalyzeText(req)
     }
     
