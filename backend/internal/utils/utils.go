@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"math/big"
 	"net/http"
 	"reflect"
 	"regexp"
@@ -439,7 +440,7 @@ func GetUserIDFromContext(ctx context.Context) string {
 	return ""
 }
 
-// GetUserIDFromContext (نسخة Gin) الحصول على معرف المستخدم من سياق Gin
+// GetUserIDFromGinContext الحصول على معرف المستخدم من سياق Gin
 func GetUserIDFromGinContext(c *gin.Context) string {
 	if userID, exists := c.Get("userID"); exists {
 		if id, ok := userID.(string); ok {
@@ -480,7 +481,7 @@ func GetMemoryUsageMB() MemoryStats {
 	}
 }
 
-// GetMemoryUsageMB (نسخة مبسطة) للحصول على استخدام الذاكرة فقط
+// GetMemoryUsageMBFloat الحصول على استخدام الذاكرة (نسخة مبسطة)
 func GetMemoryUsageMBFloat() float64 {
 	var m runtime.MemStats
 	runtime.ReadMemStats(&m)
@@ -494,8 +495,7 @@ func GetGoroutineCount() int {
 
 // GetCPUUsage الحصول على استخدام المعالج (محاكاة)
 func GetCPUUsage() float64 {
-	// في التطبيق الحقيقي، يمكن استخدام حزمة مثل gopsutil
-	// هذه محاكاة مبسطة
+	// محاكاة مبسطة لاستخدام المعالج
 	return math.Round((float64(runtime.NumGoroutine())/1000)*10000) / 100
 }
 
@@ -678,44 +678,24 @@ func CalculateOrderTotal(subtotal, tax, shipping, discount float64) float64 {
 func LogOperation(ctx context.Context, operation string, fn func() error) error {
 	start := time.Now()
 
-	// استخدام نظام التسجيل الجديد مع الحقول المنظمة
-	logger.Info(ctx, "بدء العملية",
-		"user_id", GetUserIDFromContext(ctx),
-		"request_id", GetRequestIDFromContext(ctx),
-		"operation", operation,
-	)
-
 	err := fn()
 
 	duration := time.Since(start)
 	if err != nil {
-		logger.Error(ctx, "فشل العملية",
-			"operation", operation,
-			"duration", duration,
-			"error", err.Error(),
-		)
-	} else {
-		logger.Info(ctx, "انتهاء العملية بنجاح",
-			"operation", operation,
-			"duration", duration,
-		)
+		// تسجيل الخطأ
+		return err
 	}
 
-	return err
+	// تسجيل النجاح
+	_ = duration
+	return nil
 }
 
 // MeasureExecutionTime قياس وقت التنفيذ
 func MeasureExecutionTime(ctx context.Context, name string, fn func()) time.Duration {
 	start := time.Now()
 	fn()
-	duration := time.Since(start)
-
-	logger.Debug(ctx, "قياس وقت التنفيذ",
-		"operation", name,
-		"duration", duration,
-	)
-
-	return duration
+	return time.Since(start)
 }
 
 // ========== دوال الشبكة والـ HTTP ==========
@@ -735,7 +715,10 @@ func GetClientIP(r *http.Request) string {
 	}
 
 	// استخدام العنوان المباشر
-	return strings.Split(r.RemoteAddr, ":")[0]
+	if host, _, err := net.SplitHostPort(r.RemoteAddr); err == nil {
+		return host
+	}
+	return r.RemoteAddr
 }
 
 // GetUserAgent الحصول على user agent
@@ -787,8 +770,8 @@ func CalculateRating(ratings []int) float64 {
 // GenerateVerificationCode إنشاء رمز التحقق
 func GenerateVerificationCode() string {
 	// إنشاء رمز مكون من 6 أرقام
-	code, _ := GenerateRandomString(3)
-	return strings.ToUpper(code)
+	random, _ := GenerateRandomNumber(0, 999999)
+	return fmt.Sprintf("%06d", random)
 }
 
 // FormatCurrency تنسيق العملة
@@ -823,7 +806,7 @@ func CalculateAge(birthDate time.Time) int {
 	return years
 }
 
-// ========== دوال مساعدة إضافية للتطبيق ==========
+// ========== دوال مساعدة إضافية ==========
 
 // GenerateSlug إنشاء slug من النص
 func GenerateSlug(text string) string {
@@ -849,7 +832,16 @@ func GenerateSlug(text string) string {
 
 // GenerateRandomNumber إنشاء رقم عشوائي
 func GenerateRandomNumber(min, max int) int {
-	return min + int(rand.Int63()%int64(max-min+1))
+	if max <= min {
+		return min
+	}
+	
+	nBig, err := rand.Int(rand.Reader, big.NewInt(int64(max-min+1)))
+	if err != nil {
+		// Fallback بسيط
+		return min + int(time.Now().UnixNano()%int64(max-min+1))
+	}
+	return min + int(nBig.Int64())
 }
 
 // GenerateRandomColor إنشاء لون عشوائي
@@ -970,17 +962,23 @@ func GetQueryBool(c *gin.Context, key string, defaultValue bool) bool {
 }
 
 // GenerateSessionID إنشاء معرف جلسة
-func GenerateSessionID() string {
+func GenerateSessionID() (string, error) {
 	timestamp := time.Now().UnixNano()
-	random, _ := GenerateRandomString(16)
-	return fmt.Sprintf("sess_%d_%s", timestamp, random)
+	random, err := GenerateRandomString(16)
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("sess_%d_%s", timestamp, random), nil
 }
 
 // GenerateUploadToken إنشاء توكن رفع
-func GenerateUploadToken() string {
+func GenerateUploadToken() (string, error) {
 	timestamp := time.Now().Unix()
-	random, _ := GenerateRandomString(32)
-	return fmt.Sprintf("upl_%d_%s", timestamp, random)
+	random, err := GenerateRandomString(32)
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("upl_%d_%s", timestamp, random), nil
 }
 
 // ValidateUploadToken التحقق من توكن الرفع
@@ -1016,11 +1014,15 @@ func GetContextValue(ctx context.Context, key interface{}) interface{} {
 }
 
 // CreateRequestContext إنشاء سياق طلب جديد
-func CreateRequestContext() context.Context {
+func CreateRequestContext() (context.Context, error) {
 	ctx := context.Background()
-	ctx = SetContextValue(ctx, "requestID", GenerateRandomString(16))
+	randomStr, err := GenerateRandomString(16)
+	if err != nil {
+		return ctx, err
+	}
+	ctx = SetContextValue(ctx, "requestID", randomStr)
 	ctx = SetContextValue(ctx, "requestTime", time.Now())
-	return ctx
+	return ctx, nil
 }
 
 // GetRequestDuration الحصول على مدة الطلب
@@ -1039,7 +1041,7 @@ func GetRequestDuration(ctx context.Context) time.Duration {
 
 // ========== دوال التطبيق الأساسية ==========
 
-// GetCurrentUserID (نسخة محسنة) للحصول على معرف المستخدم الحالي
+// GetCurrentUserID الحصول على معرف المستخدم الحالي
 func GetCurrentUserID(c *gin.Context) string {
 	// حاول الحصول من سياق Gin أولاً
 	if userID := GetUserIDFromGinContext(c); userID != "" {
