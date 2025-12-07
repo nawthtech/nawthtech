@@ -175,7 +175,6 @@ func (s *VideoService) GetStats() VideoStats {
     
     stats := VideoStats{
         LastGeneration: time.Time{},
-        Provider:       s.provider.Name(),
     }
     
     styleCount := make(map[string]int)
@@ -266,8 +265,9 @@ func (s *VideoService) GetProviderStats() map[string]interface{} {
 func getSupportedResolutionsFromProvider(provider VideoProvider) []string {
     // هذه قائمة افتراضية، يمكن للمزودين تخصيصها
     resolutions := []string{
-        "512x512", "576x1024", "1024x576",
-        "768x768", "1024x1024", "1280x720",
+        "1920x1080", "1080x1920",
+        "1280x720", "720x1280",
+        "1024x1024", "512x512", "256x256",
     }
     
     // تصفية الدقات المدعومة فعلياً
@@ -387,4 +387,34 @@ func (s *VideoService) IsJobOwner(jobID, userID string) bool {
     
     // هذا مثال بسيط، في التطبيق الحقيقي قد تحتاج إلى التحقق من قاعدة البيانات
     return job.Request.UserID == userID
+}
+
+// GetUserUsage الحصول على استخدام المستخدم
+func (s *VideoService) GetUserUsage(userID, tier string) *VideoUsage {
+    monthly, daily := GetDefaultLimits(tier)
+    
+    return &VideoUsage{
+        UserID:           userID,
+        Tier:             tier,
+        TotalGenerations: 0,
+        MonthlyLimit:     monthly,
+        MonthlyUsed:      0,
+        DailyLimit:       daily,
+        DailyUsed:        0,
+        LastGenerated:    time.Time{},
+        LastReset:        time.Now(),
+    }
+}
+
+// CanUserGenerateVideo التحقق من إمكانية المستخدم لتوليد فيديو
+func (s *VideoService) CanUserGenerateVideo(userID, tier string) (bool, string) {
+    usage := s.GetUserUsage(userID, tier)
+    return usage.CanGenerateVideo()
+}
+
+// RecordUserGeneration تسجيل عملية توليد للمستخدم
+func (s *VideoService) RecordUserGeneration(userID, tier string) *VideoUsage {
+    usage := s.GetUserUsage(userID, tier)
+    usage.RecordGeneration()
+    return usage
 }
