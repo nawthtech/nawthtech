@@ -153,7 +153,7 @@ func (p *HuggingFaceProvider) GenerateText(req types.TextRequest) (*types.TextRe
     }
     
     // تقدير عدد الرموز
-    tokens := len(strings.Fields(generatedText)) * 1.3
+tokens := int(float64(len(strings.Fields(generatedText))) * 1.3)
     
     return &types.TextResponse{
         Text:        strings.TrimSpace(generatedText),
