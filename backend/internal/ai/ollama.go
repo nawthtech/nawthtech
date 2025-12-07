@@ -10,6 +10,7 @@ import (
     "os"
     "strings"
     "time"
+    "github.com/nawthtech/nawthtech/backend/internal/ai/types"
 )
 
 // OllamaProvider مزود Ollama المحلي
