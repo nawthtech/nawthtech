@@ -7,49 +7,8 @@ import (
     "path/filepath"
     "sync"
     "time"
+    "github.com/nawthtech/nawthtech/backend/internal/ai/types"
 )
-
-// UsageRecord سجل استخدام
-type UsageRecord struct {
-    UserID     string  `json:"user_id"`
-    UserTier   string  `json:"user_tier"`
-    Provider   string  `json:"provider"`
-    Type       string  `json:"type"` // text, image, video, audio
-    Cost       float64 `json:"cost"`
-    Quantity   int64   `json:"quantity"`
-    Latency    float64 `json:"latency"`
-    Success    bool    `json:"success"`
-    Timestamp  time.Time `json:"timestamp"`
-}
-
-// CostManager مدير التكاليف والحصص
-type CostManager struct {
-    mu           sync.RWMutex
-    dataPath     string
-    monthlyLimit float64
-    dailyLimit   float64
-    
-    // إحصائيات الاستخدام
-    Usage struct {
-        TotalCost      float64                     `json:"total_cost"`
-        MonthlyCost    map[string]float64          `json:"monthly_cost"`    // الشهر -> التكلفة
-        DailyCost      map[string]float64          `json:"daily_cost"`      // اليوم -> التكلفة
-        UserUsage      map[string]*UserUsageStats  `json:"user_usage"`      // المستخدم -> الإحصائيات
-        ProviderUsage  map[string]*ProviderStats   `json:"provider_usage"`  // المزود -> الإحصائيات
-        LastReset      time.Time                   `json:"last_reset"`
-    }
-}
-
-// UserUsageStats إحصائيات استخدام المستخدم
-type UserUsageStats struct {
-    UserID        string                       `json:"user_id"`
-    Tier          string                       `json:"tier"`
-    TotalCost     float64                      `json:"total_cost"`
-    MonthlyCost   map[string]float64           `json:"monthly_cost"`
-    DailyCost     map[string]float64           `json:"daily_cost"`
-    Quotas        map[string]*Quota            `json:"quotas"`
-    LastActive    time.Time                    `json:"last_active"`
-}
 
 // ProviderStats إحصائيات المزود
 type ProviderStats struct {
