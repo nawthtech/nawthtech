@@ -20,20 +20,20 @@ import (
 
 // MiddlewareContainer حاوية الوسائط
 type MiddlewareContainer struct {
-	AuthMiddleware      *AuthMiddleware
-	AdminMiddleware     *AdminMiddleware
+	AuthMiddleware      *AuthMiddlewareStruct
+	AdminMiddleware     *AdminMiddlewareStruct
 	CORSMiddleware      gin.HandlerFunc
 	SecurityMiddleware  gin.HandlerFunc
 	RateLimitMiddleware gin.HandlerFunc
 }
 
-// AuthMiddleware واجهة لمصادقة المستخدم
-type AuthMiddleware struct {
+// AuthMiddlewareStruct واجهة لمصادقة المستخدم
+type AuthMiddlewareStruct struct {
 	authService services.AuthService
 }
 
-// AdminMiddleware واجهة لمصادقة المسؤول
-type AdminMiddleware struct{}
+// AdminMiddlewareStruct واجهة لمصادقة المسؤول
+type AdminMiddlewareStruct struct{}
 
 // SellerMiddleware واجهة لمصادقة البائعين
 type SellerMiddleware struct{}
@@ -97,8 +97,8 @@ func SecurityHeaders() gin.HandlerFunc {
 	}
 }
 
-// SecurityMiddleware middleware لإضافة رؤوس الأمان
-func SecurityMiddleware() gin.HandlerFunc {
+// SecurityMiddlewareFunc middleware لإضافة رؤوس الأمان
+func SecurityMiddlewareFunc() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// إضافة رؤوس الأمان
 		c.Header("X-Content-Type-Options", "nosniff")
@@ -185,12 +185,12 @@ func Logger() gin.HandlerFunc {
 // ==================== وسائط المصادقة ====================
 
 // NewAuthMiddleware إنشاء وسيط مصادقة جديد
-func NewAuthMiddleware(authService services.AuthService) *AuthMiddleware {
-	return &AuthMiddleware{authService: authService}
+func NewAuthMiddleware(authService services.AuthService) *AuthMiddlewareStruct {
+	return &AuthMiddlewareStruct{authService: authService}
 }
 
 // Handle معالجة طلب المصادقة
-func (m *AuthMiddleware) Handle() gin.HandlerFunc {
+func (m *AuthMiddlewareStruct) Handle() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// الحصول على التوكن من الرأس
 		authHeader := c.GetHeader("Authorization")
@@ -244,15 +244,36 @@ func (m *AuthMiddleware) Handle() gin.HandlerFunc {
 func AuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// هذا تنفيذ مبسط - سيتم استبداله بالتنفيذ الفعلي مع AuthService
-		userID := utils.GetUserIDFromContext(c)
+		userID := utils.GetUserIDFromGinContext(c)
 		if userID == "" {
-			c.JSON(http.StatusUnauthorized, gin.H{
-				"success": false,
-				"error":   "مصادقة مطلوبة",
-				"message": "يرجى تسجيل الدخول",
-			})
-			c.Abort()
-			return
+			// التحقق من رأس المصادقة
+			authHeader := c.GetHeader("Authorization")
+			if authHeader == "" {
+				c.JSON(http.StatusUnauthorized, gin.H{
+					"success": false,
+					"error":   "مصادقة مطلوبة",
+					"message": "يرجى تسجيل الدخول",
+				})
+				c.Abort()
+				return
+			}
+
+			// محاولة استخراج معرف المستخدم من التوكن (مبسطة)
+			parts := strings.Split(authHeader, " ")
+			if len(parts) == 2 && parts[0] == "Bearer" {
+				// في تطبيق حقيقي، يتم فك تشفير التوكن والتحقق منه
+				// هنا نستخدم تنفيذ مبسط
+				c.Set("userID", "temp_user_id")
+				c.Set("userRole", "user")
+			} else {
+				c.JSON(http.StatusUnauthorized, gin.H{
+					"success": false,
+					"error":   "مصادقة مطلوبة",
+					"message": "يرجى تسجيل الدخول",
+				})
+				c.Abort()
+				return
+			}
 		}
 		c.Next()
 	}
@@ -293,12 +314,12 @@ func OptionalAuth(authService services.AuthService) gin.HandlerFunc {
 // ==================== وسائط الأدوار والصلاحيات ====================
 
 // NewAdminMiddleware إنشاء وسيط مصادقة المسؤول
-func NewAdminMiddleware() *AdminMiddleware {
-	return &AdminMiddleware{}
+func NewAdminMiddleware() *AdminMiddlewareStruct {
+	return &AdminMiddlewareStruct{}
 }
 
 // Handle معالجة طلب مصادقة المسؤول
-func (m *AdminMiddleware) Handle() gin.HandlerFunc {
+func (m *AdminMiddlewareStruct) Handle() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userRole, exists := c.Get("userRole")
 		if !exists {
@@ -328,7 +349,7 @@ func (m *AdminMiddleware) Handle() gin.HandlerFunc {
 // AdminRequired middleware للتحقق من صلاحيات المشرف
 func AdminRequired() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		userID := utils.GetUserIDFromContext(c)
+		userID := utils.GetUserIDFromGinContext(c)
 		if userID == "" {
 			c.JSON(http.StatusUnauthorized, gin.H{
 				"success": false,
@@ -340,15 +361,35 @@ func AdminRequired() gin.HandlerFunc {
 		}
 
 		// هذا تنفيذ مبسط - يمكن تحديثه للتحقق من دور المستخدم من قاعدة البيانات
-		// في الوقت الحالي، نعتبر أن المستخدم مصرح له
+		userRole := c.GetString("userRole")
+		if userRole != "admin" && userRole != "superadmin" {
+			c.JSON(http.StatusForbidden, gin.H{
+				"success": false,
+				"error":   "forbidden",
+				"message": "مطلوب صلاحيات مشرف",
+			})
+			c.Abort()
+			return
+		}
+
 		c.Next()
 	}
 }
 
-// AdminMiddleware للاستخدام مع router
-func AdminMiddleware() gin.HandlerFunc {
+// AdminMiddlewareFunc للاستخدام مع router
+func AdminMiddlewareFunc() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// هذا تنفيذ مبسط للتحقق من صلاحيات المشرف
+		userRole := c.GetString("userRole")
+		if userRole != "admin" && userRole != "superadmin" {
+			c.JSON(http.StatusForbidden, gin.H{
+				"success": false,
+				"error":   "forbidden",
+				"message": "مطلوب صلاحيات مشرف",
+			})
+			c.Abort()
+			return
+		}
 		c.Next()
 	}
 }
@@ -411,8 +452,8 @@ func RateLimit() gin.HandlerFunc {
 	return RateLimitWithConfig(100, time.Minute)
 }
 
-// RateLimitMiddleware middleware للحد من معدل الطلبات
-func RateLimitMiddleware() gin.HandlerFunc {
+// RateLimitMiddlewareFunc middleware للحد من معدل الطلبات
+func RateLimitMiddlewareFunc() gin.HandlerFunc {
 	rateLimitWindow := time.Minute
 	maxRequests := 60 // 60 طلب في الدقيقة
 
