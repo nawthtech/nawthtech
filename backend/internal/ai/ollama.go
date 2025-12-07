@@ -129,7 +129,7 @@ func (p *OllamaProvider) GenerateText(req types.TextRequest) (*types.TextRespons
     }
     
     // تقدير عدد الرموز (تقريبي)
-    tokens := len(strings.Fields(result.Response)) * 1.3
+tokens := int(float64(len(strings.Fields(result.Response))) * 1.3)
     
     return &types.TextResponse{
         Text:        strings.TrimSpace(result.Response),
