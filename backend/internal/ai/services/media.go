@@ -41,6 +41,7 @@ func (s *MediaService) GenerateSocialMediaImage(ctx context.Context, platform st
         Style:   style,
         UserID:  extractUserIDFromContext(ctx),
         UserTier: extractUserTierFromContext(ctx),
+        N: variations,
     }
     
     return s.imageProvider.GenerateImage(req)
