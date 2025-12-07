@@ -1,7 +1,6 @@
 package video
 
 import (
-    "context"
     "fmt"
     "sync"
     "time"
@@ -95,6 +94,7 @@ func (s *VideoService) processVideoJob(jobID string, req VideoRequest) {
             Success: false,
             Error:   videoErr.Message,
             Status:  string(VideoJobFailed),
+            CreatedAt: time.Now(),
         }
     } else {
         job.Status = VideoJobCompleted
@@ -173,7 +173,14 @@ func (s *VideoService) GetStats() VideoStats {
     s.mu.RLock()
     defer s.mu.RUnlock()
     
-    stats := VideoStats{}
+    stats := VideoStats{
+        LastGeneration: time.Time{},
+        Provider:       s.provider.Name(),
+    }
+    
+    styleCount := make(map[string]int)
+    providerCount := make(map[string]int)
+    
     for _, job := range s.jobs {
         stats.TotalGenerations++
         
@@ -188,12 +195,44 @@ func (s *VideoService) GetStats() VideoStats {
             stats.Failed++
         }
         
+        // تحديث آخر عملية توليد
         if job.CreatedAt.After(stats.LastGeneration) {
             stats.LastGeneration = job.CreatedAt
         }
+        
+        // عد الأنماط الأكثر استخداماً
+        if job.Request.Style != "" {
+            styleCount[job.Request.Style]++
+        }
+        
+        // عد المزودين الأكثر استخداماً
+        if job.Result != nil && job.Result.Provider != "" {
+            providerCount[job.Result.Provider]++
+        }
     }
     
-    stats.Provider = s.provider.Name()
+    // العثور على النمط الأكثر استخداماً
+    if len(styleCount) > 0 {
+        maxCount := 0
+        for style, count := range styleCount {
+            if count > maxCount {
+                maxCount = count
+                stats.MostUsedStyle = style
+            }
+        }
+    }
+    
+    // العثور على المزود الأكثر استخداماً
+    if len(providerCount) > 0 {
+        maxCount := 0
+        for provider, count := range providerCount {
+            if count > maxCount {
+                maxCount = count
+                stats.MostUsedProvider = provider
+            }
+        }
+    }
+    
     return stats
 }
 
@@ -210,4 +249,142 @@ func (s *VideoService) updateJobStatus(jobID string, status VideoJobStatus, prog
 
 func generateJobID() string {
     return fmt.Sprintf("video_%d", time.Now().UnixNano())
+}
+
+// GetProviderStats الحصول على إحصائيات المزود
+func (s *VideoService) GetProviderStats() map[string]interface{} {
+    return map[string]interface{}{
+        "provider":          s.provider.Name(),
+        "available":         s.provider.IsAvailable(),
+        "local":             s.provider.IsLocal(),
+        "free":              s.provider.IsFree(),
+        "supported_resolutions": getSupportedResolutionsFromProvider(s.provider),
+    }
+}
+
+// getSupportedResolutionsFromProvider الحصول على الدقات المدعومة من المزود
+func getSupportedResolutionsFromProvider(provider VideoProvider) []string {
+    // هذه قائمة افتراضية، يمكن للمزودين تخصيصها
+    resolutions := []string{
+        "512x512", "576x1024", "1024x576",
+        "768x768", "1024x1024", "1280x720",
+    }
+    
+    // تصفية الدقات المدعومة فعلياً
+    var supported []string
+    for _, res := range resolutions {
+        if provider.SupportsResolution(res) {
+            supported = append(supported, res)
+        }
+    }
+    
+    return supported
+}
+
+// GetJobSummary الحصول على ملخص المهام
+func (s *VideoService) GetJobSummary() map[string]interface{} {
+    s.mu.RLock()
+    defer s.mu.RUnlock()
+    
+    summary := map[string]interface{}{
+        "total_jobs":     len(s.jobs),
+        "pending":        0,
+        "processing":     0,
+        "completed":      0,
+        "failed":         0,
+        "cancelled":      0,
+    }
+    
+    for _, job := range s.jobs {
+        switch job.Status {
+        case VideoJobPending:
+            summary["pending"] = summary["pending"].(int) + 1
+        case VideoJobProcessing:
+            summary["processing"] = summary["processing"].(int) + 1
+        case VideoJobCompleted:
+            summary["completed"] = summary["completed"].(int) + 1
+        case VideoJobFailed:
+            summary["failed"] = summary["failed"].(int) + 1
+        case VideoJobCancelled:
+            summary["cancelled"] = summary["cancelled"].(int) + 1
+        }
+    }
+    
+    return summary
+}
+
+// GetRecentJobs الحصول على المهام الحديثة
+func (s *VideoService) GetRecentJobs(limit int) []*VideoJob {
+    s.mu.RLock()
+    defer s.mu.RUnlock()
+    
+    if limit <= 0 || limit > len(s.jobs) {
+        limit = len(s.jobs)
+    }
+    
+    // جمع جميع المهام
+    allJobs := make([]*VideoJob, 0, len(s.jobs))
+    for _, job := range s.jobs {
+        allJobs = append(allJobs, job)
+    }
+    
+    // ترتيب حسب التاريخ (الأحدث أولاً)
+    for i := 0; i < len(allJobs)-1; i++ {
+        for j := i + 1; j < len(allJobs); j++ {
+            if allJobs[i].CreatedAt.Before(allJobs[j].CreatedAt) {
+                allJobs[i], allJobs[j] = allJobs[j], allJobs[i]
+            }
+        }
+    }
+    
+    // إرجاع المهام المطلوبة فقط
+    if len(allJobs) > limit {
+        return allJobs[:limit]
+    }
+    
+    return allJobs
+}
+
+// GetJobsByStatus الحصول على المهام حسب الحالة
+func (s *VideoService) GetJobsByStatus(status VideoJobStatus) []*VideoJob {
+    s.mu.RLock()
+    defer s.mu.RUnlock()
+    
+    var filteredJobs []*VideoJob
+    for _, job := range s.jobs {
+        if job.Status == status {
+            filteredJobs = append(filteredJobs, job)
+        }
+    }
+    
+    return filteredJobs
+}
+
+// GetJobsByDateRange الحصول على المهام ضمن نطاق تاريخ
+func (s *VideoService) GetJobsByDateRange(start, end time.Time) []*VideoJob {
+    s.mu.RLock()
+    defer s.mu.RUnlock()
+    
+    var filteredJobs []*VideoJob
+    for _, job := range s.jobs {
+        if !job.CreatedAt.Before(start) && !job.CreatedAt.After(end) {
+            filteredJobs = append(filteredJobs, job)
+        }
+    }
+    
+    return filteredJobs
+}
+
+// IsJobOwner التحقق من ملكية المهمة
+func (s *VideoService) IsJobOwner(jobID, userID string) bool {
+    s.mu.RLock()
+    defer s.mu.RUnlock()
+    
+    job, exists := s.jobs[jobID]
+    if !exists {
+        return false
+    }
+    
+    // هذا مثال بسيط، في التطبيق الحقيقي قد تحتاج إلى التحقق من قاعدة البيانات
+    return job.Request.UserID == userID
 }
