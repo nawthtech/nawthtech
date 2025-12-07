@@ -18,24 +18,6 @@ func NewAnalysisService(provider types.TextProvider) *AnalysisService {
     }
 }
 
-// تحسين: إضافة دوال مساعدة لاستخراج معلومات المستخدم من السياق
-func extractUserIDFromContext(ctx context.Context) string {
-    if ctx == nil {
-        return ""
-    }
-    // يمكن تنفيذ منطق استخراج UserID من السياق
-    // مثلاً: إذا كنت تستخدم JWT أو جلسات
-    return ""
-}
-
-func extractUserTierFromContext(ctx context.Context) string {
-    if ctx == nil {
-        return "free"
-    }
-    // يمكن تنفيذ منطق استخراج Tier من السياق
-    return "free"
-}
-
 // AnalyzeMarketTrends تحليل اتجاهات السوق
 func (s *AnalysisService) AnalyzeMarketTrends(ctx context.Context, industry string, timeframe string) (*types.TextResponse, error) {
     prompt := fmt.Sprintf(`Analyze market trends for the %s industry over the %s timeframe.
