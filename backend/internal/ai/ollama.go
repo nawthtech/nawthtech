@@ -73,7 +73,7 @@ func (p *OllamaProvider) loadModels() error {
 }
 
 // GenerateText توليد نص
-func (p *OllamaProvider) GenerateText(req TextRequest) (*TextResponse, error) {
+func (p *OllamaProvider) GenerateText(req types.TextRequest) (*types.TextResponse, error) {
     url := p.baseURL + "/api/generate"
     
     // تعيين القيم الافتراضية
@@ -119,9 +119,9 @@ func (p *OllamaProvider) GenerateText(req TextRequest) (*TextResponse, error) {
     }
     
     var result struct {
-        Response string `json:"response"`
-        Done     bool   `json:"done"`
-        Model    string `json:"model"`
+        Response string    `json:"response"`
+        Done     bool      `json:"done"`
+        Model    string    `json:"model"`
     }
     
     if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
@@ -131,26 +131,28 @@ func (p *OllamaProvider) GenerateText(req TextRequest) (*TextResponse, error) {
     // تقدير عدد الرموز (تقريبي)
     tokens := len(strings.Fields(result.Response)) * 1.3
     
-    return &TextResponse{
-        Text:   strings.TrimSpace(result.Response),
-        Tokens: int(tokens),
-        Cost:   0.0, // Ollama مجاني
-        Model:  result.Model,
+    return &types.TextResponse{
+        Text:        strings.TrimSpace(result.Response),
+        Tokens:      int(tokens),
+        Cost:        0.0, // Ollama مجاني
+        ModelUsed:   result.Model,
+        FinishReason: "length",
+        CreatedAt:   time.Now(),
     }, nil
 }
 
 // GenerateImage توليد صورة - غير مدعوم في Ollama
-func (p *OllamaProvider) GenerateImage(req ImageRequest) (*ImageResponse, error) {
+func (p *OllamaProvider) GenerateImage(req types.ImageRequest) (*types.ImageResponse, error) {
     return nil, fmt.Errorf("image generation not supported by Ollama")
 }
 
 // GenerateVideo توليد فيديو - غير مدعوم في Ollama
-func (p *OllamaProvider) GenerateVideo(req VideoRequest) (*VideoResponse, error) {
+func (p *OllamaProvider) GenerateVideo(req types.VideoRequest) (*types.VideoResponse, error) {
     return nil, fmt.Errorf("video generation not supported by Ollama")
 }
 
 // AnalyzeImage تحليل صورة
-func (p *OllamaProvider) AnalyzeImage(req AnalysisRequest) (*AnalysisResponse, error) {
+func (p *OllamaProvider) AnalyzeImage(req types.AnalysisRequest) (*types.AnalysisResponse, error) {
     // استخدام نموذج رؤية لتحليل الصورة
     // هذا يتطلب نموذج multimodal مثل llama3.2-vision
     if req.Model == "" {
@@ -160,7 +162,7 @@ func (p *OllamaProvider) AnalyzeImage(req AnalysisRequest) (*AnalysisResponse, e
     // تحويل الصورة إلى prompt
     prompt := fmt.Sprintf("%s Analyze this image: [Image data provided]", req.Prompt)
     
-    textReq := TextRequest{
+    textReq := types.TextRequest{
         Prompt: prompt,
         Model:  req.Model,
     }
@@ -170,23 +172,24 @@ func (p *OllamaProvider) AnalyzeImage(req AnalysisRequest) (*AnalysisResponse, e
         return nil, err
     }
     
-    return &AnalysisResponse{
+    return &types.AnalysisResponse{
         Result:     resp.Text,
         Confidence: 0.8,
         Cost:       0.0,
-        Model:      resp.Model,
+        Model:      resp.ModelUsed,
+        CreatedAt:  time.Now(),
     }, nil
 }
 
 // AnalyzeText تحليل نص
-func (p *OllamaProvider) AnalyzeText(req AnalysisRequest) (*AnalysisResponse, error) {
+func (p *OllamaProvider) AnalyzeText(req types.AnalysisRequest) (*types.AnalysisResponse, error) {
     prompt := fmt.Sprintf("Analyze this text: %s\n\nProvide analysis:", req.Text)
     
     if req.Prompt != "" {
         prompt = fmt.Sprintf("%s\n\n%s", req.Prompt, prompt)
     }
     
-    textReq := TextRequest{
+    textReq := types.TextRequest{
         Prompt: prompt,
         Model:  req.Model,
     }
@@ -196,16 +199,17 @@ func (p *OllamaProvider) AnalyzeText(req AnalysisRequest) (*AnalysisResponse, er
         return nil, err
     }
     
-    return &AnalysisResponse{
+    return &types.AnalysisResponse{
         Result:     resp.Text,
         Confidence: 0.9,
         Cost:       0.0,
-        Model:      resp.Model,
+        Model:      resp.ModelUsed,
+        CreatedAt:  time.Now(),
     }, nil
 }
 
 // TranslateText ترجمة نص
-func (p *OllamaProvider) TranslateText(req TranslationRequest) (*TranslationResponse, error) {
+func (p *OllamaProvider) TranslateText(req types.TranslationRequest) (*types.TranslationResponse, error) {
     prompt := fmt.Sprintf("Translate the following text from %s to %s:\n\n%s",
         req.FromLang, req.ToLang, req.Text)
     
@@ -213,7 +217,7 @@ func (p *OllamaProvider) TranslateText(req TranslationRequest) (*TranslationResp
         req.Model = "llama3.2:3b"
     }
     
-    textReq := TextRequest{
+    textReq := types.TextRequest{
         Prompt: prompt,
         Model:  req.Model,
     }
@@ -223,15 +227,16 @@ func (p *OllamaProvider) TranslateText(req TranslationRequest) (*TranslationResp
         return nil, err
     }
     
-    return &TranslationResponse{
+    return &types.TranslationResponse{
         TranslatedText: strings.TrimSpace(resp.Text),
         Cost:           0.0,
-        Model:          resp.Model,
+        Model:          resp.ModelUsed,
+        CreatedAt:      time.Now(),
     }, nil
 }
 
 // GenerateStream توليد نص بشكل متدفق
-func (p *OllamaProvider) GenerateStream(ctx context.Context, req TextRequest) (<-chan string, <-chan error) {
+func (p *OllamaProvider) GenerateStream(ctx context.Context, req types.TextRequest) (<-chan string, <-chan error) {
     textChan := make(chan string)
     errChan := make(chan error, 1)
     
@@ -417,19 +422,19 @@ func (p *OllamaProvider) GetCost() float64 {
 }
 
 // GetStats الحصول على إحصائيات
-func (p *OllamaProvider) GetStats() *ProviderStats {
-    stats := &ProviderStats{
-        Name:        "Ollama",
+func (p *OllamaProvider) GetStats() *types.ProviderStats {
+    return &types.ProviderStats{
+        Name:        p.GetName(),
         Type:        "text",
         IsAvailable: p.IsAvailable(),
-        Requests:    0, // سيتم تحديث هذا من قبل CostManager
-        Errors:      0,
-        LastUsed:    "",
+        Requests:    0,
+        Successful:  0,
+        Failed:      0,
         TotalCost:   0.0,
-        SuccessRate: 95.0, // تقديري
+        AvgLatency:  0.0,
+        SuccessRate: 95.0,
+        LastUsed:    time.Time{},
     }
-    
-    return stats
 }
 
 // GetStatsDetailed الحصول على إحصائيات مفصلة
@@ -463,7 +468,7 @@ func (p *OllamaProvider) GetStatsDetailed() (map[string]interface{}, error) {
 func (p *OllamaProvider) StreamText(prompt string, model string, temperature float64) (<-chan string, <-chan error, context.CancelFunc) {
     ctx, cancel := context.WithCancel(context.Background())
     
-    req := TextRequest{
+    req := types.TextRequest{
         Prompt:      prompt,
         Model:       model,
         Temperature: temperature,
@@ -472,4 +477,29 @@ func (p *OllamaProvider) StreamText(prompt string, model string, temperature flo
     textChan, errChan := p.GenerateStream(ctx, req)
     
     return textChan, errChan, cancel
+}
+
+// GetType نوع المزود
+func (p *OllamaProvider) GetType() string {
+    return "text"
+}
+
+// SupportsStreaming يدعم التدفق
+func (p *OllamaProvider) SupportsStreaming() bool {
+    return true
+}
+
+// SupportsEmbedding يدعم التضمين
+func (p *OllamaProvider) SupportsEmbedding() bool {
+    return true
+}
+
+// GetMaxTokens الحد الأقصى للرموز
+func (p *OllamaProvider) GetMaxTokens() int {
+    return 4000
+}
+
+// GetSupportedLanguages اللغات المدعومة
+func (p *OllamaProvider) GetSupportedLanguages() []string {
+    return []string{"en", "es", "fr", "de", "ar", "zh", "ja", "ko"}
 }
