@@ -8,11 +8,14 @@ import (
 	"github.com/nawthtech/nawthtech/backend/internal/middleware"
 	"github.com/nawthtech/nawthtech/backend/internal/services"
 	"github.com/nawthtech/nawthtech/backend/internal/ai"
+	"github.com/nawthtech/nawthtech/backend/internal/ai/video"
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
 // RegisterAllRoutes تسجيل جميع المسارات
-func RegisterAllRoutes(router *gin.Engine, serviceContainer *services.ServiceContainer, config *config.Config, mongoClient *mongo.Client) {
+func RegisterAllRoutes(router *gin.Engine, serviceContainer *services.ServiceContainer, config *config.Config, 
+	mongoClient *mongo.Client, aiClient *ai.Client, videoService *video.VideoService) {
+	
 	// تطبيق middleware العام على مستوى التطبيق
 	applyGlobalMiddleware(router, config)
 
@@ -26,10 +29,10 @@ func RegisterAllRoutes(router *gin.Engine, serviceContainer *services.ServiceCon
 	registerHealthRoutes(router, config, mongoClient)
 
 	// ========== المسارات العامة (لا تتطلب مصادقة) ==========
-	registerPublicRoutes(api, serviceContainer, middlewares)
+	registerPublicRoutes(api, serviceContainer, middlewares, aiClient, videoService)
 
 	// ========== المسارات المحمية (تتطلب مصادقة) ==========
-	registerProtectedRoutes(api, serviceContainer, middlewares)
+	registerProtectedRoutes(api, serviceContainer, middlewares, aiClient, videoService)
 
 	// ========== مسارات المسؤولين ==========
 	registerAdminRoutes(api, serviceContainer, middlewares)
@@ -51,6 +54,12 @@ func applyGlobalMiddleware(router *gin.Engine, config *config.Config) {
 
 	// Rate limiting middleware
 	router.Use(middleware.RateLimit())
+
+	// Logger middleware
+	router.Use(middleware.Logger())
+
+	// Recovery middleware
+	router.Use(middleware.Recovery())
 }
 
 // initializeMiddlewares تهيئة جميع الوسائط
@@ -61,6 +70,8 @@ func initializeMiddlewares(services *services.ServiceContainer, config *config.C
 		CORSMiddleware:      middleware.CORS(),
 		SecurityMiddleware:  middleware.SecurityHeaders(),
 		RateLimitMiddleware: middleware.RateLimit(),
+		LoggerMiddleware:    middleware.Logger(),
+		RecoveryMiddleware:  middleware.Recovery(),
 	}
 }
 
@@ -83,7 +94,9 @@ func registerHealthRoutes(router *gin.Engine, config *config.Config, mongoClient
 }
 
 // registerPublicRoutes تسجيل المسارات العامة
-func registerPublicRoutes(api *gin.RouterGroup, services *services.ServiceContainer, middlewares *middleware.MiddlewareContainer) {
+func registerPublicRoutes(api *gin.RouterGroup, services *services.ServiceContainer, 
+	middlewares *middleware.MiddlewareContainer, aiClient *ai.Client, videoService *video.VideoService) {
+	
 	// معالج المصادقة
 	authHandler := NewAuthHandler(services.Auth)
 	api.POST("/auth/register", authHandler.Register)
@@ -105,13 +118,23 @@ func registerPublicRoutes(api *gin.RouterGroup, services *services.ServiceContai
 	categoryHandler := NewCategoryHandler(services.Category)
 	api.GET("/categories", categoryHandler.GetCategories)
 	api.GET("/categories/:id", categoryHandler.GetCategoryByID)
+
+	// معالج الذكاء الاصطناعي (الميزات العامة)
+	aiHandler := NewAIHandler(aiClient)
+	api.GET("/ai/capabilities", aiHandler.GetAICapabilitiesHandler)
+
+	// معالج الفيديو (الميزات العامة)
+	videoHandler := NewVideoHandler(videoService)
+	api.GET("/video/capabilities", videoHandler.GetVideoCapabilitiesHandler)
+	api.GET("/video/types", videoHandler.ListVideoJobsHandler) // إعادة تسمية للتوافق
 }
 
 // registerProtectedRoutes تسجيل المسارات المحمية
-func registerProtectedRoutes(api *gin.RouterGroup, services *services.ServiceContainer, middlewares *middleware.MiddlewareContainer) {
+func registerProtectedRoutes(api *gin.RouterGroup, services *services.ServiceContainer, 
+	middlewares *middleware.MiddlewareContainer, aiClient *ai.Client, videoService *video.VideoService) {
+	
 	protected := api.Group("")
-	// ملاحظة: سيتم تفعيل المصادقة لاحقاً
-	// protected.Use(middlewares.AuthMiddleware)
+	protected.Use(middlewares.AuthMiddleware)
 
 	// معالج المستخدم
 	userHandler := NewUserHandler(services.User)
@@ -135,7 +158,7 @@ func registerProtectedRoutes(api *gin.RouterGroup, services *services.ServiceCon
 	protected.POST("/payment/confirm", paymentHandler.ConfirmPayment)
 
 	// معالج الرفع
-	uploadHandler, _ := NewUploadHandler() // تجاهل الخطأ مؤقتاً
+	uploadHandler := NewUploadHandler()
 	protected.POST("/upload/image", uploadHandler.UploadImage)
 	protected.POST("/upload/images", uploadHandler.UploadMultipleImages)
 	protected.GET("/upload/images", uploadHandler.GetUserImages)
@@ -148,13 +171,27 @@ func registerProtectedRoutes(api *gin.RouterGroup, services *services.ServiceCon
 	protected.PUT("/notifications/:id/read", notificationHandler.MarkAsRead)
 	protected.PUT("/notifications/read-all", notificationHandler.MarkAllAsRead)
 	protected.GET("/notifications/unread-count", notificationHandler.GetUnreadCount)
+
+	// معالج الذكاء الاصطناعي (المحمي)
+	aiHandler := NewAIHandler(aiClient)
+	protected.POST("/ai/generate", aiHandler.GenerateContentHandler)
+	protected.POST("/ai/analyze-image", aiHandler.AnalyzeImageHandler)
+	protected.POST("/ai/translate", aiHandler.TranslateTextHandler)
+	protected.POST("/ai/summarize", aiHandler.SummarizeTextHandler)
+
+	// معالج الفيديو (المحمي)
+	videoHandler := NewVideoHandler(videoService)
+	protected.POST("/video/generate", videoHandler.GenerateVideoHandler)
+	protected.GET("/video/jobs", videoHandler.ListVideoJobsHandler)
+	protected.GET("/video/jobs/:jobId", videoHandler.GetVideoStatusHandler)
+	protected.DELETE("/video/jobs/:jobId", videoHandler.CancelVideoJobHandler)
+	protected.GET("/video/jobs/:jobId/download", videoHandler.DownloadVideoHandler)
 }
 
 // registerAdminRoutes تسجيل مسارات المسؤولين
 func registerAdminRoutes(api *gin.RouterGroup, services *services.ServiceContainer, middlewares *middleware.MiddlewareContainer) {
 	admin := api.Group("/admin")
-	// ملاحظة: سيتم تفعيل المصادقة لاحقاً
-	// admin.Use(middlewares.AuthMiddleware, middlewares.AdminMiddleware)
+	admin.Use(middlewares.AuthMiddleware, middlewares.AdminMiddleware)
 
 	// معالج الإدارة
 	adminHandler := NewAdminHandler(services.Admin)
@@ -172,15 +209,14 @@ func registerAdminRoutes(api *gin.RouterGroup, services *services.ServiceContain
 
 	// معالج الطلبات (الإدارة)
 	orderHandler := NewOrderHandler(services.Order)
-	admin.GET("/orders", orderHandler.GetUserOrders) // سيتم تحديثها لاحقاً
+	admin.GET("/orders", adminHandler.GetAllOrders)
 	admin.PUT("/orders/:id/status", orderHandler.UpdateOrderStatus)
 }
 
 // registerSellerRoutes تسجيل مسارات البائعين
 func registerSellerRoutes(api *gin.RouterGroup, services *services.ServiceContainer, middlewares *middleware.MiddlewareContainer) {
 	seller := api.Group("/seller")
-	// ملاحظة: سيتم تفعيل المصادقة لاحقاً
-	// seller.Use(middlewares.AuthMiddleware, middleware.SellerMiddleware())
+	seller.Use(middlewares.AuthMiddleware, middleware.SellerMiddleware())
 
 	// معالج الخدمات (البائعين)
 	serviceHandler := NewServiceHandler(services.Service)
@@ -191,7 +227,7 @@ func registerSellerRoutes(api *gin.RouterGroup, services *services.ServiceContai
 
 	// معالج الطلبات (البائعين)
 	orderHandler := NewOrderHandler(services.Order)
-	seller.GET("/orders", orderHandler.GetUserOrders) // سيتم تحديثها لاحقاً
+	seller.GET("/orders", orderHandler.GetSellerOrders)
 	seller.PUT("/orders/:id/status", orderHandler.UpdateOrderStatus)
 }
 
@@ -200,23 +236,14 @@ func registerWebhookRoutes(api *gin.RouterGroup, services *services.ServiceConta
 	webhook := api.Group("/webhook")
 	{
 		// ويب هووك الرفع (Cloudinary)
-		uploadHandler, _ := NewUploadHandler() // تجاهل الخطأ مؤقتاً
-		webhook.POST("/upload/cloudinary", uploadHandler.UploadImage)
+		uploadHandler := NewUploadHandler()
+		webhook.POST("/upload/cloudinary", uploadHandler.HandleCloudinaryWebhook)
+		
+		// ويب هووك الدفع (Stripe, PayPal, etc.)
+		paymentHandler := NewPaymentHandler(services.Payment)
+		webhook.POST("/payment/stripe", paymentHandler.HandleStripeWebhook)
+		webhook.POST("/payment/paypal", paymentHandler.HandlePayPalWebhook)
 	}
-}
-
-func SetupRouter(videoHandler *handlers.VideoHandler) *gin.Engine {
-    r := gin.Default()
-    
-    // Video routes
-    video := api.Group("/video")
-    video.Use(middleware.Auth()) // تأمين endpoints الفيديو
-    {
-        video.POST("/generate", videoHandler.GenerateVideoHandler)
-        video.GET("/status/:jobId", videoHandler.GetVideoStatusHandler)
-        video.GET("/download/:jobId", videoHandler.DownloadVideoHandler)
-        video.GET("/types", videoHandler.ListVideoTypesHandler)
-    }
 }
 
 // HealthHandler معالج الصحة
@@ -276,6 +303,22 @@ func (h *HealthHandler) Info(c *gin.Context) {
 			"Payments",
 			"File Upload",
 			"Notifications",
+			"AI Services",
+			"Video Generation",
+		},
+		"endpoints": []string{
+			"/api/v1/auth/*",
+			"/api/v1/services/*",
+			"/api/v1/categories/*",
+			"/api/v1/ai/*",
+			"/api/v1/video/*",
+			"/api/v1/user/*",
+			"/api/v1/orders/*",
+			"/api/v1/payment/*",
+			"/api/v1/upload/*",
+			"/api/v1/notifications/*",
+			"/api/v1/admin/*",
+			"/api/v1/seller/*",
 		},
 	}
 	c.JSON(200, response)
@@ -292,3 +335,129 @@ func (h *HealthHandler) AdminHealth(c *gin.Context) {
 	}
 	c.JSON(200, response)
 }
+
+// Placeholder handlers for compilation (يجب تنفيذها في ملفات منفصلة)
+
+// NewAuthHandler placeholder
+func NewAuthHandler(authService interface{}) *AuthHandler {
+	return &AuthHandler{}
+}
+
+type AuthHandler struct{}
+
+func (h *AuthHandler) Register(c *gin.Context)           {}
+func (h *AuthHandler) Login(c *gin.Context)              {}
+func (h *AuthHandler) RefreshToken(c *gin.Context)       {}
+func (h *AuthHandler) ForgotPassword(c *gin.Context)     {}
+func (h *AuthHandler) ResetPassword(c *gin.Context)      {}
+func (h *AuthHandler) VerifyToken(c *gin.Context)        {}
+
+// NewServiceHandler placeholder
+func NewServiceHandler(serviceService interface{}) *ServiceHandler {
+	return &ServiceHandler{}
+}
+
+type ServiceHandler struct{}
+
+func (h *ServiceHandler) GetServices(c *gin.Context)         {}
+func (h *ServiceHandler) SearchServices(c *gin.Context)      {}
+func (h *ServiceHandler) GetFeaturedServices(c *gin.Context) {}
+func (h *ServiceHandler) GetCategories(c *gin.Context)       {}
+func (h *ServiceHandler) GetServiceByID(c *gin.Context)      {}
+func (h *ServiceHandler) CreateService(c *gin.Context)       {}
+func (h *ServiceHandler) UpdateService(c *gin.Context)       {}
+func (h *ServiceHandler) DeleteService(c *gin.Context)       {}
+func (h *ServiceHandler) GetMyServices(c *gin.Context)       {}
+
+// NewCategoryHandler placeholder
+func NewCategoryHandler(categoryService interface{}) *CategoryHandler {
+	return &CategoryHandler{}
+}
+
+type CategoryHandler struct{}
+
+func (h *CategoryHandler) GetCategories(c *gin.Context)      {}
+func (h *CategoryHandler) GetCategoryByID(c *gin.Context)    {}
+func (h *CategoryHandler) CreateCategory(c *gin.Context)     {}
+func (h *CategoryHandler) UpdateCategory(c *gin.Context)     {}
+func (h *CategoryHandler) DeleteCategory(c *gin.Context)     {}
+
+// NewUserHandler placeholder
+func NewUserHandler(userService interface{}) *UserHandler {
+	return &UserHandler{}
+}
+
+type UserHandler struct{}
+
+func (h *UserHandler) GetProfile(c *gin.Context)             {}
+func (h *UserHandler) UpdateProfile(c *gin.Context)          {}
+func (h *UserHandler) ChangePassword(c *gin.Context)         {}
+func (h *UserHandler) GetUserStats(c *gin.Context)           {}
+
+// NewOrderHandler placeholder
+func NewOrderHandler(orderService interface{}) *OrderHandler {
+	return &OrderHandler{}
+}
+
+type OrderHandler struct{}
+
+func (h *OrderHandler) GetUserOrders(c *gin.Context)         {}
+func (h *OrderHandler) GetOrderByID(c *gin.Context)          {}
+func (h *OrderHandler) CreateOrder(c *gin.Context)           {}
+func (h *OrderHandler) CancelOrder(c *gin.Context)           {}
+func (h *OrderHandler) UpdateOrderStatus(c *gin.Context)     {}
+func (h *OrderHandler) GetSellerOrders(c *gin.Context)       {}
+func (h *OrderHandler) GetAllOrders(c *gin.Context)          {}
+
+// NewPaymentHandler placeholder
+func NewPaymentHandler(paymentService interface{}) *PaymentHandler {
+	return &PaymentHandler{}
+}
+
+type PaymentHandler struct{}
+
+func (h *PaymentHandler) GetPaymentHistory(c *gin.Context)   {}
+func (h *PaymentHandler) CreatePaymentIntent(c *gin.Context) {}
+func (h *PaymentHandler) ConfirmPayment(c *gin.Context)      {}
+func (h *PaymentHandler) HandleStripeWebhook(c *gin.Context) {}
+func (h *PaymentHandler) HandlePayPalWebhook(c *gin.Context) {}
+
+// NewUploadHandler placeholder
+func NewUploadHandler() *UploadHandler {
+	return &UploadHandler{}
+}
+
+type UploadHandler struct{}
+
+func (h *UploadHandler) UploadImage(c *gin.Context)          {}
+func (h *UploadHandler) UploadMultipleImages(c *gin.Context) {}
+func (h *UploadHandler) GetUserImages(c *gin.Context)        {}
+func (h *UploadHandler) GetImageInfo(c *gin.Context)         {}
+func (h *UploadHandler) DeleteImage(c *gin.Context)          {}
+func (h *UploadHandler) HandleCloudinaryWebhook(c *gin.Context) {}
+
+// NewNotificationHandler placeholder
+func NewNotificationHandler(notificationService interface{}) *NotificationHandler {
+	return &NotificationHandler{}
+}
+
+type NotificationHandler struct{}
+
+func (h *NotificationHandler) GetUserNotifications(c *gin.Context)  {}
+func (h *NotificationHandler) MarkAsRead(c *gin.Context)            {}
+func (h *NotificationHandler) MarkAllAsRead(c *gin.Context)         {}
+func (h *NotificationHandler) GetUnreadCount(c *gin.Context)        {}
+
+// NewAdminHandler placeholder
+func NewAdminHandler(adminService interface{}) *AdminHandler {
+	return &AdminHandler{}
+}
+
+type AdminHandler struct{}
+
+func (h *AdminHandler) GetDashboard(c *gin.Context)          {}
+func (h *AdminHandler) GetDashboardStats(c *gin.Context)     {}
+func (h *AdminHandler) GetUsers(c *gin.Context)              {}
+func (h *AdminHandler) UpdateUserStatus(c *gin.Context)      {}
+func (h *AdminHandler) GetSystemLogs(c *gin.Context)         {}
+func (h *AdminHandler) GetAllOrders(c *gin.Context)          {}
