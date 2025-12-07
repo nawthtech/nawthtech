@@ -410,9 +410,16 @@ func (c *Client) AnalyzeImageWithOptions(req types.AnalysisRequest) (*types.Anal
 
 // GetVideoStatus الحصول على حالة فيديو
 func (c *Client) GetVideoStatus(operationID string) (*types.VideoResponse, error) {
-    // هذه وظيفة تحتاج إلى VideoService
-    // سنعود إليها لاحقاً
-    return nil, fmt.Errorf("video service not available yet")
+    // البحث عن أي مزود فيديو يدعم GetVideoStatus
+    for _, p := range c.providers {
+        if p.IsAvailable() && p.GetType() == "video" {
+            if videoProvider, ok := p.(interface{ GetVideoStatus(string) (*types.VideoResponse, error) }); ok {
+                return videoProvider.GetVideoStatus(operationID)
+            }
+        }
+    }
+    
+    return nil, fmt.Errorf("video status service not available")
 }
 
 // GetAvailableProviders الحصول على المزودين المتاحين
@@ -565,4 +572,9 @@ func (c *Client) RemoveProvider(name string) {
         delete(c.providers, name)
         log.Printf("Removed provider: %s", name)
     }
+}
+
+// Implement AIClientInterface
+func (c *Client) GetVideoStatusWrapper(operationID string) (*types.VideoResponse, error) {
+    return c.GetVideoStatus(operationID)
 }
