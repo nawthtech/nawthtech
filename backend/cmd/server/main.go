@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"net/http"
-  "log"
 	"os"
 	"os/signal"
 	"syscall"
@@ -132,7 +131,7 @@ func initGinApp(cfg *config.Config) *gin.Engine {
 // registerMiddlewares تسجيل الوسائط
 func registerMiddlewares(app *gin.Engine, cfg *config.Config) {
 	// ✅ وسيط CORS - يتم تطبيقه أولاً
-	app.Use(middleware.CORS())
+	app.Use(middleware.CORSMiddleware())
 
 	// ✅ وسيط رؤوس الأمان
 	app.Use(middleware.SecurityHeaders())
@@ -154,7 +153,7 @@ func registerMiddlewares(app *gin.Engine, cfg *config.Config) {
 	app.Use(gin.Recovery())
 
 	// ✅ وسيط تحديد المعدل
-	app.Use(middleware.RateLimit())
+	app.Use(middleware.RateLimitMiddlewareFunc())
 
 	// ✅ وسيط إصدار API
 	app.Use(v1shared.APIVersionMiddleware())
