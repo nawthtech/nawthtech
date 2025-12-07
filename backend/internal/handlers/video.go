@@ -7,7 +7,6 @@ import (
     
     "github.com/gin-gonic/gin"
     "github.com/nawthtech/nawthtech/backend/internal/ai/video"
-    "github.com/nawthtech/nawthtech/backend/internal/utils"
 )
 
 type VideoHandler struct {
@@ -341,20 +340,10 @@ func (h *VideoHandler) DownloadVideoHandler(c *gin.Context) {
             return
         }
         
-        // في الدالة GetVideoStatsHandler، أصلح السطر 344:
-c.JSON(http.StatusOK, gin.H{
-    "success": true,
-    "data": gin.H{
-        "total_generations":  stats.TotalGenerations,
-        "successful":         stats.Successful,
-        "failed":             stats.Failed,
-        "total_duration":     stats.TotalDuration,
-        "total_cost":         stats.TotalCost,
-        "last_generation":    stats.LastGeneration.Format(time.RFC3339),
-        "most_used_style":    stats.MostUsedStyle,
-        "most_used_provider": stats.MostUsedProvider,
-    },
-})
+        c.JSON(http.StatusBadRequest, gin.H{
+            "success": false,
+            "error":   "Video data not available",
+        })
         return
     }
     
@@ -502,16 +491,35 @@ func (h *VideoHandler) UploadImageForVideoHandler(c *gin.Context) {
 
 // Helper functions
 func (h *VideoHandler) getUserID(c *gin.Context) string {
-    return utils.GetUserIDFromContext(c)
+    // محاولة استخراج userID من السياق
+    if userID, exists := c.Get("userID"); exists {
+        if id, ok := userID.(string); ok {
+            return id
+        }
+    }
+    
+    // محاولة من الرؤوس
+    if userID := c.GetHeader("X-User-ID"); userID != "" {
+        return userID
+    }
+    
+    // في وضع التطوير/الاختبار، يمكن استخدام معرف وهمي
+    return "test_user"
 }
 
 func (h *VideoHandler) getUserTier(c *gin.Context) string {
-    userID := h.getUserID(c)
-    if userID == "" {
-        return "free"
+    // محاولة استخراج tier من السياق
+    if userTier, exists := c.Get("userTier"); exists {
+        if tier, ok := userTier.(string); ok {
+            return tier
+        }
     }
     
-    // في تطبيق حقيقي، يمكن الحصول على tier من قاعدة البيانات
-    // حالياً نستخدم قيمة افتراضية
+    // محاولة من الرؤوس
+    if userTier := c.GetHeader("X-User-Tier"); userTier != "" {
+        return userTier
+    }
+    
+    // قيمة افتراضية
     return "free"
 }
