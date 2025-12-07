@@ -439,6 +439,16 @@ func GetUserIDFromContext(ctx context.Context) string {
 	return ""
 }
 
+// GetUserIDFromContext (نسخة Gin) الحصول على معرف المستخدم من سياق Gin
+func GetUserIDFromGinContext(c *gin.Context) string {
+	if userID, exists := c.Get("userID"); exists {
+		if id, ok := userID.(string); ok {
+			return id
+		}
+	}
+	return ""
+}
+
 // GetUserRoleFromContext الحصول على دور المستخدم من السياق
 func GetUserRoleFromContext(ctx context.Context) string {
 	if userRole, ok := ctx.Value("userRole").(string); ok {
@@ -470,6 +480,13 @@ func GetMemoryUsageMB() MemoryStats {
 	}
 }
 
+// GetMemoryUsageMB (نسخة مبسطة) للحصول على استخدام الذاكرة فقط
+func GetMemoryUsageMBFloat() float64 {
+	var m runtime.MemStats
+	runtime.ReadMemStats(&m)
+	return float64(m.Alloc) / 1024 / 1024
+}
+
 // GetGoroutineCount الحصول على عدد الـ goroutines
 func GetGoroutineCount() int {
 	return runtime.NumGoroutine()
@@ -480,6 +497,20 @@ func GetCPUUsage() float64 {
 	// في التطبيق الحقيقي، يمكن استخدام حزمة مثل gopsutil
 	// هذه محاكاة مبسطة
 	return math.Round((float64(runtime.NumGoroutine())/1000)*10000) / 100
+}
+
+// FormatBytes تنسيق حجم الملف إلى صيغة مقروءة
+func FormatBytes(bytes int64) string {
+	const unit = 1024
+	if bytes < unit {
+		return fmt.Sprintf("%d B", bytes)
+	}
+	div, exp := int64(unit), 0
+	for n := bytes / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.1f %cB", float64(bytes)/float64(div), "KMGTPE"[exp])
 }
 
 // ========== دوال الملفات والرفع ==========
@@ -507,20 +538,6 @@ func IsAllowedFileType(filename string, allowedTypes []string) bool {
 // CalculateFileSizeMB حساب حجم الملف بالميجابايت
 func CalculateFileSizeMB(size int64) float64 {
 	return float64(size) / 1024 / 1024
-}
-
-// FormatBytes تنسيق حجم الملف إلى صيغة مقروءة
-func FormatBytes(bytes int64) string {
-	const unit = 1024
-	if bytes < unit {
-		return fmt.Sprintf("%d B", bytes)
-	}
-	div, exp := int64(unit), 0
-	for n := bytes / unit; n >= unit; n /= unit {
-		div *= unit
-		exp++
-	}
-	return fmt.Sprintf("%.1f %cB", float64(bytes)/float64(div), "KMGTPE"[exp])
 }
 
 // ValidateFileSize التحقق من حجم الملف
@@ -701,21 +718,6 @@ func MeasureExecutionTime(ctx context.Context, name string, fn func()) time.Dura
 	return duration
 }
 
-// LogServiceOperation تسجيل عملية خدمة باستخدام نظام التسجيل الجديد
-func LogServiceOperation(ctx context.Context, service, operation string, duration time.Duration, success bool, err error) {
-	logger.LogServiceOperation(ctx, service, operation, duration, success, err)
-}
-
-// LogDatabaseOperation تسجيل عملية قاعدة البيانات
-func LogDatabaseOperation(ctx context.Context, operation, collection string, duration time.Duration, documentsAffected int64, err error) {
-	logger.LogMongoDBOperation(ctx, operation, collection, duration, documentsAffected, err)
-}
-
-// LogAuthenticationOperation تسجيل عملية مصادقة
-func LogAuthenticationOperation(ctx context.Context, operation, userID string, success bool, err error) {
-	logger.LogAuthentication(ctx, operation, userID, success, err)
-}
-
 // ========== دوال الشبكة والـ HTTP ==========
 
 // GetClientIP الحصول على IP العميل
@@ -752,16 +754,6 @@ func IsMobileRequest(r *http.Request) bool {
 		}
 	}
 	return false
-}
-
-// LogHTTPRequest تسجيل طلب HTTP باستخدام نظام التسجيل الجديد
-func LogHTTPRequest(ctx context.Context, method, path string, statusCode int, duration time.Duration, userID string) {
-	logger.LogRequest(ctx, method, path, statusCode, duration, userID)
-}
-
-// LogCORSRequest تسجيل طلب CORS
-func LogCORSRequest(ctx context.Context, origin, method, path string, allowed bool) {
-	logger.LogCORSRequest(ctx, origin, method, path, allowed)
 }
 
 // ========== دوال القراءة والكتابة ==========
@@ -831,49 +823,297 @@ func CalculateAge(birthDate time.Time) int {
 	return years
 }
 
-// ========== دوال مساعدة للتسجيل ==========
+// ========== دوال مساعدة إضافية للتطبيق ==========
 
-// GetLogger الحصول على الـ logger العالمي
-func GetLogger() logger.Logger {
-	return logger.GetGlobalLogger()
+// GenerateSlug إنشاء slug من النص
+func GenerateSlug(text string) string {
+	// إزالة الرموز الخاصة
+	reg := regexp.MustCompile("[^a-zA-Z0-9\\s]")
+	slug := reg.ReplaceAllString(text, "")
+	
+	// استبدال المسافات بشرطات
+	slug = strings.ReplaceAll(slug, " ", "-")
+	
+	// تحويل إلى أحرف صغيرة
+	slug = strings.ToLower(slug)
+	
+	// إزالة الشرطات المكررة
+	reg = regexp.MustCompile("-+")
+	slug = reg.ReplaceAllString(slug, "-")
+	
+	// إزالة الشرطات من البداية والنهاية
+	slug = strings.Trim(slug, "-")
+	
+	return slug
 }
 
-// WithSuccess إضافة رمز نجاح للسجل
-func WithSuccess() logger.Logger {
-	return logger.WithSuccess(logger.GetGlobalLogger())
+// GenerateRandomNumber إنشاء رقم عشوائي
+func GenerateRandomNumber(min, max int) int {
+	return min + int(rand.Int63()%int64(max-min+1))
 }
 
-// WithError إضافة رمز خطأ للسجل
-func WithError() logger.Logger {
-	return logger.WithError(logger.GetGlobalLogger())
+// GenerateRandomColor إنشاء لون عشوائي
+func GenerateRandomColor() string {
+	colors := []string{
+		"#FF6B6B", "#4ECDC4", "#45B7D1", "#96CEB4", "#FFEAA7",
+		"#DDA0DD", "#98D8C8", "#F7DC6F", "#BB8FCE", "#85C1E9",
+	}
+	return colors[GenerateRandomNumber(0, len(colors)-1)]
 }
 
-// WithWarning إضافة رمز تحذير للسجل
-func WithWarning() logger.Logger {
-	return logger.WithWarning(logger.GetGlobalLogger())
+// ExtractUsernameFromEmail استخراج اسم المستخدم من البريد الإلكتروني
+func ExtractUsernameFromEmail(email string) string {
+	parts := strings.Split(email, "@")
+	if len(parts) > 0 {
+		return parts[0]
+	}
+	return email
 }
 
-// LogStartup تسجيل بدء التشغيل
-func LogStartup(ctx context.Context, service, version, environment string) {
-	logger.LogStartup(ctx, service, version, environment)
+// MaskEmail إخفاء جزء من البريد الإلكتروني
+func MaskEmail(email string) string {
+	if !IsValidEmail(email) {
+		return email
+	}
+	
+	parts := strings.Split(email, "@")
+	if len(parts) != 2 {
+		return email
+	}
+	
+	username := parts[0]
+	domain := parts[1]
+	
+	if len(username) <= 2 {
+		return username + "@" + domain
+	}
+	
+	maskedUsername := username[:2] + strings.Repeat("*", len(username)-2)
+	return maskedUsername + "@" + domain
 }
 
-// LogShutdown تسجيل إيقاف التشغيل
-func LogShutdown(ctx context.Context, service string, reason string) {
-	logger.LogShutdown(ctx, service, reason)
+// MaskPhone إخفاء جزء من رقم الهاتف
+func MaskPhone(phone string) string {
+	if len(phone) <= 4 {
+		return strings.Repeat("*", len(phone))
+	}
+	
+	visiblePart := phone[len(phone)-4:]
+	maskedPart := strings.Repeat("*", len(phone)-4)
+	return maskedPart + visiblePart
 }
 
-// LogHealthCheck تسجيل فحص الصحة
-func LogHealthCheck(ctx context.Context, service, status string, duration time.Duration, details map[string]interface{}) {
-	logger.LogHealthCheck(ctx, service, status, duration, details)
+// GenerateOTP إنشاء OTP
+func GenerateOTP(length int) string {
+	otp := ""
+	for i := 0; i < length; i++ {
+		otp += strconv.Itoa(GenerateRandomNumber(0, 9))
+	}
+	return otp
 }
 
-// LogDatabaseConnection تسجيل اتصال قاعدة البيانات
-func LogDatabaseConnection(ctx context.Context, status string, duration time.Duration, err error) {
-	logger.LogDatabaseConnection(ctx, status, duration, err)
+// ParseQueryParams تحليل معاملات الاستعلام
+func ParseQueryParams(c *gin.Context, params []string) map[string]string {
+	result := make(map[string]string)
+	for _, param := range params {
+		value := c.Query(param)
+		if value != "" {
+			result[param] = value
+		}
+	}
+	return result
 }
 
-// LogCloudinaryOperation تسجيل عملية Cloudinary
-func LogCloudinaryOperation(ctx context.Context, operation, filename string, duration time.Duration, success bool, err error) {
-	logger.LogCloudinaryOperation(ctx, operation, filename, duration, success, err)
+// GetQueryInt الحصول على قيمة عددية من الاستعلام
+func GetQueryInt(c *gin.Context, key string, defaultValue int) int {
+	value := c.Query(key)
+	if value == "" {
+		return defaultValue
+	}
+	
+	intValue, err := strconv.Atoi(value)
+	if err != nil {
+		return defaultValue
+	}
+	
+	return intValue
+}
+
+// GetQueryFloat الحصول على قيمة عشرية من الاستعلام
+func GetQueryFloat(c *gin.Context, key string, defaultValue float64) float64 {
+	value := c.Query(key)
+	if value == "" {
+		return defaultValue
+	}
+	
+	floatValue, err := strconv.ParseFloat(value, 64)
+	if err != nil {
+		return defaultValue
+	}
+	
+	return floatValue
+}
+
+// GetQueryBool الحصول على قيمة منطقية من الاستعلام
+func GetQueryBool(c *gin.Context, key string, defaultValue bool) bool {
+	value := c.Query(key)
+	if value == "" {
+		return defaultValue
+	}
+	
+	boolValue, err := strconv.ParseBool(value)
+	if err != nil {
+		return defaultValue
+	}
+	
+	return boolValue
+}
+
+// GenerateSessionID إنشاء معرف جلسة
+func GenerateSessionID() string {
+	timestamp := time.Now().UnixNano()
+	random, _ := GenerateRandomString(16)
+	return fmt.Sprintf("sess_%d_%s", timestamp, random)
+}
+
+// GenerateUploadToken إنشاء توكن رفع
+func GenerateUploadToken() string {
+	timestamp := time.Now().Unix()
+	random, _ := GenerateRandomString(32)
+	return fmt.Sprintf("upl_%d_%s", timestamp, random)
+}
+
+// ValidateUploadToken التحقق من توكن الرفع
+func ValidateUploadToken(token string, maxAge time.Duration) bool {
+	if !strings.HasPrefix(token, "upl_") {
+		return false
+	}
+	
+	parts := strings.Split(token, "_")
+	if len(parts) != 3 {
+		return false
+	}
+	
+	timestamp, err := strconv.ParseInt(parts[1], 10, 64)
+	if err != nil {
+		return false
+	}
+	
+	uploadTime := time.Unix(timestamp, 0)
+	return time.Since(uploadTime) <= maxAge
+}
+
+// ========== دوال مساعدة للـ Context ==========
+
+// SetContextValue تعيين قيمة في السياق
+func SetContextValue(ctx context.Context, key, value interface{}) context.Context {
+	return context.WithValue(ctx, key, value)
+}
+
+// GetContextValue الحصول على قيمة من السياق
+func GetContextValue(ctx context.Context, key interface{}) interface{} {
+	return ctx.Value(key)
+}
+
+// CreateRequestContext إنشاء سياق طلب جديد
+func CreateRequestContext() context.Context {
+	ctx := context.Background()
+	ctx = SetContextValue(ctx, "requestID", GenerateRandomString(16))
+	ctx = SetContextValue(ctx, "requestTime", time.Now())
+	return ctx
+}
+
+// GetRequestDuration الحصول على مدة الطلب
+func GetRequestDuration(ctx context.Context) time.Duration {
+	startTime := GetContextValue(ctx, "requestTime")
+	if startTime == nil {
+		return 0
+	}
+	
+	if t, ok := startTime.(time.Time); ok {
+		return time.Since(t)
+	}
+	
+	return 0
+}
+
+// ========== دوال التطبيق الأساسية ==========
+
+// GetCurrentUserID (نسخة محسنة) للحصول على معرف المستخدم الحالي
+func GetCurrentUserID(c *gin.Context) string {
+	// حاول الحصول من سياق Gin أولاً
+	if userID := GetUserIDFromGinContext(c); userID != "" {
+		return userID
+	}
+	
+	// حاول الحصول من سياق HTTP
+	if userID := c.GetString("userID"); userID != "" {
+		return userID
+	}
+	
+	// حاول الحصول من الرؤوس
+	if userID := c.GetHeader("X-User-ID"); userID != "" {
+		return userID
+	}
+	
+	return ""
+}
+
+// GetCurrentUserRole للحصول على دور المستخدم الحالي
+func GetCurrentUserRole(c *gin.Context) string {
+	// حاول الحصول من سياق Gin
+	if userRole, exists := c.Get("userRole"); exists {
+		if role, ok := userRole.(string); ok {
+			return role
+		}
+	}
+	
+	// حاول الحصول من الرؤوس
+	if userRole := c.GetHeader("X-User-Role"); userRole != "" {
+		return userRole
+	}
+	
+	return "user" // القيمة الافتراضية
+}
+
+// IsAdminUser التحقق إذا كان المستخدم مشرفاً
+func IsAdminUser(c *gin.Context) bool {
+	role := GetCurrentUserRole(c)
+	return role == "admin" || role == "superadmin"
+}
+
+// IsAuthenticatedUser التحقق إذا كان المستخدم مصادقاً عليه
+func IsAuthenticatedUser(c *gin.Context) bool {
+	return GetCurrentUserID(c) != ""
+}
+
+// ValidateAdminAccess التحقق من صلاحيات المشرف
+func ValidateAdminAccess(c *gin.Context) bool {
+	if !IsAuthenticatedUser(c) {
+		return false
+	}
+	return IsAdminUser(c)
+}
+
+// GenerateResponseData إنشاء بيانات الاستجابة
+func GenerateResponseData(data interface{}, pagination *Pagination) gin.H {
+	response := gin.H{
+		"success": true,
+		"data":    data,
+	}
+	
+	if pagination != nil {
+		response["pagination"] = pagination
+	}
+	
+	return response
+}
+
+// GenerateErrorResponse إنشاء استجابة خطأ
+func GenerateErrorResponse(message, errorCode string) gin.H {
+	return gin.H{
+		"success": false,
+		"message": message,
+		"error":   errorCode,
+	}
 }
