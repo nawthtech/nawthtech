@@ -87,7 +87,7 @@ func (p *HuggingFaceProvider) GenerateText(req types.TextRequest) (*types.TextRe
         return nil, fmt.Errorf("rate limit exceeded, please try again later")
     }
     
-    model := req.Model
+model := "stabilityai/stable-diffusion-xl-base-1.0" // قيمة افتراضية
     if model == "" {
         model = "google/flan-t5-xl"
     }
@@ -210,7 +210,7 @@ func (p *HuggingFaceProvider) GenerateImage(req types.ImageRequest) (*types.Imag
         return nil, fmt.Errorf("HUGGINGFACE_TOKEN environment variable is required")
     }
     
-    model := req.Model
+model := "stabilityai/stable-diffusion-xl-base-1.0" // قيمة افتراضية
     if model == "" {
         model = "stabilityai/stable-diffusion-xl-base-1.0"
     }
