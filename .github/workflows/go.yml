@@ -48,16 +48,15 @@ jobs:
         go test -v ./... -race -coverprofile=coverage.out
         echo "✅ Tests completed successfully"
 
-
     - name: Check Go code formatting
       run: |
         if [ -n "$(gofmt -l .)" ]; then
-        echo "❌ Code formatting issues found. Please run 'gofmt -w .' to fix."
-        gofmt -l .
-        exit 1
-      else
-        echo "✅ Code formatting check passed"
-      fi
+          echo "❌ Code formatting issues found. Please run 'gofmt -w .' to fix."
+          gofmt -l .
+          exit 1
+        else
+          echo "✅ Code formatting check passed"
+        fi
 
     - name: Build Go binary
       run: |
@@ -163,9 +162,6 @@ jobs:
         npm audit --audit-level moderate || true
         echo "✅ NPM audit completed"
 
-  # ملاحظة: تمت إزالة job الـ deploy لأن Railway يقوم بالنشر تلقائياً عبر Source Integration
-  # يمكنك تفعيله لاحقاً إذا أردت control إضافي على عملية النشر
-  
   notify:
     runs-on: ubuntu-latest
     needs: [backend, frontend, security]
