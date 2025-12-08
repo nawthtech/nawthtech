@@ -16,8 +16,9 @@ type CORSOptions struct {
 	MaxAge           int
 }
 
-// getAllowedOrigins الحصول على قائمة النطاقات المسموح بها ديناميكياً
-func getAllowedOrigins() []string {
+// GetAllowedOrigins الحصول على قائمة النطاقات المسموح بها ديناميكياً
+// تم تغيير الاسم من getAllowedOrigins إلى GetAllowedOrigins (بحرف كبير)
+func GetAllowedOrigins() []string {
 	baseDomains := []string{
 		// النطاقات الرئيسية للمنصة
 		"https://nawthtech.com",
@@ -110,8 +111,8 @@ func removeDuplicates(slice []string) []string {
 	return list
 }
 
-// isOriginAllowed التحقق من النطاق المسموح به
-func isOriginAllowed(origin string, allowedOrigins []string) bool {
+// IsOriginAllowed التحقق من النطاق المسموح به
+func IsOriginAllowed(origin string, allowedOrigins []string) bool {
 	if origin == "" {
 		return true // طلبات بدون origin (تطبيقات محمولة، إلخ)
 	}
@@ -142,7 +143,7 @@ func isOriginAllowed(origin string, allowedOrigins []string) bool {
 
 // GetCORSConfig الحصول على إعدادات CORS بناءً على المسار
 func GetCORSConfig(path string) CORSOptions {
-	allowedOrigins := getAllowedOrigins()
+	allowedOrigins := GetAllowedOrigins()
 
 	// مسارات التحليلات البديلة
 	if strings.HasPrefix(path, "/api/analytics") ||
@@ -163,7 +164,7 @@ func GetCORSConfig(path string) CORSOptions {
 		}
 	}
 
-	// مسارات ويب هووكs للخدمات الخارجية
+	// مسارات ويب هووكس للخدمات الخارجية
 	if strings.HasPrefix(path, "/webhook/stripe") ||
 		strings.HasPrefix(path, "/webhook/cloudinary") ||
 		strings.HasPrefix(path, "/api/webhooks") {
@@ -239,23 +240,23 @@ func GetCORSConfig(path string) CORSOptions {
 
 // ValidateOrigin التحقق من النطاق المسموح به
 func ValidateOrigin(origin string) bool {
-	allowedOrigins := getAllowedOrigins()
+	allowedOrigins := GetAllowedOrigins()
 
 	// في بيئة التطوير، السماح مع تسجيل التحذيرات
-	if os.Getenv("ENVIRONMENT") == "development" || os.Getenv("ENVIRONMENT") == "" {
-		if origin != "" && !isOriginAllowed(origin, allowedOrigins) {
+	if IsDevelopmentEnvironment() {
+		if origin != "" && !IsOriginAllowed(origin, allowedOrigins) {
 			// سيتم التعامل مع التسجيل في middleware
 			return true
 		}
 		return true
 	}
 
-	return origin == "" || isOriginAllowed(origin, allowedOrigins)
+	return origin == "" || IsOriginAllowed(origin, allowedOrigins)
 }
 
 // GetCORSStats إحصائيات CORS
 func GetCORSStats() map[string]interface{} {
-	allowedOrigins := getAllowedOrigins()
+	allowedOrigins := GetAllowedOrigins()
 
 	analyticsCount := 0
 	microsoftCount := 0
@@ -281,11 +282,6 @@ func GetCORSStats() map[string]interface{} {
 		}
 	}
 
-	environment := os.Getenv("ENVIRONMENT")
-	if environment == "" {
-		environment = "development"
-	}
-
 	return map[string]interface{}{
 		"totalAllowedOrigins": len(allowedOrigins),
 		"services": map[string]int{
@@ -296,13 +292,13 @@ func GetCORSStats() map[string]interface{} {
 			"local":      localCount,
 			"production": productionCount,
 		},
-		"environment": environment,
+		"environment": GetEnvironment(),
 	}
 }
 
 // GetDefaultCORSConfig الحصول على إعدادات CORS الافتراضية
 func GetDefaultCORSConfig() CORSOptions {
-	allowedOrigins := getAllowedOrigins()
+	allowedOrigins := GetAllowedOrigins()
 
 	return CORSOptions{
 		AllowedOrigins: allowedOrigins,
@@ -338,20 +334,26 @@ func GetDefaultCORSConfig() CORSOptions {
 	}
 }
 
+// GetEnvironment الحصول على البيئة الحالية
+func GetEnvironment() string {
+	env := os.Getenv("ENVIRONMENT")
+	if env == "" {
+		return "development"
+	}
+	return env
+}
+
 // IsDevelopmentEnvironment التحقق إذا كانت البيئة تطوير
 func IsDevelopmentEnvironment() bool {
-	env := os.Getenv("ENVIRONMENT")
-	return env == "development" || env == ""
+	return GetEnvironment() == "development"
 }
 
 // IsProductionEnvironment التحقق إذا كانت البيئة إنتاج
 func IsProductionEnvironment() bool {
-	env := os.Getenv("ENVIRONMENT")
-	return env == "production"
+	return GetEnvironment() == "production"
 }
 
 // IsStagingEnvironment التحقق إذا كانت البيئة تجريبية
 func IsStagingEnvironment() bool {
-	env := os.Getenv("ENVIRONMENT")
-	return env == "staging"
+	return GetEnvironment() == "staging"
 }
