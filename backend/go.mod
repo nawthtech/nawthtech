@@ -9,7 +9,6 @@ require (
 	github.com/gin-gonic/gin v1.10.1
 	github.com/google/generative-ai-go v0.20.1
 	github.com/prometheus/client_golang v1.23.2
-	github.com/urfave/cli/v2 v2.27.7
 	go.mongodb.org/mongo-driver v1.17.6
 	golang.org/x/crypto v0.41.0
 	google.golang.org/api v0.197.0
@@ -28,7 +27,6 @@ require (
 	github.com/bytedance/sonic/loader v0.2.4 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/cloudwego/base64x v0.1.5 // indirect
-	github.com/cpuguy83/go-md2man/v2 v2.0.7 // indirect
 	github.com/creasty/defaults v1.7.0 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.9 // indirect
@@ -61,15 +59,12 @@ require (
 	github.com/prometheus/common v0.66.1 // indirect
 	github.com/prometheus/procfs v0.16.1 // indirect
 	github.com/rogpeppe/go-internal v1.14.1 // indirect
-	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/ugorji/go/codec v1.3.0 // indirect
 	github.com/xdg-go/pbkdf2 v1.0.0 // indirect
 	github.com/xdg-go/scram v1.1.2 // indirect
 	github.com/xdg-go/stringprep v1.0.4 // indirect
-	github.com/xrash/smetrics v0.0.0-20240521201337-686a1a2994c1 // indirect
 	github.com/youmark/pkcs8 v0.0.0-20240726163527-a2c0da244d78 // indirect
-	go.mongodb.org/mongo-driver/v2 v2.4.0 // indirect
 	go.opencensus.io v0.24.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.54.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.54.0 // indirect
