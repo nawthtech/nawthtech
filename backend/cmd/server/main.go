@@ -22,13 +22,24 @@ import (
 	"github.com/nawthtech/nawthtech/backend/internal/services"
 )
 
+// initLogger تهيئة logger
+func initLogger() {
+	// إذا كان logger الافتراضي ليس لديه handler، قم بتهيئته
+	if slog.Default().Handler() == nil {
+		handler := slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
+			Level: slog.LevelInfo,
+		})
+		slog.SetDefault(slog.New(handler))
+	}
+}
+
 // Run تشغيل خادم API
 func Run() error {
+	// ✅ تهيئة logger أولاً
+	initLogger()
+
 	// تحميل الإعدادات
 	cfg := config.Load()
-
-	// ✅ تهيئة logger افتراضي
-	initLogger()
 
 	// تسجيل بدء التشغيل
 	slog.Info("🚀 بدء تشغيل خادم نوذ تك",
@@ -44,7 +55,7 @@ func Run() error {
 	// 1. 📧 تهيئة خدمة البريد الإلكتروني
 	emailService, err := email.NewEmailService()
 	if err != nil {
-		slog.Error("⚠️ فشل في تهيئة خدمة البريد الإلكتروني", "error", err)
+		slog.Warn("⚠️ فشل في تهيئة خدمة البريد الإلكتروني", "error", err)
 	} else {
 		slog.Info("✅ خدمة البريد الإلكتروني جاهزة للاستخدام",
 			"enabled", email.IsEnabled(),
@@ -54,7 +65,7 @@ func Run() error {
 	// 2. 🌐 تهيئة خدمة Cloudflare
 	cloudflareService, err := cloudflare.InitCloudflareService()
 	if err != nil {
-		slog.Error("⚠️ فشل في تهيئة Cloudflare", "error", err)
+		slog.Warn("⚠️ فشل في تهيئة Cloudflare", "error", err)
 	} else {
 		slog.Info("✅ Cloudflare جاهز للاستخدام",
 			"enabled", cloudflare.IsEnabled(),
@@ -72,7 +83,7 @@ func Run() error {
 	// 4. ☁️ تهيئة خدمة Cloudinary
 	cloudinaryService, err := cloudinary.NewCloudinaryService()
 	if err != nil {
-		slog.Error("❌ فشل في تهيئة خدمة Cloudinary", "error", err)
+		slog.Warn("❌ فشل في تهيئة خدمة Cloudinary", "error", err)
 		// لا نوقف التطبيق إذا فشل Cloudinary، يمكن أن يعمل بدونها
 	} else {
 		slog.Info("✅ تم تهيئة خدمة Cloudinary بنجاح")
@@ -96,17 +107,6 @@ func Run() error {
 
 	// بدء الخادم
 	return startServer(app, cfg)
-}
-
-// initLogger تهيئة logger
-func initLogger() {
-	// إذا كان logger الافتراضي ليس لديه handler، قم بتهيئته
-	if slog.Default().Handler() == nil {
-		handler := slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
-			Level: slog.LevelInfo,
-		})
-		slog.SetDefault(slog.New(handler))
-	}
 }
 
 // initGinApp تهيئة تطبيق Gin
