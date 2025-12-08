@@ -18,3 +18,7 @@ config.yaml
 *.env
 main.go.backup
 .env.example
+node_modules/
+package-lock.json
+dist/
+.out/
