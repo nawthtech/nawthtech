@@ -1,3 +1,51 @@
+# Dependencies
+node_modules/
+.npm
+.pnpm
+.yarn/
+.yarn.lock
+
+# Build outputs
+dist/
+build/
+out/
+*.tmp
+*.log
+
+# Environment variables
 .env
-wrangler.toml
+.env.local
+.env.*.local
+
+# Runtime data
+.wrangler/
 .dev.vars
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Coverage
+coverage/
+.nyc_output
+
+# Testing
+.vitest/
+__snapshots__/
+
+# Misc
+*.pid
+*.seed
