@@ -1,9 +1,11 @@
 name = "nawthtech-api"
 compatibility_date = "2023-11-27"
-compatibility_flags = ["nodejs_compat"]
+
+[build]
+command = "go build -o worker.wasm ./backend/worker"
+upload_format = "modules"
 
 [env.development]
-# للإعدادات المحلية
 name = "nawthtech-api-dev"
 
 [env.production]
@@ -12,10 +14,14 @@ name = "nawthtech-api"
 [vars]
 ENVIRONMENT = "production"
 API_VERSION = "v1"
-CORS_ALLOWED_ORIGINS = "https://nawthtech.com,https://www.nawthtech.com, https://www.api.nawthtech.com, https://www.storage.nawthtech.com"
+CORS_ALLOWED_ORIGINS = "https://nawthtech.com,https://www.nawthtech.com,https://www.api.nawthtech.com,https://www.storage.nawthtech.com"
 
 [[secrets_stores]]
-
 binding = "SECRETS"
-
 id = "a6428db8d5304ba0a48ee7009cc18ded"
+
+# ========== إعدادات D1 ==========
+[[d1_databases]]
+binding = "NAWTHTECH_DB"
+database_name = "nawthtech_d1"
+database_id = "bbf15aeb-0718-47c8-9723-d8a83f79e6cb"
