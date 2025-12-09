@@ -13,13 +13,13 @@ type SlackClient interface {
 	PushMessage(text string) (string, string, error)
 	PushMessageWithAttachments(text string, attachments []slack.Attachment) (string, string, error)
 	PushMessageToChannel(channel, text string) (string, string, error)
-	UpdateMessage(channelID, timestamp, text string) (string, string, string, error)
-	DeleteMessage(channelID, timestamp string) (string, string, error)
+	UpdateMessage(channelURL, timestamp, text string) (string, string, string, error)
+	DeleteMessage(channelURL, timestamp string) (string, string, error)
 }
 
 type slackClient struct {
 	api       *slack.Client
-	channelID string
+	channelURL string
 	token     string
 	appName   string
 	env       string // production, staging, development
@@ -34,7 +34,7 @@ var (
 	// Error messages
 	ErrClientNotInitialized = fmt.Errorf("slack client not initialized")
 	ErrMissingToken        = fmt.Errorf("slack token is required")
-	ErrMissingChannelID    = fmt.Errorf("slack channel ID is required")
+	ErrMissingchannelURL    = fmt.Errorf("slack channel ID is required")
 )
 
 // New creates a new Slack client with the provided options
@@ -91,10 +91,10 @@ func WithToken(token string) Option {
 	}
 }
 
-// WithChannelID sets the default channel ID
-func WithChannelID(channelID string) Option {
+// WithchannelURL sets the default channel ID
+func WithchannelURL(channelURL string) Option {
 	return func(c *slackClient) error {
-		c.channelID = channelID
+		c.channelURL = channelURL
 		return nil
 	}
 }
@@ -116,7 +116,7 @@ func WithEnvironment(env string) Option {
 }
 
 // Channel returns a new client instance with the specified channel
-func (c *slackClient) Channel(channelID string) *slackClient {
+func (c *slackClient) Channel(channelURL string) *slackClient {
 	if c == nil {
 		return nil
 	}
@@ -124,7 +124,7 @@ func (c *slackClient) Channel(channelID string) *slackClient {
 	return &slackClient{
 		api:       c.api,
 		token:     c.token,
-		channelID: channelID,
+		channelURL: channelURL,
 		appName:   c.appName,
 		env:       c.env,
 	}
@@ -136,15 +136,15 @@ func (c *slackClient) PushMessage(text string) (string, string, error) {
 		return "", "", ErrClientNotInitialized
 	}
 
-	if c.channelID == "" {
-		return "", "", ErrMissingChannelID
+	if c.channelURL == "" {
+		return "", "", ErrMissingchannelURL
 	}
 
 	// Add environment and app name prefix
 	formattedText := fmt.Sprintf("[%s:%s] %s", c.env, c.appName, text)
 
-	channelID, timestamp, err := c.api.PostMessage(
-		c.channelID,
+	channelURL, timestamp, err := c.api.PostMessage(
+		c.channelURL,
 		slack.MsgOptionText(formattedText, false),
 		slack.MsgOptionAsUser(true),
 	)
@@ -153,8 +153,8 @@ func (c *slackClient) PushMessage(text string) (string, string, error) {
 		return "", "", fmt.Errorf("failed to push message: %w", err)
 	}
 
-	log.Printf("Message sent to channel %s at %s", channelID, timestamp)
-	return channelID, timestamp, nil
+	log.Printf("Message sent to channel %s at %s", channelURL, timestamp)
+	return channelURL, timestamp, nil
 }
 
 // PushMessageWithAttachments sends a message with attachments
@@ -163,14 +163,14 @@ func (c *slackClient) PushMessageWithAttachments(text string, attachments []slac
 		return "", "", ErrClientNotInitialized
 	}
 
-	if c.channelID == "" {
-		return "", "", ErrMissingChannelID
+	if c.channelURL == "" {
+		return "", "", ErrMissingchannelURL
 	}
 
 	formattedText := fmt.Sprintf("[%s:%s] %s", c.env, c.appName, text)
 
-	channelID, timestamp, err := c.api.PostMessage(
-		c.channelID,
+	channelURL, timestamp, err := c.api.PostMessage(
+		c.channelURL,
 		slack.MsgOptionText(formattedText, false),
 		slack.MsgOptionAttachments(attachments...),
 		slack.MsgOptionAsUser(true),
@@ -180,7 +180,7 @@ func (c *slackClient) PushMessageWithAttachments(text string, attachments []slac
 		return "", "", fmt.Errorf("failed to push message with attachments: %w", err)
 	}
 
-	return channelID, timestamp, nil
+	return channelURL, timestamp, nil
 }
 
 // PushMessageToChannel sends a message to a specific channel
@@ -191,7 +191,7 @@ func (c *slackClient) PushMessageToChannel(channel, text string) (string, string
 
 	formattedText := fmt.Sprintf("[%s:%s] %s", c.env, c.appName, text)
 
-	channelID, timestamp, err := c.api.PostMessage(
+	channelURL, timestamp, err := c.api.PostMessage(
 		channel,
 		slack.MsgOptionText(formattedText, false),
 		slack.MsgOptionAsUser(true),
@@ -201,11 +201,11 @@ func (c *slackClient) PushMessageToChannel(channel, text string) (string, string
 		return "", "", fmt.Errorf("failed to push message to channel %s: %w", channel, err)
 	}
 
-	return channelID, timestamp, nil
+	return channelURL, timestamp, nil
 }
 
 // UpdateMessage updates an existing message
-func (c *slackClient) UpdateMessage(channelID, timestamp, text string) (string, string, string, error) {
+func (c *slackClient) UpdateMessage(channelURL, timestamp, text string) (string, string, string, error) {
 	if c == nil || c.api == nil {
 		return "", "", "", ErrClientNotInitialized
 	}
@@ -213,7 +213,7 @@ func (c *slackClient) UpdateMessage(channelID, timestamp, text string) (string, 
 	formattedText := fmt.Sprintf("[%s:%s] %s", c.env, c.appName, text)
 
 	newTimestamp, _, _, err := c.api.UpdateMessage(
-		channelID,
+		channelURL,
 		timestamp,
 		slack.MsgOptionText(formattedText, false),
 		slack.MsgOptionAsUser(true),
@@ -223,21 +223,21 @@ func (c *slackClient) UpdateMessage(channelID, timestamp, text string) (string, 
 		return "", "", "", fmt.Errorf("failed to update message: %w", err)
 	}
 
-	return channelID, timestamp, newTimestamp, nil
+	return channelURL, timestamp, newTimestamp, nil
 }
 
 // DeleteMessage deletes a message
-func (c *slackClient) DeleteMessage(channelID, timestamp string) (string, string, error) {
+func (c *slackClient) DeleteMessage(channelURL, timestamp string) (string, string, error) {
 	if c == nil || c.api == nil {
 		return "", "", ErrClientNotInitialized
 	}
 
-	newTimestamp, err := c.api.DeleteMessage(channelID, timestamp)
+	newTimestamp, err := c.api.DeleteMessage(channelURL, timestamp)
 	if err != nil {
 		return "", "", fmt.Errorf("failed to delete message: %w", err)
 	}
 
-	return channelID, newTimestamp, nil
+	return channelURL, newTimestamp, nil
 }
 
 // SendAlert sends an alert message with alert formatting
