@@ -21,8 +21,9 @@ type DefaultLogger struct {
 }
 
 var (
-	Stdout     *slog.Logger
-	Stderr     *slog.Logger
+	Stdout *slog.Logger
+	Stderr *slog.Logger
+
 	globalLogger Logger
 )
 
@@ -51,15 +52,19 @@ func Init(env string) {
 func (l *DefaultLogger) Debug(ctx context.Context, msg string, args ...any) {
 	l.logger.DebugContext(ctx, msg, args...)
 }
+
 func (l *DefaultLogger) Info(ctx context.Context, msg string, args ...any) {
 	l.logger.InfoContext(ctx, msg, args...)
 }
+
 func (l *DefaultLogger) Warn(ctx context.Context, msg string, args ...any) {
 	l.logger.WarnContext(ctx, msg, args...)
 }
+
 func (l *DefaultLogger) Error(ctx context.Context, msg string, args ...any) {
 	l.logger.ErrorContext(ctx, msg, args...)
 }
+
 func (l *DefaultLogger) With(args ...any) Logger {
 	return &DefaultLogger{logger: l.logger.With(args...)}
 }
@@ -70,44 +75,44 @@ func Debug(ctx context.Context, msg string, args ...any) {
 	}
 	globalLogger.Debug(ctx, msg, args...)
 }
+
 func Info(ctx context.Context, msg string, args ...any) {
 	if globalLogger == nil {
 		Init("development")
 	}
 	globalLogger.Info(ctx, msg, args...)
 }
+
 func Warn(ctx context.Context, msg string, args ...any) {
 	if globalLogger == nil {
 		Init("development")
 	}
 	globalLogger.Warn(ctx, msg, args...)
 }
+
 func Error(ctx context.Context, msg string, args ...any) {
 	if globalLogger == nil {
 		Init("development")
 	}
 	globalLogger.Error(ctx, msg, args...)
 }
-func With(args ...any) Logger {
-	if globalLogger == nil {
-		Init("development")
-	}
-	return globalLogger.With(args...)
-}
 
-// helpers...
+// Helpers
 func ErrAttr(err error) slog.Attr {
 	if err == nil {
 		return slog.String("error", "")
 	}
 	return slog.String("error", err.Error())
 }
-func DurationAttr(d time.Duration) slog.Attr {
-	return slog.Duration("duration", d)
+
+func DurationAttr(duration time.Duration) slog.Attr {
+	return slog.Duration("duration", duration)
 }
+
 func TimestampAttr() slog.Attr {
 	return slog.String("timestamp", time.Now().Format(time.RFC3339))
 }
+
 func RequestAttr(method, path string, statusCode int, duration time.Duration) slog.Attr {
 	return slog.Group("request",
 		slog.String("method", method),
@@ -116,12 +121,27 @@ func RequestAttr(method, path string, statusCode int, duration time.Duration) sl
 		slog.Duration("duration", duration),
 	)
 }
-func MemoryUsageAttr() slog.Attr {
-	var m runtime.MemStats
-	runtime.ReadMemStats(&m)
-	return slog.Group("memory",
-		slog.Any("alloc", m.Alloc),
-		slog.Any("sys", m.Sys),
-		slog.Uint64("num_gc", uint64(m.NumGC)),
-	)
+
+func formatMemory(bytes uint64) string {
+	const unit = 1024
+	if bytes < unit {
+		return string(rune(bytes)) + " B"
+	}
+	div, exp := int64(unit), 0
+	for n := bytes / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+	return string(rune(float64(bytes)/float64(div))) + " " + string("KMGTPE"[exp]) + "B"
+}
+
+func GetGlobalLogger() Logger {
+	if globalLogger == nil {
+		Init("development")
+	}
+	return globalLogger
+}
+
+func SetGlobalLogger(logger Logger) {
+	globalLogger = logger
 }
