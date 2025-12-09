@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"os"
 	"time"
-	"worker/src/utils"
+	"github.com/nawthtech/nawthtech/backend/worker/src/utils"
 )
 
 func RegisterHandler(w http.ResponseWriter, r *http.Request) {
