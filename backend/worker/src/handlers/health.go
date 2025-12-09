@@ -14,8 +14,8 @@ func HealthCheckHandler(w http.ResponseWriter, r *http.Request) {
 			"status":      "healthy",
 			"database":    "D1",
 			"timestamp":   time.Now().UTC().Format(time.RFC3339),
-			"environment": r.Header.Get("ENVIRONMENT"),
-			"version":     r.Header.Get("API_VERSION"),
+			"environment": os.Getenv("ENVIRONMENT"),
+			"version":     os.Getenv("API_VERSION"),
 		},
 	}
 	json.NewEncoder(w).Encode(resp)
