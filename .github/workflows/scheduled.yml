@@ -1,0 +1,132 @@
+name: Scheduled Maintenance
+
+on:
+  schedule:
+    # Run daily at 2 AM UTC
+    - cron: '0 2 * * *'
+    # Run every Sunday at 3 AM UTC
+    - cron: '0 3 * * 0'
+    
+  workflow_dispatch:
+
+env:
+  NODE_VERSION: '20'
+  WORKER_DIR: './worker'
+
+jobs:
+  database-maintenance:
+    name: Database Maintenance
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          
+      - name: Install Wrangler
+        run: npm install -g wrangler
+        
+      - name: Setup Cloudflare API Token
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          
+      - name: Run database vacuum
+        run: |
+          wrangler d1 execute nawthtech-db --remote --command "VACUUM"
+          
+      - name: Analyze database performance
+        run: |
+          wrangler d1 execute nawthtech-db --remote --command "ANALYZE"
+          
+      - name: Cleanup old data
+        run: |
+          wrangler d1 execute nawthtech-db --remote --command "
+            DELETE FROM ai_requests WHERE created_at < datetime('now', '-90 days');
+            DELETE FROM email_logs WHERE processed_at < datetime('now', '-180 days');
+          "
+          
+      - name: Generate database report
+        run: |
+          echo "# Database Report $(date)" > db-report.md
+          echo "## Table Sizes" >> db-report.md
+          echo "| Table | Row Count | Size |" >> db-report.md
+          echo "|-------|-----------|------|" >> db-report.md
+          
+          # Add table size queries here
+
+  backup:
+    name: Database Backup
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          
+      - name: Install Wrangler
+        run: npm install -g wrangler
+        
+      - name: Setup Cloudflare API Token
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          
+      - name: Create database dump
+        run: |
+          # Export database to SQL file
+          timestamp=$(date +%Y%m%d_%H%M%S)
+          wrangler d1 export nawthtech-db --remote --output-file backup_${timestamp}.sql
+          
+      - name: Upload backup to R2
+        run: |
+          # Upload backup to R2 storage
+          timestamp=$(date +%Y%m%d_%H%M%S)
+          wrangler r2 object put nawthtech-backups/backup_${timestamp}.sql --file backup_${timestamp}.sql
+          
+      - name: Cleanup old backups
+        run: |
+          # Keep only last 30 days of backups
+          # Implementation depends on backup strategy
+
+  monitor-usage:
+    name: Monitor API Usage
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          
+      - name: Install dependencies
+        run: |
+          cd ${{ env.WORKER_DIR }}
+          npm ci --audit=false
+          
+      - name: Generate usage report
+        run: |
+          cd ${{ env.WORKER_DIR }}
+          node scripts/generate-usage-report.js
+          
+      - name: Send report to Slack
+        uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          channel: '#reports'
+          username: 'Usage Monitor'
+          icon_emoji: ':bar_chart:'
+          text: 'Weekly usage report generated'
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
