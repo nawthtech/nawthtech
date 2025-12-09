@@ -1,10 +1,10 @@
-import type { IRequest } from 'itty-router';
-import type { Env } from '../types/database';
-import { successResponse } from '../utils/responses';
-
 /**
  * Health check handler
  */
+
+import type { IRequest } from 'itty-router';
+import type { Env } from '../types/database';
+
 export async function handleHealthCheck(
   request: IRequest,
   env: Env,
@@ -16,37 +16,41 @@ export async function handleHealthCheck(
     // Check database connection
     const dbCheck = await env.DB.prepare('SELECT 1 as status').first();
     
-    // Check KV
-    const kvCheck = await env.KV?.put('health-check', startTime.toString(), {
+    // Check KV storage
+    await env.KV.put('health_check', Date.now().toString(), {
       expirationTtl: 60,
     });
     
-    // Check R2 (if configured)
-    let r2Check = false;
+    // Check R2 storage if configured
+    let r2Status = 'not_configured';
     if (env.R2) {
       try {
         await env.R2.list({ limit: 1 });
-        r2Check = true;
+        r2Status = 'healthy';
       } catch (error) {
-        r2Check = false;
+        r2Status = 'unhealthy';
       }
     }
-
+    
     const health = {
       status: 'healthy',
       timestamp: new Date().toISOString(),
-      uptime: process.uptime?.(),
-      environment: env.ENVIRONMENT || 'production',
       version: '1.0.0',
-      checks: {
-        database: !!dbCheck,
-        kv: !!env.KV,
-        r2: r2Check,
-      },
+      environment: env.ENVIRONMENT || 'production',
+      uptime: process.uptime?.(),
       response_time: Date.now() - startTime,
+      services: {
+        database: !!dbCheck,
+        kv: true,
+        r2: r2Status,
+      },
+      checks: {
+        memory_usage: process.memoryUsage?.(),
+        timestamp: new Date().toISOString(),
+      },
     };
-
-    return new Response(JSON.stringify(successResponse(health), null, 2), {
+    
+    return new Response(JSON.stringify(health, null, 2), {
       status: 200,
       headers: {
         'Content-Type': 'application/json',
@@ -54,19 +58,23 @@ export async function handleHealthCheck(
       },
     });
   } catch (error) {
-    const errorHealth = {
+    console.error('Health check failed:', error);
+    
+    const health = {
       status: 'unhealthy',
       timestamp: new Date().toISOString(),
-      environment: env.ENVIRONMENT || 'production',
       error: error instanceof Error ? error.message : 'Unknown error',
-      response_time: Date.now() - startTime,
+      services: {
+        database: false,
+        kv: false,
+        r2: 'unknown',
+      },
     };
-
-    return new Response(JSON.stringify(errorHealth, null, 2), {
+    
+    return new Response(JSON.stringify(health, null, 2), {
       status: 503,
       headers: {
         'Content-Type': 'application/json',
-        'Cache-Control': 'no-cache',
       },
     });
   }
