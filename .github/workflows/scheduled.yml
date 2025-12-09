@@ -37,15 +37,15 @@ jobs:
           
       - name: Run database vacuum
         run: |
-          wrangler d1 execute nawthtech-db --remote --command "VACUUM"
+          wrangler d1 execute nawthtech-db1 --remote --command "VACUUM"
           
       - name: Analyze database performance
         run: |
-          wrangler d1 execute nawthtech-db --remote --command "ANALYZE"
+          wrangler d1 execute nawthtech-db1 --remote --command "ANALYZE"
           
       - name: Cleanup old data
         run: |
-          wrangler d1 execute nawthtech-db --remote --command "
+          wrangler d1 execute nawthtech-db1 --remote --command "
             DELETE FROM ai_requests WHERE created_at < datetime('now', '-90 days');
             DELETE FROM email_logs WHERE processed_at < datetime('now', '-180 days');
           "
@@ -84,7 +84,7 @@ jobs:
         run: |
           # Export database to SQL file
           timestamp=$(date +%Y%m%d_%H%M%S)
-          wrangler d1 export nawthtech-db --remote --output-file backup_${timestamp}.sql
+          wrangler d1 export nawthtech-db1 --remote --output-file backup_${timestamp}.sql
           
       - name: Upload backup to R2
         run: |
