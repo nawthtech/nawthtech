@@ -1,38 +1,55 @@
 package main
 
 import (
-	"encoding/json"
-	"fmt"
 	"log"
 	"net/http"
 	"os"
-	"time"
+	"strings"
 
-	"nawthtech-worker/handlers/health"
-	"nawthtech-worker/handlers/users"
-	"nawthtech-worker/utils"
+	"worker/src/handlers"
+	"worker/src/utils"
 )
 
+// envVariables تُخزن إعدادات البيئة
+var envVariables map[string]string
+
+func init() {
+	envVariables = map[string]string{
+		"ENVIRONMENT": getEnv("ENVIRONMENT", "development"),
+		"API_VERSION": getEnv("API_VERSION", "v1"),
+	}
+}
+
 func main() {
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8787" // منفذ افتراضي لـ Cloudflare Worker Go
+	// تهيئة اتصال D1
+	if err := utils.InitDatabase(); err != nil {
+		log.Fatalf("❌ Failed to initialize database: %v", err)
 	}
 
-	http.HandleFunc("/api/v1/health/check", health.CheckHandler)
-	http.HandleFunc("/api/v1/health/ready", health.ReadyHandler)
+	// مسارات الخدمة
+	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
+		handlers.CheckHealthHandler(w, r, envVariables)
+	})
 
-	http.HandleFunc("/api/v1/users/profile", users.GetProfileHandler)
-	http.HandleFunc("/api/v1/users", users.GetUsersHandler)
+	http.HandleFunc("/ready", func(w http.ResponseWriter, r *http.Request) {
+		handlers.ReadyHandler(w, r, envVariables)
+	})
 
-	srv := &http.Server{
-		Addr:         ":" + port,
-		ReadTimeout:  10 * time.Second,
-		WriteTimeout: 15 * time.Second,
+	http.HandleFunc("/test", func(w http.ResponseWriter, r *http.Request) {
+		handlers.TestHandler(w, r, envVariables)
+	})
+
+	port := getEnv("PORT", "8787")
+	log.Printf("🚀 Worker running on port %s in %s mode", port, envVariables["ENVIRONMENT"])
+	if err := http.ListenAndServe(":"+port, nil); err != nil {
+		log.Fatalf("❌ Server failed: %v", err)
 	}
+}
 
-	fmt.Printf("🚀 Worker running on port %s\n", port)
-	if err := srv.ListenAndServe(); err != nil {
-		log.Fatalf("Server failed: %v", err)
+// getEnv يقرأ متغيرات البيئة مع قيمة افتراضية
+func getEnv(key, defaultValue string) string {
+	if value := os.Getenv(key); value != "" {
+		return strings.TrimSpace(value)
 	}
+	return defaultValue
 }
