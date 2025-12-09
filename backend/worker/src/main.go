@@ -4,93 +4,76 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"time"
-
-	"worker/src/handlers"
-	"worker/src/middleware"
-	"worker/src/utils"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware as chiMiddleware"
+	"github.com/go-chi/chi/v5/middleware"
+
+	"nawthtech-worker/src/handlers"
+	"nawthtech-worker/src/utils"
 )
 
-// ==========================
-// Main
-// ==========================
-
 func main() {
-	// تهيئة البيئة و D1
-	utils.LoadEnv()
-	utils.InitDB() // يهيئ اتصال D1
+	// تهيئة قاعدة البيانات D1
+	if err := utils.InitDatabase(); err != nil {
+		log.Fatalf("❌ Failed to initialize database: %v", err)
+	}
+	defer utils.CloseDatabase()
 
 	// إنشاء Router
 	r := chi.NewRouter()
 
 	// Middleware عامة
-	r.Use(chiMiddleware.Logger)
-	r.Use(chiMiddleware.Recoverer)
-	r.Use(middleware.CORS)
-
-	// ==========================
-	// Health Endpoints
-	// ==========================
-	r.Get("/health", handlers.HealthCheck)
-	r.Get("/health/live", handlers.HealthCheck)
-	r.Get("/health/ready", handlers.HealthReady)
-
-	// ==========================
-	// Auth Endpoints
-	// ==========================
-	r.Post("/auth/register", handlers.AuthRegister)
-	r.Post("/auth/login", handlers.AuthLogin)
-	r.Post("/auth/refresh", handlers.AuthRefresh)
-	r.Post("/auth/forgot-password", handlers.AuthForgotPassword)
-
-	// ==========================
-	// User Endpoints (Protected)
-	// ==========================
-	r.Group(func(r chi.Router) {
-		r.Use(middleware.Auth) // حماية جميع المسارات داخل هذه المجموعة
-		r.Get("/user/profile", handlers.GetProfile)
+	r.Use(middleware.Logger)
+	r.Use(middleware.Recoverer)
+	r.Use(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(handlers.CorsMiddleware(next.ServeHTTP))
 	})
 
 	// ==========================
-	// Services Endpoints
+	// Health Routes
 	// ==========================
-	r.Get("/services", handlers.GetServices)
-	r.Get("/services/{id}", handlers.GetServiceByID)
+	r.Get("/health", handlers.HealthCheckHandler)
+	r.Get("/health/ready", handlers.HealthReadyHandler)
 
 	// ==========================
-	// Test Endpoint
+	// Users Routes
 	// ==========================
-	r.Get("/test", handlers.TestEndpoint)
+	r.Get("/user/profile", handlers.GetUserProfileHandler)
+	r.Get("/users", handlers.GetUsersHandler)
 
 	// ==========================
-	// 404 Handler
+	// Services Routes
+	// ==========================
+	r.Get("/services", handlers.GetServicesHandler)
+	r.Get("/services/{id}", func(w http.ResponseWriter, r *http.Request) {
+		serviceID := chi.URLParam(r, "id")
+		handlers.GetServiceByIDHandler(w, r, serviceID)
+	})
+
+	// ==========================
+	// Test Route
+	// ==========================
+	r.Get("/test", handlers.TestHandler)
+
+	// ==========================
+	// Not Found Handler
 	// ==========================
 	r.NotFound(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte("Not Found"))
+		handlers.RespondJSON(w, http.StatusNotFound, handlers.JSONResponse{
+			Success: false,
+			Error:   "NOT_FOUND",
+			Message: "Route does not exist",
+		})
 	})
 
-	// ==========================
-	// Start server
-	// ==========================
+	// بدء السيرفر
 	port := os.Getenv("PORT")
 	if port == "" {
-		port = "8080"
+		port = "3000"
 	}
 
-	srv := &http.Server{
-		Handler:      r,
-		Addr:         ":" + port,
-		ReadTimeout:  10 * time.Second,
-		WriteTimeout: 10 * time.Second,
-		IdleTimeout:  60 * time.Second,
-	}
-
-	log.Printf("🚀 Server started on port %s", port)
-	if err := srv.ListenAndServe(); err != nil {
-		log.Fatalf("Server failed: %v", err)
+	log.Printf("🚀 Server running on port %s in %s mode", port, os.Getenv("ENVIRONMENT"))
+	if err := http.ListenAndServe(":"+port, r); err != nil {
+		log.Fatalf("❌ Server failed: %v", err)
 	}
 }
