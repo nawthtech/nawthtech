@@ -26,7 +26,7 @@ name = "nawthtech-api-dev"
 # D1 Database
 [[d1_databases]]
 binding = "DB"
-database_name = "nawthtech-db-api-go"
+database_name = "nawthtech_d1"
 database_id = "bbf15aeb-0718-47c8-9723-d8a83f79e6cb"
 preview_database_id = "YOUR_PREVIEW_D1_ID_HERE"
 
