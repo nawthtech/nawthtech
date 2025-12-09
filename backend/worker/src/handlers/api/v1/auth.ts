@@ -1,68 +1,82 @@
+/**
+ * Authentication handlers
+ */
+
 import type { IRequest } from 'itty-router';
 import type { Env, User, RegisterRequest, LoginRequest, UpdateProfileRequest } from '../../../types/database';
+import { hashPassword, verifyPassword, generateJWT } from '../../../utils/crypto';
 import { successResponse, errorResponse, paginatedResponse } from '../../../utils/responses';
-import { hashPassword, verifyPassword, generateToken } from '../../../utils/crypto';
 
-/**
- * Register new user
- */
 export async function registerUser(
   request: IRequest,
   env: Env
 ): Promise<Response> {
   try {
-    const body = request.parsedBody as RegisterRequest;
+    const data = (request as any).validatedData as RegisterRequest;
     
-    // Check if user already exists
-    const existingUser = await env.DB.prepare(
-      'SELECT id FROM users WHERE email = ? OR username = ?'
-    )
-      .bind(body.email, body.username)
-      .first();
-
-    if (existingUser) {
-      return errorResponse('User already exists', 409);
+    // Check if email already exists
+    const existingEmail = await env.DB.prepare(
+      'SELECT id FROM users WHERE email = ? AND deleted_at IS NULL'
+    ).bind(data.email).first();
+    
+    if (existingEmail) {
+      return new Response(
+        JSON.stringify(errorResponse('Email already registered')),
+        { status: 409, headers: { 'Content-Type': 'application/json' } }
+      );
     }
-
+    
+    // Check if username already exists
+    const existingUsername = await env.DB.prepare(
+      'SELECT id FROM users WHERE username = ? AND deleted_at IS NULL'
+    ).bind(data.username).first();
+    
+    if (existingUsername) {
+      return new Response(
+        JSON.stringify(errorResponse('Username already taken')),
+        { status: 409, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+    
     // Hash password
-    const passwordHash = await hashPassword(body.password);
+    const passwordHash = await hashPassword(data.password);
     const userId = crypto.randomUUID();
-
-    // Create user
+    
+    // Insert user
     await env.DB.prepare(`
       INSERT INTO users (id, email, username, password_hash, full_name)
       VALUES (?, ?, ?, ?, ?)
-    `)
-      .bind(
-        userId,
-        body.email,
-        body.username,
-        passwordHash,
-        body.full_name || null
-      )
-      .run();
-
-    // Generate token
-    const token = generateToken({ sub: userId }, env.JWT_SECRET);
-
-    const user = {
-      id: userId,
-      email: body.email,
-      username: body.username,
-      full_name: body.full_name,
-      role: 'user' as const,
-      email_verified: false,
-    };
-
+    `).bind(
+      userId,
+      data.email,
+      data.username,
+      passwordHash,
+      data.full_name || null
+    ).run();
+    
+    // Generate JWT token
+    const token = await generateJWT({ userId }, env.JWT_SECRET);
+    
+    // Get created user (without password hash)
+    const user = await env.DB.prepare(`
+      SELECT id, email, username, role, email_verified, full_name, 
+             created_at, quota_text_tokens, quota_images, 
+             quota_videos, quota_audio_minutes
+      FROM users WHERE id = ?
+    `).bind(userId).first<User>();
+    
+    // Send welcome email (in background)
+    // env.AI_QUEUE?.send({
+    //   type: 'welcome_email',
+    //   userId,
+    //   email: data.email,
+    // });
+    
     return new Response(
-      JSON.stringify(
-        successResponse({
-          user,
-          token,
-        }, 'User registered successfully'),
-        null,
-        2
-      ),
+      JSON.stringify(successResponse({
+        user,
+        token,
+      }, 'Registration successful')),
       {
         status: 201,
         headers: { 'Content-Type': 'application/json' },
@@ -70,66 +84,58 @@ export async function registerUser(
     );
   } catch (error) {
     console.error('Registration error:', error);
-    return errorResponse('Failed to register user', 500);
+    return new Response(
+      JSON.stringify(errorResponse('Registration failed')),
+      { status: 500, headers: { 'Content-Type': 'application/json' } }
+    );
   }
 }
 
-/**
- * Login user
- */
 export async function loginUser(
   request: IRequest,
   env: Env
 ): Promise<Response> {
   try {
-    const body = request.parsedBody as LoginRequest;
+    const data = (request as any).validatedData as LoginRequest;
     
-    // Get user by email
-    const user = await env.DB.prepare(
-      'SELECT * FROM users WHERE email = ? AND deleted_at IS NULL'
-    )
-      .bind(body.email)
-      .first<User>();
-
+    // Get user with password hash
+    const user = await env.DB.prepare(`
+      SELECT * FROM users 
+      WHERE email = ? AND deleted_at IS NULL
+    `).bind(data.email).first<User>();
+    
     if (!user) {
-      return errorResponse('Invalid credentials', 401);
+      return new Response(
+        JSON.stringify(errorResponse('Invalid credentials')),
+        { status: 401, headers: { 'Content-Type': 'application/json' } }
+      );
     }
-
+    
     // Verify password
-    const isValid = await verifyPassword(body.password, user.password_hash);
+    const isValid = await verifyPassword(data.password, user.password_hash);
     if (!isValid) {
-      return errorResponse('Invalid credentials', 401);
+      return new Response(
+        JSON.stringify(errorResponse('Invalid credentials')),
+        { status: 401, headers: { 'Content-Type': 'application/json' } }
+      );
     }
-
+    
     // Update last login
-    await env.DB.prepare(
-      'UPDATE users SET last_login_at = CURRENT_TIMESTAMP WHERE id = ?'
-    ).bind(user.id).run();
-
-    // Generate token
-    const token = generateToken({ sub: user.id }, env.JWT_SECRET);
-
-    const userResponse = {
-      id: user.id,
-      email: user.email,
-      username: user.username,
-      role: user.role,
-      email_verified: user.email_verified,
-      full_name: user.full_name,
-      avatar_url: user.avatar_url,
-      bio: user.bio,
-      created_at: user.created_at,
-    };
-
+    await env.DB.prepare(`
+      UPDATE users SET last_login_at = CURRENT_TIMESTAMP WHERE id = ?
+    `).bind(user.id).run();
+    
+    // Generate JWT token
+    const token = await generateJWT({ userId: user.id }, env.JWT_SECRET);
+    
+    // Remove sensitive data
+    const { password_hash, ...userWithoutPassword } = user;
+    
     return new Response(
-      JSON.stringify(
-        successResponse({
-          user: userResponse,
-          token,
-        }, 'Login successful'),
-        null,
-        2
-      ),
+      JSON.stringify(successResponse({
+        user: userWithoutPassword,
+        token,
+      }, 'Login successful')),
       {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
@@ -137,43 +143,37 @@ export async function loginUser(
     );
   } catch (error) {
     console.error('Login error:', error);
-    return errorResponse('Failed to login', 500);
+    return new Response(
+      JSON.stringify(errorResponse('Login failed')),
+      { status: 500, headers: { 'Content-Type': 'application/json' } }
+    );
   }
 }
 
-/**
- * Get current user
- */
 export async function getCurrentUser(
   request: IRequest,
   env: Env
 ): Promise<Response> {
   try {
-    const user = request.user!;
+    const user = (request as any).user as User;
     
-    const userResponse = {
-      id: user.id,
-      email: user.email,
-      username: user.username,
-      role: user.role,
-      email_verified: user.email_verified,
-      full_name: user.full_name,
-      avatar_url: user.avatar_url,
-      bio: user.bio,
-      quota: {
-        text_tokens: user.quota_text_tokens,
-        images: user.quota_images,
-        videos: user.quota_videos,
-        audio_minutes: user.quota_audio_minutes,
-      },
-      settings: JSON.parse(user.settings),
-      created_at: user.created_at,
-      updated_at: user.updated_at,
-      last_login_at: user.last_login_at,
-    };
-
+    // Get fresh user data
+    const freshUser = await env.DB.prepare(`
+      SELECT id, email, username, role, email_verified, full_name, avatar_url, bio,
+             settings, created_at, updated_at, last_login_at,
+             quota_text_tokens, quota_images, quota_videos, quota_audio_minutes
+      FROM users WHERE id = ? AND deleted_at IS NULL
+    `).bind(user.id).first<User>();
+    
+    if (!freshUser) {
+      return new Response(
+        JSON.stringify(errorResponse('User not found')),
+        { status: 404, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+    
     return new Response(
-      JSON.stringify(successResponse(userResponse), null, 2),
+      JSON.stringify(successResponse(freshUser)),
       {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
@@ -181,98 +181,88 @@ export async function getCurrentUser(
     );
   } catch (error) {
     console.error('Get current user error:', error);
-    return errorResponse('Failed to get user', 500);
+    return new Response(
+      JSON.stringify(errorResponse('Failed to get user')),
+      { status: 500, headers: { 'Content-Type': 'application/json' } }
+    );
   }
 }
 
-/**
- * Update user profile
- */
 export async function updateUser(
   request: IRequest,
   env: Env
 ): Promise<Response> {
   try {
-    const user = request.user!;
-    const body = request.parsedBody as UpdateProfileRequest;
+    const user = (request as any).user as User;
+    const data = (request as any).validatedData as UpdateProfileRequest;
     
     // Build update query dynamically
     const updates: string[] = [];
-    const values: any[] = [];
+    const params: any[] = [];
     
-    if (body.full_name !== undefined) {
+    if (data.full_name !== undefined) {
       updates.push('full_name = ?');
-      values.push(body.full_name || null);
+      params.push(data.full_name || null);
     }
     
-    if (body.avatar_url !== undefined) {
+    if (data.avatar_url !== undefined) {
       updates.push('avatar_url = ?');
-      values.push(body.avatar_url || null);
+      params.push(data.avatar_url || null);
     }
     
-    if (body.bio !== undefined) {
+    if (data.bio !== undefined) {
       updates.push('bio = ?');
-      values.push(body.bio || null);
+      params.push(data.bio || null);
     }
     
-    if (body.settings !== undefined) {
+    if (data.settings !== undefined) {
       updates.push('settings = ?');
-      values.push(JSON.stringify(body.settings));
+      params.push(JSON.stringify(data.settings));
     }
     
     if (updates.length === 0) {
-      return errorResponse('No fields to update', 400);
+      return new Response(
+        JSON.stringify(errorResponse('No fields to update')),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
+      );
     }
     
+    // Add updated_at and user id
     updates.push('updated_at = CURRENT_TIMESTAMP');
-    values.push(user.id);
+    params.push(user.id);
     
-    const query = `UPDATE users SET ${updates.join(', ')} WHERE id = ?`;
+    const query = `
+      UPDATE users 
+      SET ${updates.join(', ')} 
+      WHERE id = ? AND deleted_at IS NULL
+    `;
     
-    await env.DB.prepare(query)
-      .bind(...values)
-      .run();
-
+    await env.DB.prepare(query).bind(...params).run();
+    
     // Get updated user
-    const updatedUser = await env.DB.prepare(
-      'SELECT * FROM users WHERE id = ?'
-    )
-      .bind(user.id)
-      .first<User>();
-
-    const userResponse = {
-      id: updatedUser!.id,
-      email: updatedUser!.email,
-      username: updatedUser!.username,
-      role: updatedUser!.role,
-      email_verified: updatedUser!.email_verified,
-      full_name: updatedUser!.full_name,
-      avatar_url: updatedUser!.avatar_url,
-      bio: updatedUser!.bio,
-      settings: JSON.parse(updatedUser!.settings),
-      updated_at: updatedUser!.updated_at,
-    };
-
+    const updatedUser = await env.DB.prepare(`
+      SELECT id, email, username, role, email_verified, full_name, avatar_url, bio,
+             settings, created_at, updated_at, last_login_at,
+             quota_text_tokens, quota_images, quota_videos, quota_audio_minutes
+      FROM users WHERE id = ? AND deleted_at IS NULL
+    `).bind(user.id).first<User>();
+    
     return new Response(
-      JSON.stringify(
-        successResponse(userResponse, 'Profile updated successfully'),
-        null,
-        2
-      ),
+      JSON.stringify(successResponse(updatedUser, 'Profile updated successfully')),
       {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
       }
     );
   } catch (error) {
-    console.error('Update profile error:', error);
-    return errorResponse('Failed to update profile', 500);
+    console.error('Update user error:', error);
+    return new Response(
+      JSON.stringify(errorResponse('Failed to update profile')),
+      { status: 500, headers: { 'Content-Type': 'application/json' } }
+    );
   }
 }
 
-/**
- * List users (admin only)
- */
 export async function listUsers(
   request: IRequest,
   env: Env
@@ -281,44 +271,47 @@ export async function listUsers(
     const url = new URL(request.url);
     const page = parseInt(url.searchParams.get('page') || '1');
     const limit = parseInt(url.searchParams.get('limit') || '20');
+    const search = url.searchParams.get('search');
+    const role = url.searchParams.get('role');
     const offset = (page - 1) * limit;
     
+    // Build query
+    let whereClause = 'WHERE deleted_at IS NULL';
+    const params: any[] = [];
+    
+    if (search) {
+      whereClause += ' AND (email LIKE ? OR username LIKE ? OR full_name LIKE ?)';
+      const searchTerm = `%${search}%`;
+      params.push(searchTerm, searchTerm, searchTerm);
+    }
+    
+    if (role) {
+      whereClause += ' AND role = ?';
+      params.push(role);
+    }
+    
     // Get total count
-    const countResult = await env.DB.prepare(
-      'SELECT COUNT(*) as total FROM users WHERE deleted_at IS NULL'
-    ).first<{ total: number }>();
+    const countResult = await env.DB.prepare(`
+      SELECT COUNT(*) as total FROM users ${whereClause}
+    `).bind(...params).first<{ total: number }>();
     
     // Get users
     const users = await env.DB.prepare(`
-      SELECT id, email, username, role, email_verified, full_name, 
-             avatar_url, created_at, updated_at, last_login_at
-      FROM users 
-      WHERE deleted_at IS NULL
+      SELECT id, email, username, role, email_verified, full_name, avatar_url,
+             created_at, updated_at, last_login_at,
+             quota_text_tokens, quota_images, quota_videos, quota_audio_minutes
+      FROM users ${whereClause}
       ORDER BY created_at DESC
       LIMIT ? OFFSET ?
-    `)
-      .bind(limit, offset)
-      .all<User>();
-
-    const usersResponse = users.results.map(user => ({
-      id: user.id,
-      email: user.email,
-      username: user.username,
-      role: user.role,
-      email_verified: user.email_verified,
-      full_name: user.full_name,
-      avatar_url: user.avatar_url,
-      created_at: user.created_at,
-      updated_at: user.updated_at,
-      last_login_at: user.last_login_at,
-    }));
-
+    `).bind(...params, limit, offset).all<User>();
+    
     return new Response(
-      JSON.stringify(
-        paginatedResponse(usersResponse, countResult!.total, page, limit),
-        null,
-        2
-      ),
+      JSON.stringify(paginatedResponse(
+        users.results,
+        countResult?.total || 0,
+        page,
+        limit
+      )),
       {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
@@ -326,62 +319,55 @@ export async function listUsers(
     );
   } catch (error) {
     console.error('List users error:', error);
-    return errorResponse('Failed to list users', 500);
+    return new Response(
+      JSON.stringify(errorResponse('Failed to list users')),
+      { status: 500, headers: { 'Content-Type': 'application/json' } }
+    );
   }
 }
 
-/**
- * Get user by ID
- */
 export async function getUserById(
   request: IRequest,
   env: Env
 ): Promise<Response> {
   try {
-    const userId = request.params!.id;
-    const currentUser = request.user!;
+    const userId = request.params?.id;
+    const requestingUser = (request as any).user as User;
     
-    // Check permissions (admin or self)
-    if (currentUser.role !== 'admin' && currentUser.id !== userId) {
-      return errorResponse('Access denied', 403);
+    // Users can only see their own profile unless admin
+    if (requestingUser.role !== 'admin' && requestingUser.id !== userId) {
+      return new Response(
+        JSON.stringify(errorResponse('Access denied')),
+        { status: 403, headers: { 'Content-Type': 'application/json' } }
+      );
     }
     
     const user = await env.DB.prepare(`
-      SELECT id, email, username, role, email_verified, full_name, 
-             avatar_url, bio, created_at, updated_at, last_login_at
-      FROM users 
-      WHERE id = ? AND deleted_at IS NULL
-    `)
-      .bind(userId)
-      .first<User>();
-
+      SELECT id, email, username, role, email_verified, full_name, avatar_url, bio,
+             created_at, updated_at, last_login_at,
+             quota_text_tokens, quota_images, quota_videos, quota_audio_minutes
+      FROM users WHERE id = ? AND deleted_at IS NULL
+    `).bind(userId).first<User>();
+    
     if (!user) {
-      return errorResponse('User not found', 404);
+      return new Response(
+        JSON.stringify(errorResponse('User not found')),
+        { status: 404, headers: { 'Content-Type': 'application/json' } }
+      );
     }
-
-    const userResponse = {
-      id: user.id,
-      email: user.email,
-      username: user.username,
-      role: user.role,
-      email_verified: user.email_verified,
-      full_name: user.full_name,
-      avatar_url: user.avatar_url,
-      bio: user.bio,
-      created_at: user.created_at,
-      updated_at: user.updated_at,
-      last_login_at: user.last_login_at,
-    };
-
+    
     return new Response(
-      JSON.stringify(successResponse(userResponse), null, 2),
+      JSON.stringify(successResponse(user)),
       {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
       }
     );
   } catch (error) {
-    console.error('Get user error:', error);
-    return errorResponse('Failed to get user', 500);
+    console.error('Get user by ID error:', error);
+    return new Response(
+      JSON.stringify(errorResponse('Failed to get user')),
+      { status: 500, headers: { 'Content-Type': 'application/json' } }
+    );
   }
 }
