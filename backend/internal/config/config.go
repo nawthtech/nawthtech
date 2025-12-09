@@ -2,16 +2,16 @@ package config
 
 import (
 	"fmt"
-	"log/slog"
 	"os"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/caarlos0/env/v11"
+	"log/slog"
 )
 
-// Cors configuration
+// Cors تكوين CORS
 type Cors struct {
 	AllowedOrigins   []string `env:"ALLOWED_ORIGINS" envSeparator:","`
 	AllowedMethods   []string `env:"ALLOWED_METHODS" envSeparator:","`
@@ -21,16 +21,15 @@ type Cors struct {
 	MaxAge           int      `env:"MAX_AGE"`
 }
 
-// D1Config Cloudflare D1
+// D1Config تكوين D1 Cloudflare (لـ Worker)
 type D1Config struct {
-	AccountID    string `env:"D1_ACCOUNT_ID"`
+	AccountID   string `env:"D1_ACCOUNT_ID"`
 	DatabaseName string `env:"D1_DATABASE_NAME"`
 	DatabaseID   string `env:"D1_DATABASE_ID"`
-	BindingName  string `env:"D1_BINDING_NAME"` // for Workers binding (if used)
-	UseD1        bool   `env:"USE_D1"`
+	BindingName  string `env:"D1_BINDING_NAME"`
 }
 
-// Cache configuration
+// Cache تكوين التخزين المؤقت
 type Cache struct {
 	Enabled    bool          `env:"CACHE_ENABLED"`
 	Prefix     string        `env:"CACHE_PREFIX"`
@@ -38,7 +37,31 @@ type Cache struct {
 	MaxRetries int           `env:"CACHE_MAX_RETRIES"`
 }
 
-// ServicesConfig ...
+// AuthConfig تكوين المصادقة
+type AuthConfig struct {
+	JWTSecret         string        `env:"JWT_SECRET"`
+	JWTExpiration     time.Duration `env:"JWT_EXPIRATION"`
+	RefreshExpiration time.Duration `env:"REFRESH_EXPIRATION"`
+	BCryptCost        int           `env:"BCRYPT_COST"`
+}
+
+// Upload & Cloudinary
+type Cloudinary struct {
+	CloudName    string `env:"CLOUDINARY_CLOUD_NAME"`
+	APIKey       string `env:"CLOUDINARY_API_KEY"`
+	APISecret    string `env:"CLOUDINARY_API_SECRET"`
+	UploadPreset string `env:"CLOUDINARY_UPLOAD_PRESET"`
+	Folder       string `env:"CLOUDINARY_FOLDER"`
+}
+
+type Upload struct {
+	MaxFileSize    int64    `env:"UPLOAD_MAX_FILE_SIZE"`
+	AllowedTypes   []string `env:"UPLOAD_ALLOWED_TYPES" envSeparator:","`
+	ImageMaxWidth  int      `env:"UPLOAD_IMAGE_MAX_WIDTH"`
+	ImageMaxHeight int      `env:"UPLOAD_IMAGE_MAX_HEIGHT"`
+	StorageBackend string   `env:"UPLOAD_STORAGE_BACKEND"`
+}
+
 type ServicesConfig struct {
 	MaxServicesPerUser     int           `env:"SERVICES_MAX_PER_USER"`
 	MaxActiveServices      int           `env:"SERVICES_MAX_ACTIVE"`
@@ -65,69 +88,32 @@ type ServicesConfig struct {
 	RateLimitSearch        int           `env:"SERVICES_RATE_LIMIT_SEARCH"`
 }
 
-// Cloudinary ...
-type Cloudinary struct {
-	CloudName    string `env:"CLOUDINARY_CLOUD_NAME"`
-	APIKey       string `env:"CLOUDINARY_API_KEY"`
-	APISecret    string `env:"CLOUDINARY_API_SECRET"`
-	UploadPreset string `env:"CLOUDINARY_UPLOAD_PRESET"`
-	Folder       string `env:"CLOUDINARY_FOLDER"`
-}
-
-// Upload ...
-type Upload struct {
-	MaxFileSize    int64    `env:"UPLOAD_MAX_FILE_SIZE"`
-	AllowedTypes   []string `env:"UPLOAD_ALLOWED_TYPES" envSeparator:","`
-	ImageMaxWidth  int      `env:"UPLOAD_IMAGE_MAX_WIDTH"`
-	ImageMaxHeight int      `env:"UPLOAD_IMAGE_MAX_HEIGHT"`
-	StorageBackend string   `env:"UPLOAD_STORAGE_BACKEND"`
-}
-
-// Email ...
-type Email struct {
-	Enabled   bool   `env:"EMAIL_ENABLED"`
-	Host      string `env:"EMAIL_HOST"`
-	Port      int    `env:"EMAIL_PORT"`
-	Username  string `env:"EMAIL_USERNAME"`
-	Password  string `env:"EMAIL_PASSWORD"`
-	FromEmail string `env:"EMAIL_FROM_EMAIL"`
-	FromName  string `env:"EMAIL_FROM_NAME"`
-}
-
-// AuthConfig ...
-type AuthConfig struct {
-	JWTSecret         string        `env:"JWT_SECRET"`
-	JWTExpiration     time.Duration `env:"JWT_EXPIRATION"`
-	RefreshExpiration time.Duration `env:"REFRESH_EXPIRATION"`
-	BCryptCost        int           `env:"BCRYPT_COST"`
-}
-
-// Main Config
+// Config الرئيسي
 type Config struct {
 	Environment   string         `env:"ENVIRONMENT"`
 	Port          string         `env:"PORT"`
 	Version       string         `env:"APP_VERSION"`
 	EncryptionKey string         `env:"ENCRYPTION_KEY"`
-	D1            D1Config       `envPrefix:"D1_"`
-	Auth          AuthConfig     `envPrefix:"AUTH_"`
-	Cors          Cors           `envPrefix:"CORS_"`
-	Cache         Cache          `envPrefix:"CACHE_"`
-	Services      ServicesConfig `envPrefix:"SERVICES_"`
-	Upload        Upload         `envPrefix:"UPLOAD_"`
-	Cloudinary    Cloudinary     `envPrefix:"CLOUDINARY_"`
-	Email         Email          `envPrefix:"EMAIL_"`
+
+	D1         D1Config       `envPrefix:"D1_"`
+	Auth       AuthConfig     `envPrefix:"AUTH_"`
+	Cors       Cors           `envPrefix:"CORS_"`
+	Cache      Cache          `envPrefix:"CACHE_"`
+	Services   ServicesConfig `envPrefix:"SERVICES_"`
+	Upload     Upload         `envPrefix:"UPLOAD_"`
+	Cloudinary Cloudinary     `envPrefix:"CLOUDINARY_"`
+	Email      struct {
+		Enabled   bool   `env:"EMAIL_ENABLED"`
+		Host      string `env:"EMAIL_HOST"`
+		Port      int    `env:"EMAIL_PORT"`
+		Username  string `env:"EMAIL_USERNAME"`
+		Password  string `env:"EMAIL_PASSWORD"`
+		FromEmail string `env:"EMAIL_FROM_EMAIL"`
+		FromName  string `env:"EMAIL_FROM_NAME"`
+	}
 }
 
 var appConfig *Config
-
-func initDefaultLogger() {
-	if slog.Default().Handler() == nil {
-		handler := slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
-			Level: slog.LevelInfo,
-		})
-		slog.SetDefault(slog.New(handler))
-	}
-}
 
 func Load() *Config {
 	if appConfig != nil {
@@ -138,22 +124,24 @@ func Load() *Config {
 
 	appConfig = &Config{
 		Environment:   getEnv("ENVIRONMENT", "development"),
-		Port:          getEnv("PORT", "3000"),
+		Port:          getEnv("PORT", "8080"),
 		Version:       getEnv("APP_VERSION", "1.0.0"),
-		EncryptionKey: getEnv("ENCRYPTION_KEY", "default-encryption-key-change-in-production"),
+		EncryptionKey: getEnv("ENCRYPTION_KEY", "change-me"),
+
 		D1: D1Config{
 			AccountID:    getEnv("D1_ACCOUNT_ID", ""),
 			DatabaseName: getEnv("D1_DATABASE_NAME", "nawthtech_d1"),
 			DatabaseID:   getEnv("D1_DATABASE_ID", ""),
 			BindingName:  getEnv("D1_BINDING_NAME", "DB"),
-			UseD1:        getEnvBool("USE_D1", false),
 		},
+
 		Auth: AuthConfig{
-			JWTSecret:         getEnv("JWT_SECRET", "default-jwt-secret-change-in-production"),
+			JWTSecret:         getEnv("JWT_SECRET", "change-me"),
 			JWTExpiration:     getEnvDuration("JWT_EXPIRATION", 24*time.Hour),
 			RefreshExpiration: getEnvDuration("REFRESH_EXPIRATION", 7*24*time.Hour),
 			BCryptCost:        getEnvInt("BCRYPT_COST", 12),
 		},
+
 		Cors: Cors{
 			AllowedOrigins:   getEnvSlice("ALLOWED_ORIGINS", []string{}, ","),
 			AllowedMethods:   getEnvSlice("ALLOWED_METHODS", []string{}, ","),
@@ -162,12 +150,14 @@ func Load() *Config {
 			AllowCredentials: getEnvBool("ALLOW_CREDENTIALS", true),
 			MaxAge:           getEnvInt("MAX_AGE", 86400),
 		},
+
 		Cache: Cache{
 			Enabled:    getEnvBool("CACHE_ENABLED", true),
 			Prefix:     getEnv("CACHE_PREFIX", "nawthtech:"),
 			DefaultTTL: getEnvDuration("CACHE_DEFAULT_TTL", 1*time.Hour),
 			MaxRetries: getEnvInt("CACHE_MAX_RETRIES", 3),
 		},
+
 		Services: ServicesConfig{
 			MaxServicesPerUser:     getEnvInt("SERVICES_MAX_PER_USER", 50),
 			MaxActiveServices:      getEnvInt("SERVICES_MAX_ACTIVE", 20),
@@ -193,6 +183,7 @@ func Load() *Config {
 			RateLimitUpdate:        getEnvInt("SERVICES_RATE_LIMIT_UPDATE", 30),
 			RateLimitSearch:        getEnvInt("SERVICES_RATE_LIMIT_SEARCH", 60),
 		},
+
 		Upload: Upload{
 			MaxFileSize:    getEnvInt64("UPLOAD_MAX_FILE_SIZE", 10*1024*1024),
 			AllowedTypes:   getEnvSlice("UPLOAD_ALLOWED_TYPES", []string{"image/jpeg", "image/png", "image/gif", "image/webp", "application/pdf"}, ","),
@@ -200,21 +191,13 @@ func Load() *Config {
 			ImageMaxHeight: getEnvInt("UPLOAD_IMAGE_MAX_HEIGHT", 1080),
 			StorageBackend: getEnv("UPLOAD_STORAGE_BACKEND", "cloudinary"),
 		},
+
 		Cloudinary: Cloudinary{
 			CloudName:    getEnv("CLOUDINARY_CLOUD_NAME", ""),
 			APIKey:       getEnv("CLOUDINARY_API_KEY", ""),
 			APISecret:    getEnv("CLOUDINARY_API_SECRET", ""),
 			UploadPreset: getEnv("CLOUDINARY_UPLOAD_PRESET", "nawthtech_uploads"),
 			Folder:       getEnv("CLOUDINARY_FOLDER", "nawthtech"),
-		},
-		Email: Email{
-			Enabled:   getEnvBool("EMAIL_ENABLED", false),
-			Host:      getEnv("EMAIL_HOST", ""),
-			Port:      getEnvInt("EMAIL_PORT", 587),
-			Username:  getEnv("EMAIL_USERNAME", ""),
-			Password:  getEnv("EMAIL_PASSWORD", ""),
-			FromEmail: getEnv("EMAIL_FROM_EMAIL", "noreply@nawthtech.com"),
-			FromName:  getEnv("EMAIL_FROM_NAME", "نوذ تك"),
 		},
 	}
 
@@ -234,30 +217,26 @@ func Load() *Config {
 		"environment", appConfig.Environment,
 		"port", appConfig.Port,
 		"version", appConfig.Version,
-		"database", func() string {
-			if appConfig.D1.UseD1 {
-				return "D1 Cloudflare"
-			}
-			return "sqlite (local dev)"
-		}(),
+		"database", "D1 (workers) / SQL (backend)",
 		"storage", appConfig.Upload.StorageBackend,
 	)
 
 	return appConfig
 }
 
-// helpers (getEnv, getEnvInt, etc.) — استخدم نفس دوالك القديمة (أنسخها من ملفك السابق).
-// لتوفير المساحة هنا، افترض وجود دوال:
-// getEnv, getEnvInt, getEnvBool, getEnvDuration, getEnvSlice, getEnvFloat, getEnvInt64
-// و setCorsDefaults, validateConfig, validateCloudinaryConfig, validateAuthConfig, etc.
-//
-// كما أضفت دالة مفيدة:
-func (c *Config) GetD1Config() map[string]interface{} {
-	return map[string]interface{}{
-		"account_id":    c.D1.AccountID,
-		"database_name": c.D1.DatabaseName,
-		"database_id":   c.D1.DatabaseID,
-		"binding_name":  c.D1.BindingName,
-		"use_d1":        c.D1.UseD1,
+// باقي الدوال المساعدة (getEnv, getEnvInt, getEnvDuration, getEnvBool, getEnvSlice, setCorsDefaults, validateConfig, validateRequiredFields) 
+// --- لتوفير المساحة أدرجها كما في نسختك السابقة مع تعديل validateRequiredFields للتحقق من JWT و ENCRYPTION و D1 binding إذا لزم.
+// انسخ دوال المساعدة من ملفك القديم وأبقي validateRequiredFields كالتالي:
+
+func validateRequiredFields() error {
+	if appConfig.Auth.JWTSecret == "" || appConfig.Auth.JWTSecret == "change-me" {
+		return fmt.Errorf("JWT_SECRET is required and must be changed in production")
 	}
+	if appConfig.EncryptionKey == "" || appConfig.EncryptionKey == "change-me" {
+		return fmt.Errorf("ENCRYPTION_KEY is required and must be changed in production")
+	}
+	// D1 binding optional for backend; required for worker usage
+	// if you want to require D1 here uncomment below:
+	// if appConfig.D1.BindingName == "" { return fmt.Errorf("D1_BINDING_NAME is required") }
+	return nil
 }
