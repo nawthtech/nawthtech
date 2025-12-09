@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
-	"worker/src/utils"
+	"github.com/nawthtech/nawthtech/backend/worker/src/utils"
 )
 
 func CORS(w http.ResponseWriter, r *http.Request) bool {
