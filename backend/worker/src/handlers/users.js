@@ -1,57 +1,67 @@
 // worker/src/handlers/users.js
-import { withDatabase } from '../utils/database.js'
-import { ObjectId } from 'mongodb'
-
 export const userHandlers = {
-  getProfile: withDatabase(async (request, env) => {
-    const { db, dbType } = request
-    
-    if (dbType !== 'mongodb') {
-      throw new Error('This handler requires MongoDB')
-    }
-
+  getProfile: async (request, env) => {
     const userId = request.user?.id
-    
+
     if (!userId) {
-      return Response.json({
-        success: false,
-        error: 'UNAUTHORIZED'
-      }, { status: 401 })
+      return new Response(
+        JSON.stringify({ success: false, error: 'UNAUTHORIZED' }),
+        { status: 401, headers: { 'Content-Type': 'application/json' } }
+      )
     }
 
-    const user = await db.collection('users').findOne({
-      _id: new ObjectId(userId)
-    })
+    // الاتصال بقاعدة D1
+    const db = env.D1('NAWTHTECH_DB')
 
-    if (!user) {
-      return Response.json({
-        success: false,
-        error: 'USER_NOT_FOUND'
-      }, { status: 404 })
+    try {
+      const result = await db.prepare(`
+        SELECT id, username, email, created_at
+        FROM users
+        WHERE id = ?
+      `).bind(userId).all()
+
+      const user = result.results[0]
+
+      if (!user) {
+        return new Response(
+          JSON.stringify({ success: false, error: 'USER_NOT_FOUND' }),
+          { status: 404, headers: { 'Content-Type': 'application/json' } }
+        )
+      }
+
+      return new Response(
+        JSON.stringify({ success: true, data: user }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
+
+    } catch (err) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'DB_ERROR', message: err.message }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      )
     }
+  },
 
-    // إخفاء البيانات الحساسة
-    const { password, ...safeUser } = user
+  getUsers: async (request, env) => {
+    const db = env.D1('NAWTHTECH_DB')
 
-    return Response.json({
-      success: true,
-      data: safeUser
-    })
-  }),
+    try {
+      const result = await db.prepare(`
+        SELECT id, username, email, created_at
+        FROM users
+        LIMIT 50
+      `).all()
 
-  // معالجات أخرى...
-  getUsers: withDatabase(async (request, env) => {
-    const { db } = request
-    
-    const users = await db.collection('users')
-      .find({})
-      .project({ password: 0 }) // استبعاد كلمة السر
-      .limit(50)
-      .toArray()
+      return new Response(
+        JSON.stringify({ success: true, data: result.results }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
 
-    return Response.json({
-      success: true,
-      data: users
-    })
-  })
+    } catch (err) {
+      return new Response(
+        JSON.stringify({ success: false, error: 'DB_ERROR', message: err.message }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      )
+    }
+  }
 }
