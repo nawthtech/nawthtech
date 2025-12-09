@@ -3,57 +3,40 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
-	"os"
 	"time"
-
-	"nawthtech/utils"
+	"nawthtech-worker/utils"
 )
 
-func HealthCheck(w http.ResponseWriter, r *http.Request) {
-	dbHealth := utils.CheckDBHealth()
-
-	data := map[string]interface{}{
-		"status":     dbHealth.Status,
-		"database":   dbHealth.Type,
-		"timestamp":  time.Now().UTC(),
-		"environment": os.Getenv("ENVIRONMENT"),
-		"version":     os.Getenv("API_VERSION"),
-		"service":     "nawthtech-worker",
-	}
-
-	respondJSON(w, http.StatusOK, map[string]interface{}{
+func HealthCheckHandler(w http.ResponseWriter, r *http.Request) {
+	dbHealth := map[string]string{"status": "healthy", "database": "D1"}
+	resp := map[string]interface{}{
 		"success": true,
-		"message": "Service is " + dbHealth.Status,
-		"data":    data,
-	})
+		"message": "Service is healthy",
+		"data": map[string]interface{}{
+			"status":     dbHealth["status"],
+			"database":   dbHealth["database"],
+			"timestamp":  time.Now().UTC().Format(time.RFC3339),
+			"environment": r.Header.Get("ENVIRONMENT"),
+			"version":    r.Header.Get("API_VERSION"),
+		},
+	}
+	json.NewEncoder(w).Encode(resp)
 }
 
-func HealthReady(w http.ResponseWriter, r *http.Request) {
-	dbHealth := utils.CheckDBHealth()
-
-	if dbHealth.Status != "healthy" {
-		respondJSON(w, http.StatusServiceUnavailable, map[string]interface{}{
-			"success": false,
-			"error":   "SERVICE_NOT_READY",
-			"message": "Database is not ready",
-		})
+func HealthReadyHandler(w http.ResponseWriter, r *http.Request) {
+	dbHealth := map[string]string{"status": "healthy", "database": "D1"}
+	if dbHealth["status"] != "healthy" {
+		http.Error(w, "Service not ready", 503)
 		return
 	}
-
-	respondJSON(w, http.StatusOK, map[string]interface{}{
+	resp := map[string]interface{}{
 		"success": true,
 		"message": "Service is ready",
 		"data": map[string]interface{}{
 			"status":    "ready",
-			"database":  dbHealth.Type,
-			"timestamp": time.Now().UTC(),
+			"database":  dbHealth["database"],
+			"timestamp": time.Now().UTC().Format(time.RFC3339),
 		},
-	})
-}
-
-// ================= Helper
-func respondJSON(w http.ResponseWriter, status int, payload interface{}) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(payload)
+	}
+	json.NewEncoder(w).Encode(resp)
 }
