@@ -1,0 +1,32 @@
+# في: nawthtech/nawthtech/.github/workflows/sync-worker.yml
+name: Sync Worker to API-D1 Repo
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'backend/worker/**'
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.TOKEN }}
+
+      - name: Configure Git
+        run: |
+          git config --global user.email "github-actions@nawthtech.com"
+          git config --global user.name "GitHub Actions"
+
+      - name: Push to API-D1 repo
+        run: |
+          cd backend/worker
+          git init
+          git add .
+          git commit -m "chore: sync from main repo - ${{ github.sha }}"
+          git remote add destination https://x-access-token:${{ secrets.TOKEN }}@github.com/nawthtech/nawthtech-api-d1.git
+          git push --force destination master
