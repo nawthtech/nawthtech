@@ -1,192 +1,98 @@
 package utils
 
 import (
-	"context"
+	"database/sql"
 	"fmt"
 	"log"
 	"os"
 	"time"
 
-	"github.com/cloudflare/cloudflare-go"
+	_ "github.com/mattn/go-sqlite3" // SQLite driver required by D1
 )
 
 var (
-	D1DB *cloudflare.D1Database
+	DB         *sql.DB
+	DBDriver   = "sqlite3"
+	DBFilePath string
 )
 
-type DBHealth struct {
-	Status string `json:"status"`
-	Type   string `json:"type"`
-}
-
-// ==========================
-// تهيئة البيئة
-// ==========================
-func LoadEnv() {
-	if os.Getenv("ENVIRONMENT") == "" {
-		os.Setenv("ENVIRONMENT", "development")
-	}
-	if os.Getenv("DATABASE_URL") == "" {
-		os.Setenv("DATABASE_URL", "")
-	}
-	if os.Getenv("DATABASE_NAME") == "" {
-		os.Setenv("DATABASE_NAME", "nawthtech")
-	}
-}
-
-// ==========================
-// تهيئة D1 Cloudflare
-// ==========================
-func InitDB() {
-	databaseURL := os.Getenv("DATABASE_URL")
-	databaseName := os.Getenv("DATABASE_NAME")
-
-	if databaseURL == "" {
-		log.Fatal("DATABASE_URL environment variable is required")
+// InitDatabase تهيئة اتصال قاعدة البيانات D1
+func InitDatabase() error {
+	// قراءة رابط قاعدة البيانات من البيئة
+	DBFilePath = os.Getenv("D1_DATABASE_PATH")
+	if DBFilePath == "" {
+		DBFilePath = ":memory:" // افتراضيًا في الذاكرة إذا لم يكن محدد
 	}
 
-	apiToken := os.Getenv("CLOUDFLARE_API_TOKEN")
-	if apiToken == "" {
-		log.Fatal("CLOUDFLARE_API_TOKEN environment variable is required")
-	}
-
-	api, err := cloudflare.NewWithAPIToken(apiToken)
+	var err error
+	DB, err = sql.Open(DBDriver, DBFilePath)
 	if err != nil {
-		log.Fatalf("Failed to init Cloudflare API: %v", err)
+		return fmt.Errorf("failed to open database: %w", err)
 	}
 
-	db := api.D1(databaseName)
-	D1DB = db
+	// تعيين مهلة ping للتأكد من صحة الاتصال
+	DB.SetConnMaxLifetime(time.Minute * 5)
+	DB.SetMaxOpenConns(10)
+	DB.SetMaxIdleConns(5)
 
-	log.Println("✅ D1 Cloudflare initialized successfully")
+	// اختبار الاتصال
+	if err := DB.Ping(); err != nil {
+		return fmt.Errorf("database ping failed: %w", err)
+	}
+
+	log.Println("✅ Connected to D1 database successfully!")
+	return nil
 }
 
-// ==========================
-// Health Check
-// ==========================
-func HealthCheck() *DBHealth {
-	if D1DB == nil {
-		return &DBHealth{
-			Status: "disconnected",
-			Type:   "d1",
+// CloseDatabase إغلاق الاتصال بالقاعدة
+func CloseDatabase() {
+	if DB != nil {
+		if err := DB.Close(); err != nil {
+			log.Printf("⚠️ Failed to close database: %v", err)
+		} else {
+			log.Println("🔌 Database connection closed")
 		}
 	}
+}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
+// HealthCheck تحقق من صحة قاعدة البيانات
+func HealthCheck() (status string, err error) {
+	if DB == nil {
+		return "disconnected", fmt.Errorf("database not initialized")
+	}
 
-	// تجربة استعلام بسيط
-	_, err := D1DB.Query(ctx, "SELECT 1")
+	var result int
+	err = DB.QueryRow("SELECT 1").Scan(&result)
 	if err != nil {
-		return &DBHealth{
-			Status: "unhealthy",
-			Type:   "d1",
-		}
+		return "unhealthy", err
 	}
 
-	return &DBHealth{
-		Status: "healthy",
-		Type:   "d1",
+	if result == 1 {
+		return "healthy", nil
 	}
+	return "unhealthy", fmt.Errorf("unexpected database response")
 }
 
-// ==========================
-// Users
-// ==========================
-type User struct {
-	ID       string `json:"id"`
-	Name     string `json:"name"`
-	Email    string `json:"email"`
-	Password string `json:"password"`
-}
-
-func GetUserByID(ctx context.Context, userID string) (*User, error) {
-	if D1DB == nil {
+// ExecQuery تنفيذ استعلام غير إرجاعي (INSERT/UPDATE/DELETE)
+func ExecQuery(query string, args ...any) (sql.Result, error) {
+	if DB == nil {
 		return nil, fmt.Errorf("database not initialized")
 	}
-
-	query := "SELECT id, name, email FROM users WHERE id = ?"
-	row := D1DB.QueryRow(ctx, query, userID)
-
-	var user User
-	err := row.Scan(&user.ID, &user.Name, &user.Email)
-	if err != nil {
-		return nil, fmt.Errorf("user not found: %v", err)
-	}
-
-	return &user, nil
+	return DB.Exec(query, args...)
 }
 
-func GetUsers(ctx context.Context, limit int) ([]User, error) {
-	if D1DB == nil {
+// QueryRows تنفيذ استعلام إرجاعي (SELECT)
+func QueryRows(query string, args ...any) (*sql.Rows, error) {
+	if DB == nil {
 		return nil, fmt.Errorf("database not initialized")
 	}
-
-	query := "SELECT id, name, email FROM users LIMIT ?"
-	rows, err := D1DB.Query(ctx, query, limit)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var users []User
-	for rows.Next() {
-		var u User
-		if err := rows.Scan(&u.ID, &u.Name, &u.Email); err != nil {
-			continue
-		}
-		users = append(users, u)
-	}
-
-	return users, nil
+	return DB.Query(query, args...)
 }
 
-// ==========================
-// Services
-// ==========================
-type Service struct {
-	ID          string  `json:"id"`
-	Title       string  `json:"title"`
-	Description string  `json:"description"`
-	Price       float64 `json:"price"`
-}
-
-func GetServiceByID(ctx context.Context, serviceID string) (*Service, error) {
-	if D1DB == nil {
-		return nil, fmt.Errorf("database not initialized")
+// QueryRow تنفيذ استعلام صف واحد
+func QueryRow(query string, args ...any) *sql.Row {
+	if DB == nil {
+		return nil
 	}
-
-	query := "SELECT id, title, description, price FROM services WHERE id = ?"
-	row := D1DB.QueryRow(ctx, query, serviceID)
-
-	var service Service
-	if err := row.Scan(&service.ID, &service.Title, &service.Description, &service.Price); err != nil {
-		return nil, fmt.Errorf("service not found: %v", err)
-	}
-
-	return &service, nil
-}
-
-func GetServices(ctx context.Context, limit int) ([]Service, error) {
-	if D1DB == nil {
-		return nil, fmt.Errorf("database not initialized")
-	}
-
-	query := "SELECT id, title, description, price FROM services LIMIT ?"
-	rows, err := D1DB.Query(ctx, query, limit)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var services []Service
-	for rows.Next() {
-		var s Service
-		if err := rows.Scan(&s.ID, &s.Title, &s.Description, &s.Price); err != nil {
-			continue
-		}
-		services = append(services, s)
-	}
-
-	return services, nil
+	return DB.QueryRow(query, args...)
 }
