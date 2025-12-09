@@ -5,31 +5,36 @@ import (
 	"strings"
 )
 
+// Config إعدادات عامة
 type Config struct {
-	Port              string
-	CORSAllowedOrigins []string
-	DatabaseURL       string
-	JWTSecret         string
-	Environment       string
-	APIVersion        string
+	Environment string
+	Port        string
+	Version     string
+	JWTSecret   string
+	SessionSecret string
+	D1APIKey    string
+	D1DBName    string
+	CORSOrigins []string
 }
 
-func LoadConfig() Config {
-	origins := strings.Split(os.Getenv("CORS_ALLOWED_ORIGINS"), ",")
-
-	return Config{
-		Port:              getEnv("PORT", "8080"),
-		CORSAllowedOrigins: origins,
-		DatabaseURL:       os.Getenv("DATABASE_URL"),
-		JWTSecret:         os.Getenv("JWT_SECRET"),
-		Environment:       getEnv("ENVIRONMENT", "production"),
-		APIVersion:        getEnv("API_VERSION", "v1"),
+// LoadConfig تحميل المتغيرات من البيئة
+func LoadConfig() *Config {
+	c := &Config{
+		Environment:   getEnv("ENVIRONMENT", "development"),
+		Port:          getEnv("PORT", "3000"),
+		Version:       getEnv("API_VERSION", "v1"),
+		JWTSecret:     getEnv("JWT_SECRET", ""),
+		SessionSecret: getEnv("SESSION_SECRET", ""),
+		D1APIKey:      getEnv("D1_API_KEY", ""),
+		D1DBName:      getEnv("D1_DB_NAME", ""),
+		CORSOrigins:   strings.Split(getEnv("CORS_ALLOWED_ORIGINS", ""), ","),
 	}
+	return c
 }
 
 func getEnv(key, fallback string) string {
-	if value := os.Getenv(key); value != "" {
-		return value
+	if val := os.Getenv(key); val != "" {
+		return val
 	}
 	return fallback
 }
