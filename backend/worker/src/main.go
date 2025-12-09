@@ -1,77 +1,96 @@
 package main
 
 import (
-	"encoding/json"
 	"log"
 	"net/http"
 	"os"
-	"strings"
+	"time"
 
 	"worker/src/handlers"
 	"worker/src/middleware"
 	"worker/src/utils"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware as chiMiddleware"
 )
 
-// EnvVariables تُخزن إعدادات البيئة
-var EnvVariables map[string]string
-
-func init() {
-	EnvVariables = map[string]string{
-		"ENVIRONMENT": getEnv("ENVIRONMENT", "development"),
-		"API_VERSION": getEnv("API_VERSION", "v1"),
-	}
-
-	// تهيئة اتصال D1
-	if err := utils.InitDatabase(); err != nil {
-		log.Fatalf("❌ Failed to initialize database: %v", err)
-	}
-}
+// ==========================
+// Main
+// ==========================
 
 func main() {
-	mux := http.NewServeMux()
+	// تهيئة البيئة و D1
+	utils.LoadEnv()
+	utils.InitDB() // يهيئ اتصال D1
 
-	// ✅ الصحة
-	mux.HandleFunc("/health", middleware.CORSMiddleware(handlers.CheckHealthHandler))
-	mux.HandleFunc("/health/live", middleware.CORSMiddleware(handlers.LiveHandler))
-	mux.HandleFunc("/health/ready", middleware.CORSMiddleware(handlers.ReadyHandler))
+	// إنشاء Router
+	r := chi.NewRouter()
 
-	// ✅ المصادقة
-	mux.HandleFunc("/auth/register", middleware.CORSMiddleware(handlers.RegisterHandler))
-	mux.HandleFunc("/auth/login", middleware.CORSMiddleware(handlers.LoginHandler))
-	mux.HandleFunc("/auth/refresh", middleware.CORSMiddleware(handlers.RefreshHandler))
-	mux.HandleFunc("/auth/forgot-password", middleware.CORSMiddleware(handlers.ForgotPasswordHandler))
+	// Middleware عامة
+	r.Use(chiMiddleware.Logger)
+	r.Use(chiMiddleware.Recoverer)
+	r.Use(middleware.CORS)
 
-	// ✅ المستخدمين (مسارات محمية)
-	mux.Handle("/user/profile", middleware.CORSMiddleware(middleware.AuthMiddleware(http.HandlerFunc(handlers.GetProfileHandler))))
-	mux.Handle("/user/profile/update", middleware.CORSMiddleware(middleware.AuthMiddleware(http.HandlerFunc(handlers.UpdateProfileHandler))))
+	// ==========================
+	// Health Endpoints
+	// ==========================
+	r.Get("/health", handlers.HealthCheck)
+	r.Get("/health/live", handlers.HealthCheck)
+	r.Get("/health/ready", handlers.HealthReady)
 
-	// ✅ الخدمات
-	mux.HandleFunc("/services", middleware.CORSMiddleware(handlers.GetServicesHandler))
-	mux.HandleFunc("/services/", middleware.CORSMiddleware(handlers.GetServiceByIDHandler))
+	// ==========================
+	// Auth Endpoints
+	// ==========================
+	r.Post("/auth/register", handlers.AuthRegister)
+	r.Post("/auth/login", handlers.AuthLogin)
+	r.Post("/auth/refresh", handlers.AuthRefresh)
+	r.Post("/auth/forgot-password", handlers.AuthForgotPassword)
 
-	// ✅ اختبار
-	mux.HandleFunc("/test", middleware.CORSMiddleware(handlers.TestHandler))
-
-	// ✅ أي مسار غير معروف
-	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusNotFound)
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"success": false,
-			"error":   "Not Found",
-		})
+	// ==========================
+	// User Endpoints (Protected)
+	// ==========================
+	r.Group(func(r chi.Router) {
+		r.Use(middleware.Auth) // حماية جميع المسارات داخل هذه المجموعة
+		r.Get("/user/profile", handlers.GetProfile)
 	})
 
-	port := getEnv("PORT", "8787")
-	log.Printf("🚀 Worker running on port %s in %s mode", port, EnvVariables["ENVIRONMENT"])
-	if err := http.ListenAndServe(":"+port, mux); err != nil {
-		log.Fatalf("❌ Server failed: %v", err)
-	}
-}
+	// ==========================
+	// Services Endpoints
+	// ==========================
+	r.Get("/services", handlers.GetServices)
+	r.Get("/services/{id}", handlers.GetServiceByID)
 
-// getEnv يقرأ متغيرات البيئة مع قيمة افتراضية
-func getEnv(key, defaultValue string) string {
-	if value := os.Getenv(key); value != "" {
-		return strings.TrimSpace(value)
+	// ==========================
+	// Test Endpoint
+	// ==========================
+	r.Get("/test", handlers.TestEndpoint)
+
+	// ==========================
+	// 404 Handler
+	// ==========================
+	r.NotFound(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+		w.Write([]byte("Not Found"))
+	})
+
+	// ==========================
+	// Start server
+	// ==========================
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
 	}
-	return defaultValue
+
+	srv := &http.Server{
+		Handler:      r,
+		Addr:         ":" + port,
+		ReadTimeout:  10 * time.Second,
+		WriteTimeout: 10 * time.Second,
+		IdleTimeout:  60 * time.Second,
+	}
+
+	log.Printf("🚀 Server started on port %s", port)
+	if err := srv.ListenAndServe(); err != nil {
+		log.Fatalf("Server failed: %v", err)
+	}
 }
