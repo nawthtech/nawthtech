@@ -1,66 +1,115 @@
-// worker/src/utils/database.js
-export class DatabaseManager {
-  constructor(env, bindingName = 'NAWTHTECH_DB') {
-    this.env = env
-    this.bindingName = bindingName
-    this.db = null
-  }
+// worker/src/utils/database.go
+package utils
 
-  // إنشاء الاتصال بقاعدة D1
-  connect() {
-    if (!this.env?.D1) {
-      throw new Error('D1 binding not found in environment')
-    }
+import (
+	"database/sql"
+	"fmt"
+	"os"
+	"sync"
 
-    this.db = this.env.D1(this.bindingName)
-    return this.db
-  }
+	_ "github.com/mattn/go-sqlite3" // D1 يستخدم SQLite engine
+)
 
-  // تنفيذ استعلام SQL مع معاملات
-  async query(sql, params = []) {
-    if (!this.db) this.connect()
-    try {
-      const result = await this.db.prepare(sql).bind(...params).all()
-      return result.results
-    } catch (err) {
-      console.error('D1 query error:', err)
-      throw err
-    }
-  }
-
-  // تنفيذ استعلام واحد وإرجاع صف واحد فقط
-  async queryOne(sql, params = []) {
-    const results = await this.query(sql, params)
-    return results[0] || null
-  }
+// DatabaseManager مسؤول عن إدارة اتصال D1
+type DatabaseManager struct {
+	Env   map[string]string
+	db    *sql.DB
+	mutex sync.Mutex
 }
 
-// إنشاء مخبأ عالمي للـ DatabaseManager
-let cachedDatabaseManager = null
-
-export function getDatabaseManager(env) {
-  if (cachedDatabaseManager) return cachedDatabaseManager
-  cachedDatabaseManager = new DatabaseManager(env)
-  return cachedDatabaseManager
+// DatabaseHealth تمثل حالة قاعدة البيانات
+type DatabaseHealth struct {
+	Status   string `json:"status"`
+	Database string `json:"database"`
 }
 
-// Middleware لتضمين قاعدة البيانات في الطلب
-export function withDatabase(handler) {
-  return async (request, env, ...args) => {
-    try {
-      const dbManager = getDatabaseManager(env)
-      request.db = dbManager
-      return await handler(request, env, ...args)
-    } catch (err) {
-      console.error('Database middleware error:', err)
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: 'DATABASE_CONNECTION_FAILED',
-          message: err.message
-        }),
-        { status: 503, headers: { 'Content-Type': 'application/json' } }
-      )
-    }
-  }
+// مدير قاعدة بيانات مخبأ (singleton)
+var cachedDatabaseManager *DatabaseManager
+
+// GetDatabaseManager إنشاء أو استرجاع مدير قاعدة البيانات
+func GetDatabaseManager(env map[string]string) *DatabaseManager {
+	if cachedDatabaseManager != nil {
+		return cachedDatabaseManager
+	}
+
+	cachedDatabaseManager = &DatabaseManager{
+		Env: env,
+	}
+	return cachedDatabaseManager
+}
+
+// Connect الاتصال بـ D1
+func (m *DatabaseManager) Connect() (*sql.DB, error) {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+
+	if m.db != nil {
+		return m.db, nil
+	}
+
+	dsn := os.Getenv("D1_DATABASE_URL")
+	if dsn == "" && m.Env != nil {
+		dsn = m.Env["D1_DATABASE_URL"]
+	}
+
+	if dsn == "" {
+		return nil, fmt.Errorf("D1_DATABASE_URL is required")
+	}
+
+	db, err := sql.Open("sqlite3", dsn)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open D1 connection: %v", err)
+	}
+
+	// اختبار الاتصال
+	if err := db.Ping(); err != nil {
+		return nil, fmt.Errorf("failed to ping D1: %v", err)
+	}
+
+	m.db = db
+	return m.db, nil
+}
+
+// GetConnection الحصول على اتصال D1
+func (m *DatabaseManager) GetConnection() (*sql.DB, error) {
+	if m.db != nil {
+		return m.db, nil
+	}
+	return m.Connect()
+}
+
+// Disconnect إغلاق الاتصال
+func (m *DatabaseManager) Disconnect() error {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+
+	if m.db != nil {
+		err := m.db.Close()
+		m.db = nil
+		return err
+	}
+	return nil
+}
+
+// HealthCheck فحص صحة قاعدة البيانات
+func (m *DatabaseManager) HealthCheck() DatabaseHealth {
+	db, err := m.GetConnection()
+	if err != nil {
+		return DatabaseHealth{
+			Status:   "unhealthy",
+			Database: "d1",
+		}
+	}
+
+	if err := db.Ping(); err != nil {
+		return DatabaseHealth{
+			Status:   "unhealthy",
+			Database: "d1",
+		}
+	}
+
+	return DatabaseHealth{
+		Status:   "healthy",
+		Database: "d1",
+	}
 }
