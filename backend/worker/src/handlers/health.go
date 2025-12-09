@@ -1,57 +1,48 @@
 package handlers
 
 import (
-	"context"
-	"encoding/json"
 	"net/http"
-	"os"
 	"time"
 
 	"nawthtech/worker/src/utils"
 )
 
-func HealthHandler(w http.ResponseWriter, r *http.Request) {
-	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
-	defer cancel()
-	d1 := utils.GetD1()
-	status, _ := d1.HealthCheck(ctx)
-
-	json.NewEncoder(w).Encode(map[string]interface{}{
+func HealthCheck(w http.ResponseWriter, r *http.Request) {
+	db, _ := utils.ConnectD1()
+	status, _ := db.HealthCheck()
+	utils.JSONResponse(w, http.StatusOK, map[string]interface{}{
 		"success": true,
 		"message": "Service is " + status,
 		"data": map[string]interface{}{
 			"status":      status,
-			"database":    "d1",
-			"timestamp":   time.Now().UTC().Format(time.RFC3339),
-			"environment": os.Getenv("ENVIRONMENT"),
-			"version":     os.Getenv("API_VERSION"),
+			"database":    "D1",
+			"timestamp":   time.Now(),
 			"service":     "nawthtech-worker",
+			"environment": "production",
 		},
 	})
 }
 
-func HealthReadyHandler(w http.ResponseWriter, r *http.Request) {
-	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
-	defer cancel()
-	d1 := utils.GetD1()
-	status, err := d1.HealthCheck(ctx)
-	if err != nil || status != "healthy" {
-		w.WriteHeader(http.StatusServiceUnavailable)
-		json.NewEncoder(w).Encode(map[string]interface{}{
+func HealthLive(w http.ResponseWriter, r *http.Request) {
+	utils.JSONResponse(w, http.StatusOK, map[string]interface{}{
+		"success": true,
+		"status":  "live",
+	})
+}
+
+func HealthReady(w http.ResponseWriter, r *http.Request) {
+	db, _ := utils.ConnectD1()
+	status, _ := db.HealthCheck()
+	if status != "healthy" {
+		utils.JSONResponse(w, http.StatusServiceUnavailable, map[string]interface{}{
 			"success": false,
 			"error":   "SERVICE_NOT_READY",
-			"message": "Database is not ready",
 		})
 		return
 	}
 
-	json.NewEncoder(w).Encode(map[string]interface{}{
+	utils.JSONResponse(w, http.StatusOK, map[string]interface{}{
 		"success": true,
-		"message": "Service is ready",
-		"data": map[string]interface{}{
-			"status":    "ready",
-			"database":  "d1",
-			"timestamp": time.Now().UTC().Format(time.RFC3339),
-		},
+		"status":  "ready",
 	})
 }
