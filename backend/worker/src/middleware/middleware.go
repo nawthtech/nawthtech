@@ -3,8 +3,8 @@ package middleware
 import (
 	"net/http"
 	"strings"
-	"worker/src/config"
-	"worker/src/utils"
+	"github.com/nawthtech/nawthtech/backend/worker/src/config"
+	"github.com/nawthtech/nawthtech/backend/worker/src/utils"
 )
 
 // Cors middleware
