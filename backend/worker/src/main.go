@@ -1,37 +1,38 @@
 package main
 
 import (
+	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
 	"strings"
-
+	"time"
+	
 	"worker/src/handlers"
 	"worker/src/utils"
 )
 
-// Middleware عام: CORS
-func corsMiddleware(next http.Handler) http.Handler {
+// ===== Middleware =====
+
+func CORSMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		allowedOrigins := strings.Split(getEnv("CORS_ALLOWED_ORIGINS", "http://localhost:3000"), ",")
+		allowedOrigins := strings.Split(os.Getenv("CORS_ALLOWED_ORIGINS"), ",")
 		origin := r.Header.Get("Origin")
-		allowed := false
+
 		for _, o := range allowedOrigins {
 			if strings.TrimSpace(o) == origin {
-				allowed = true
+				w.Header().Set("Access-Control-Allow-Origin", origin)
 				break
 			}
 		}
 
-		if allowed {
-			w.Header().Set("Access-Control-Allow-Origin", origin)
-			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-USER-ID")
-			w.Header().Set("Access-Control-Allow-Credentials", "true")
-		}
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With, X-API-Key")
+		w.Header().Set("Access-Control-Allow-Credentials", "true")
 
-		if r.Method == "OPTIONS" {
-			w.WriteHeader(http.StatusOK)
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusNoContent)
 			return
 		}
 
@@ -39,61 +40,80 @@ func corsMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-// Middleware المصادقة (يجب تمرير X-USER-ID في Header)
-func authMiddleware(next http.Handler) http.Handler {
+func AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		userID := r.Header.Get("X-USER-ID")
-		if userID == "" {
-			w.WriteHeader(http.StatusUnauthorized)
-			w.Write([]byte(`{"success":false,"error":"UNAUTHORIZED"}`))
+		// مثال: افحص وجود header Authorization
+		authHeader := r.Header.Get("Authorization")
+		if authHeader == "" {
+			handlers.JSONResponse(w, http.StatusUnauthorized, handlers.ResponseData{
+				Success: false,
+				Error:   "UNAUTHORIZED",
+			})
 			return
 		}
+		// هنا يمكنك إضافة تحقق JWT إذا أردت
 		next.ServeHTTP(w, r)
 	})
 }
 
-// دالة مساعدة للحصول على متغيرات البيئة
-func getEnv(key, fallback string) string {
-	v := os.Getenv(key)
-	if v == "" {
-		return fallback
-	}
-	return v
-}
+// ===== Router =====
 
 func main() {
-	// تهيئة D1
-	if err := utils.InitD1(); err != nil {
-		log.Fatalf("Failed to initialize D1: %v", err)
+	// تهيئة قاعدة D1
+	if err := utils.GetD1().Connect(); err != nil {
+		log.Fatalf("❌ Failed to connect to D1: %v", err)
 	}
+	defer utils.GetD1().Disconnect(context.Background())
 
 	mux := http.NewServeMux()
 
-	// ==== Health ====
+	// ===== Health =====
 	mux.HandleFunc("/health", handlers.HealthCheck)
 	mux.HandleFunc("/health/ready", handlers.HealthReady)
 
-	// ==== Users ====
-	mux.Handle("/user/profile", authMiddleware(http.HandlerFunc(handlers.GetUserProfile)))
-	mux.Handle("/users", authMiddleware(http.HandlerFunc(handlers.GetUsers)))
+	// ===== Users =====
+	mux.Handle("/user/profile", AuthMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// مثال: اجعل userID يأتي من Authorization
+		userID := r.Header.Get("X-User-ID")
+		handlers.GetProfile(w, r, userID)
+	})))
 
-	// ==== Services ====
+	mux.Handle("/users", AuthMiddleware(http.HandlerFunc(handlers.GetUsers)))
+
+	// ===== Services =====
 	mux.HandleFunc("/services", handlers.GetServices)
-	mux.HandleFunc("/services/id", handlers.GetServiceByID)
-
-	// ==== Test ====
-	mux.HandleFunc("/test", handlers.TestHandler)
-
-	// ==== 404 لكل المسارات الأخرى ====
-	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte(`{"success":false,"error":"Not Found"}`))
+	mux.HandleFunc("/services/", func(w http.ResponseWriter, r *http.Request) {
+		parts := strings.Split(r.URL.Path, "/")
+		if len(parts) < 3 || parts[2] == "" {
+			handlers.JSONResponse(w, http.StatusBadRequest, handlers.ResponseData{
+				Success: false,
+				Error:   "INVALID_SERVICE_ID",
+			})
+			return
+		}
+		serviceID := parts[2]
+		handlers.GetServiceByID(w, r, serviceID)
 	})
 
-	// تشغيل السيرفر
-	port := getEnv("PORT", "3000")
-	log.Printf("Server started on port %s\n", port)
-	if err := http.ListenAndServe(":"+port, corsMiddleware(mux)); err != nil {
-		log.Fatalf("Server failed: %v", err)
+	// ===== Test =====
+	mux.HandleFunc("/test", handlers.TestHandler)
+
+	// ===== 404 =====
+	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		handlers.JSONResponse(w, http.StatusNotFound, handlers.ResponseData{
+			Success: false,
+			Error:   "NOT_FOUND",
+		})
+	})
+
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "3000"
+	}
+
+	fmt.Printf("🚀 Worker running on port %s\n", port)
+	err := http.ListenAndServe(":"+port, CORSMiddleware(mux))
+	if err != nil {
+		log.Fatalf("❌ Server failed: %v", err)
 	}
 }
