@@ -3,41 +3,55 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
-
-	"nawthtech/utils"
+	"os"
+	"time"
+	"worker/src/utils"
 )
 
-func Register(w http.ResponseWriter, r *http.Request) {
-	respondJSON(w, http.StatusOK, map[string]interface{}{
+func RegisterHandler(w http.ResponseWriter, r *http.Request) {
+	db, _ := utils.GetD1Database()
+
+	var payload map[string]string
+	json.NewDecoder(r.Body).Decode(&payload)
+	username := payload["username"]
+	email := payload["email"]
+	password := payload["password"]
+
+	// تخزين المستخدم في D1
+	db.DB.Exec("INSERT INTO users (username,email,password) VALUES (?,?,?)", username, email, password)
+
+	json.NewEncoder(w).Encode(map[string]interface{}{
 		"success": true,
-		"message": "Register endpoint placeholder",
+		"message": "User registered",
 	})
 }
 
-func Login(w http.ResponseWriter, r *http.Request) {
-	respondJSON(w, http.StatusOK, map[string]interface{}{
+func LoginHandler(w http.ResponseWriter, r *http.Request) {
+	db, _ := utils.GetD1Database()
+	var payload map[string]string
+	json.NewDecoder(r.Body).Decode(&payload)
+	email := payload["email"]
+	password := payload["password"]
+
+	row := db.DB.QueryRow("SELECT id FROM users WHERE email=? AND password=?", email, password)
+	var userID string
+	err := row.Scan(&userID)
+	if err != nil {
+		http.Error(w, "Invalid credentials", 401)
+		return
+	}
+
+	jwtToken, _ := utils.GenerateJWT(map[string]interface{}{"id": userID}, os.Getenv("JWT_SECRET"), time.Hour*24)
+
+	json.NewEncoder(w).Encode(map[string]interface{}{
 		"success": true,
-		"message": "Login endpoint placeholder",
+		"token":   jwtToken,
 	})
 }
 
-func Refresh(w http.ResponseWriter, r *http.Request) {
-	respondJSON(w, http.StatusOK, map[string]interface{}{
+func RefreshHandler(w http.ResponseWriter, r *http.Request) {
+	json.NewEncoder(w).Encode(map[string]interface{}{
 		"success": true,
-		"message": "Refresh endpoint placeholder",
+		"message": "Refresh endpoint",
 	})
-}
-
-func ForgotPassword(w http.ResponseWriter, r *http.Request) {
-	respondJSON(w, http.StatusOK, map[string]interface{}{
-		"success": true,
-		"message": "Forgot password placeholder",
-	})
-}
-
-// ================= Helper
-func respondJSON(w http.ResponseWriter, status int, payload interface{}) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(payload)
 }
