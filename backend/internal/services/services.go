@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+ "errors"
 	"strings"
 	"time"
 
@@ -720,4 +721,185 @@ func (c *cacheServiceImpl) Get(key string) (interface{}, bool) {
 
 func NewCacheService() CacheService {
 	return &cacheServiceImpl{store: make(map[string]interface{})}
+}
+
+// Example: AuthService -------------------------------------
+
+type AuthService interface {
+	Register(ctx context.Context, email, password string) (string, error)
+	Login(ctx context.Context, email, password string) (string, error)
+	RefreshToken(ctx context.Context, token string) (string, error)
+}
+
+type authService struct{}
+
+func NewAuthService() AuthService {
+	return &authService{}
+}
+
+func (s *authService) Register(ctx context.Context, email, password string) (string, error) {
+	if email == "" || password == "" {
+		return "", errors.New("invalid email or password")
+	}
+	return "user_created_successfully", nil
+}
+
+func (s *authService) Login(ctx context.Context, email, password string) (string, error) {
+	if email == "" || password == "" {
+		return "", errors.New("invalid credentials")
+	}
+	return "jwt_token_here", nil
+}
+
+func (s *authService) RefreshToken(ctx context.Context, token string) (string, error) {
+	if token == "" {
+		return "", errors.New("invalid token")
+	}
+	return "refreshed_jwt_token", nil
+}
+
+// Example: UserService -------------------------------------
+
+type UserService interface {
+	GetProfile(ctx context.Context, userID string) (*UserProfile, error)
+	UpdateProfile(ctx context.Context, userID string, data UpdateProfileDTO) error
+}
+
+type userService struct{}
+
+func NewUserService() UserService {
+	return &userService{}
+}
+
+type UserProfile struct {
+	ID        string `json:"id"`
+	Email     string `json:"email"`
+	Name      string `json:"name"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+type UpdateProfileDTO struct {
+	Name string `json:"name"`
+}
+
+func (s *userService) GetProfile(ctx context.Context, userID string) (*UserProfile, error) {
+	if userID == "" {
+		return nil, errors.New("missing user ID")
+	}
+	return &UserProfile{
+		ID:        userID,
+		Email:     "example@mail.com",
+		Name:      "Test User",
+		CreatedAt: time.Now().Add(-24 * time.Hour),
+	}, nil
+}
+
+func (s *userService) UpdateProfile(ctx context.Context, userID string, data UpdateProfileDTO) error {
+	if userID == "" {
+		return errors.New("missing user ID")
+	}
+	return nil
+}
+
+// Example: ProductService -------------------------------------
+
+type ProductService interface {
+	GetAll(ctx context.Context) ([]Product, error)
+	GetByID(ctx context.Context, id string) (*Product, error)
+	Create(ctx context.Context, p ProductDTO) (string, error)
+	Delete(ctx context.Context, id string) error
+}
+
+type productService struct{}
+
+func NewProductService() ProductService {
+	return &productService{}
+}
+
+type Product struct {
+	ID    string  `json:"id"`
+	Name  string  `json:"name"`
+	Price float64 `json:"price"`
+}
+
+type ProductDTO struct {
+	Name  string  `json:"name"`
+	Price float64 `json:"price"`
+}
+
+func (s *productService) GetAll(ctx context.Context) ([]Product, error) {
+	return []Product{
+		{ID: "1", Name: "Item A", Price: 20.5},
+		{ID: "2", Name: "Item B", Price: 14.0},
+	}, nil
+}
+
+func (s *productService) GetByID(ctx context.Context, id string) (*Product, error) {
+	if id == "" {
+		return nil, errors.New("missing product ID")
+	}
+	return &Product{
+		ID:    id,
+		Name:  "Example Item",
+		Price: 33.0,
+	}, nil
+}
+
+func (s *productService) Create(ctx context.Context, p ProductDTO) (string, error) {
+	if p.Name == "" || p.Price <= 0 {
+		return "", errors.New("invalid product data")
+	}
+	return "new-product-id", nil
+}
+
+func (s *productService) Delete(ctx context.Context, id string) error {
+	if id == "" {
+		return errors.New("missing product ID")
+	}
+	return nil
+}
+
+// Example: OrderService -------------------------------------
+
+type OrderService interface {
+	CreateOrder(ctx context.Context, userID string, items []OrderItemDTO) (string, error)
+	GetOrdersByUser(ctx context.Context, userID string) ([]Order, error)
+}
+
+type orderService struct{}
+
+func NewOrderService() OrderService {
+	return &orderService{}
+}
+
+type Order struct {
+	ID        string    `json:"id"`
+	UserID    string    `json:"user_id"`
+	Items     []OrderItemDTO `json:"items"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+type OrderItemDTO struct {
+	ProductID string  `json:"product_id"`
+	Qty       int     `json:"qty"`
+	UnitPrice float64 `json:"unit_price"`
+}
+
+func (s *orderService) CreateOrder(ctx context.Context, userID string, items []OrderItemDTO) (string, error) {
+	if userID == "" {
+		return "", errors.New("missing user ID")
+	}
+	if len(items) == 0 {
+		return "", errors.New("empty order")
+	}
+	return "order-id-12345", nil
+}
+
+func (s *orderService) GetOrdersByUser(ctx context.Context, userID string) ([]Order, error) {
+	if userID == "" {
+		return nil, errors.New("missing user ID")
+	}
+	return []Order{
+		{ID: "O-1", UserID: userID, Items: []OrderItemDTO{}, CreatedAt: time.Now().Add(-10 * time.Hour)},
+	}, nil
 }
