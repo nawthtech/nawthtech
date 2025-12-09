@@ -9,6 +9,20 @@ import (
 	"github.com/cloudflare/cloudflare-go/d1"
 )
 
+type D1Database struct {
+	Client *d1.Client
+	DB     *d1.DB
+}
+
+func GetD1Database(dsn string) (*D1Database, error) {
+	client, err := d1.NewClient(dsn)
+	if err != nil {
+		return nil, err
+	}
+	db := client.DB("")
+	return &D1Database{Client: client, DB: db}, nil
+}
+
 // JWT
 func GenerateJWT(payload map[string]interface{}, secret string, expiration time.Duration) (string, error) {
 	claims := jwt.MapClaims{}
@@ -34,22 +48,4 @@ func ValidateJWT(tokenStr, secret string) (bool, map[string]interface{}) {
 		return true, claims
 	}
 	return false, nil
-}
-
-// D1 Database
-type D1Database struct {
-	Client *d1.Client
-	DB     *d1.DB
-}
-
-func GetD1Database(dsn string) (*D1Database, error) {
-	client, err := d1.NewClient(dsn)
-	if err != nil {
-		return nil, err
-	}
-	db := client.DB("")
-	return &D1Database{
-		Client: client,
-		DB:     db,
-	}, nil
 }
