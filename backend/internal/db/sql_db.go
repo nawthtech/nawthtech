@@ -4,80 +4,45 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
-	"os"
 	"time"
 
-	_ "github.com/mattn/go-sqlite3"
+	_ "github.com/lib/pq"       // postgres driver
+	_ "modernc.org/sqlite"      // sqlite pure go (بديل في التطوير)
 	"github.com/nawthtech/nawthtech/backend/internal/config"
 )
 
-var SQLDB *sql.DB
+var DB *sql.DB
 
-// InitializeSQLDB initializes local SQL (sqlite) for dev or other SQL drivers if configured.
-func InitializeSQLDB(cfg *config.Config) error {
-	// If D1 is requested, return nil and let user implement D1 adapter.
-	if cfg.D1.UseD1 {
-		// The app will still run; any D1 calls should go through the D1 adapter which is not auto-implemented here.
-		return nil
+// InitializeSQL تهيئة اتصال database/sql
+// driver: "postgres" أو "sqlite"
+func InitializeSQL(cfg *config.Config, driver, dsn string) error {
+	if driver == "" || dsn == "" {
+		return fmt.Errorf("sql driver and dsn are required")
 	}
 
-	// local sqlite file
-	dbPath := os.Getenv("SQLITE_PATH")
-	if dbPath == "" {
-		dbPath = "./data/nawthtech.db"
-	}
-
-	// ensure dir exists
-	// (omitted: create dir if needed)
-
-	dsn := fmt.Sprintf("%s?_foreign_keys=1", dbPath)
-	db, err := sql.Open("sqlite3", dsn)
+	db, err := sql.Open(driver, dsn)
 	if err != nil {
 		return err
 	}
 
-	db.SetConnMaxLifetime(time.Minute * 3)
-	db.SetMaxOpenConns(10)
+	db.SetConnMaxLifetime(5 * time.Minute)
 	db.SetMaxIdleConns(5)
+	db.SetMaxOpenConns(20)
 
-	// quick ping
+	// اختبار الاتصال
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	if err := db.PingContext(ctx); err != nil {
 		return err
 	}
 
-	SQLDB = db
+	DB = db
 	return nil
 }
 
 func Close() error {
-	if SQLDB != nil {
-		return SQLDB.Close()
+	if DB != nil {
+		return DB.Close()
 	}
 	return nil
-}
-
-// Exec executes statement
-func Exec(ctx context.Context, query string, args ...interface{}) (sql.Result, error) {
-	if SQLDB == nil {
-		return nil, fmt.Errorf("sql db not initialized")
-	}
-	return SQLDB.ExecContext(ctx, query, args...)
-}
-
-// QueryRow returns single row
-func QueryRow(ctx context.Context, query string, args ...interface{}) *sql.Row {
-	if SQLDB == nil {
-		return nil
-	}
-	return SQLDB.QueryRowContext(ctx, query, args...)
-}
-
-// Query returns rows
-func Query(ctx context.Context, query string, args ...interface{}) (*sql.Rows, error) {
-	if SQLDB == nil {
-		return nil, fmt.Errorf("sql db not initialized")
-	}
-	return SQLDB.QueryContext(ctx, query, args...)
 }
