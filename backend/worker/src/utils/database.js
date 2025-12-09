@@ -1,175 +1,132 @@
-// worker/src/utils/database.js - MongoDB فقط
-import { MongoClient } from 'mongodb'
+package utils
 
-export class DatabaseManager {
-  constructor(env) {
-    this.env = env
-    this.mongoClient = null
-    this.mongoDb = null
-  }
+import (
+	"context"
+	"fmt"
+	"log"
+	"sync"
 
-  // الاتصال بـ MongoDB
-  async connect() {
-    const connectionString = this.env.DATABASE_URL
-    
-    if (!connectionString) {
-      throw new Error('DATABASE_URL is required')
-    }
+	"github.com/nawthtech/backend/internal/config"
+	"github.com/nawthtech/backend/internal/db"
 
-    try {
-      const options = {
-        maxPoolSize: 5,
-        minPoolSize: 1,
-        maxIdleTimeMS: 30000,
-        serverSelectionTimeoutMS: 10000,
-        socketTimeoutMS: 45000,
-        compressors: 'zlib',
-        retryWrites: true,
-        w: 'majority'
-      }
+	"github.com/cloudflare/cloudflare-go/d1" // تأكد من تثبيت المكتبة المناسبة
+)
 
-      this.mongoClient = new MongoClient(connectionString, options)
-      await this.mongoClient.connect()
-      
-      // استخراج اسم قاعدة البيانات من الرابط أو استخدام الافتراضي
-      const dbName = this.extractDatabaseName(connectionString) || 'nawthtech'
-      this.mongoDb = this.mongoClient.db(dbName)
-      
-      console.log('✅ Connected to MongoDB successfully!')
-      return this.mongoDb
-    } catch (error) {
-      console.error('❌ MongoDB connection failed:', error)
-      throw error
-    }
-  }
-
-  // استخراج اسم قاعدة البيانات من رابط الاتصال
-  extractDatabaseName(connectionString) {
-    try {
-      // معالجة رابط MongoDB
-      if (connectionString.includes('mongodb+srv://')) {
-        // تنسيق SRV
-        const url = new URL(connectionString.replace('mongodb+srv://', 'https://'))
-        const pathname = url.pathname
-        return pathname && pathname !== '/' ? pathname.replace('/', '') : null
-      } else if (connectionString.includes('mongodb://')) {
-        // تنسيق عادي
-        const url = new URL(connectionString.replace('mongodb://', 'http://'))
-        const pathname = url.pathname
-        return pathname && pathname !== '/' ? pathname.replace('/', '') : null
-      }
-      
-      return null
-    } catch (error) {
-      console.warn('Could not parse database name from connection string')
-      return null
-    }
-  }
-
-  // الحصول على اتصال قاعدة البيانات
-  getConnection() {
-    if (this.mongoDb) {
-      return {
-        type: 'mongodb',
-        db: this.mongoDb,
-        client: this.mongoClient
-      }
-    }
-    
-    throw new Error('No database connection available')
-  }
-
-  // إغلاق الاتصال
-  async disconnect() {
-    if (this.mongoClient) {
-      await this.mongoClient.close()
-      console.log('🔌 Disconnected from MongoDB')
-      this.mongoClient = null
-      this.mongoDb = null
-    }
-  }
-
-  // فحص صحة الاتصال
-  async healthCheck() {
-    try {
-      if (this.mongoDb) {
-        await this.mongoDb.command({ ping: 1 })
-        return { status: 'healthy', type: 'mongodb' }
-      }
-      return { status: 'disconnected', type: 'none' }
-    } catch (error) {
-      return { status: 'unhealthy', type: 'mongodb', error: error.message }
-    }
-  }
+// DatabaseManager مدير قاعدة البيانات
+type DatabaseManager struct {
+	cfg *config.Config
+	db  *d1.DB
+	mu  sync.Mutex
 }
 
 // اتصال مخبأ عالمي
-let cachedDatabaseManager = null
+var cachedDBManager *DatabaseManager
+var once sync.Once
 
-// إنشاء أو استرجاع مدير قاعدة البيانات
-export function getDatabaseManager(env) {
-  if (cachedDatabaseManager) {
-    return cachedDatabaseManager
-  }
-
-  cachedDatabaseManager = new DatabaseManager(env)
-  return cachedDatabaseManager
+// NewDatabaseManager إنشاء مدير قاعدة بيانات جديد
+func NewDatabaseManager(cfg *config.Config) *DatabaseManager {
+	return &DatabaseManager{
+		cfg: cfg,
+	}
 }
 
-// وسيط موحد لقاعدة البيانات
-export function withDatabase(handler) {
-  return async (request, env, ...args) => {
-    const dbManager = getDatabaseManager(env)
-    
-    try {
-      // الاتصال إذا لم يكن متصلاً
-      if (!dbManager.mongoDb) {
-        await dbManager.connect()
-      }
-
-      // إضافة اتصال قاعدة البيانات إلى request
-      const connection = dbManager.getConnection()
-      request.db = connection.db
-      request.dbType = connection.type
-      request.dbClient = connection.client
-
-      const result = await handler(request, env, ...args)
-      return result
-
-    } catch (error) {
-      console.error('Database middleware error:', error)
-      
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: 'DATABASE_CONNECTION_FAILED',
-          message: 'Unable to connect to database'
-        }),
-        { 
-          status: 503,
-          headers: { 'Content-Type': 'application/json' }
-        }
-      )
-    }
-  }
+// GetDatabaseManager استرجاع أو إنشاء مدير قاعدة البيانات
+func GetDatabaseManager(cfg *config.Config) *DatabaseManager {
+	once.Do(func() {
+		cachedDBManager = NewDatabaseManager(cfg)
+	})
+	return cachedDBManager
 }
 
-// للاستخدام بدون وسيط (يدوي)
-export async function createDatabaseConnection(env) {
-  const dbManager = new DatabaseManager(env)
-  await dbManager.connect()
-  return dbManager
+// Connect تهيئة الاتصال بـ D1
+func (m *DatabaseManager) Connect() error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if m.db != nil {
+		return nil // متصل مسبقاً
+	}
+
+	if m.cfg.D1.DatabaseName == "" || m.cfg.D1.BindingName == "" {
+		return fmt.Errorf("D1 configuration missing")
+	}
+
+	d1db, err := d1.Open(m.cfg.D1.BindingName)
+	if err != nil {
+		return fmt.Errorf("failed to connect to D1: %v", err)
+	}
+
+	m.db = d1db
+	log.Println("✅ Connected to D1 successfully!")
+	return nil
 }
 
-// دالة مساعدة للتعامل مع ObjectId
-export function toObjectId(id) {
-  if (!id) return null
-  
-  try {
-    const { ObjectId } = require('mongodb')
-    return new ObjectId(id)
-  } catch (error) {
-    console.error('Invalid ObjectId:', id)
-    return null
-  }
+// GetConnection استرجاع الاتصال الحالي
+func (m *DatabaseManager) GetConnection() (*d1.DB, error) {
+	if m.db == nil {
+		return nil, fmt.Errorf("database not connected")
+	}
+	return m.db, nil
+}
+
+// Disconnect إغلاق الاتصال
+func (m *DatabaseManager) Disconnect() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	if m.db != nil {
+		// في D1 لا يوجد close فعلي لأن الاتصال يتم عبر Cloudflare Workers
+		m.db = nil
+		log.Println("🔌 Disconnected from D1")
+	}
+}
+
+// HealthCheck فحص صحة قاعدة البيانات
+func (m *DatabaseManager) HealthCheck(ctx context.Context) (map[string]interface{}, error) {
+	if err := m.Connect(); err != nil {
+		return map[string]interface{}{
+			"status": "disconnected",
+			"type":   "none",
+		}, err
+	}
+
+	query := `SELECT 1`
+	_, err := m.db.QueryRow(ctx, query)
+	if err != nil {
+		return map[string]interface{}{
+			"status": "unhealthy",
+			"type":   "d1",
+			"error":  err.Error(),
+		}, err
+	}
+
+	return map[string]interface{}{
+		"status": "healthy",
+		"type":   "d1",
+	}, nil
+}
+
+// WithDatabaseMiddleware تنفيذ handler مع قاعدة البيانات
+func WithDatabaseMiddleware(cfg *config.Config, handler func(ctx context.Context, db *d1.DB) (interface{}, error)) func(ctx context.Context) (interface{}, error) {
+	return func(ctx context.Context) (interface{}, error) {
+		manager := GetDatabaseManager(cfg)
+		if err := manager.Connect(); err != nil {
+			log.Println("Database connection error:", err)
+			return nil, fmt.Errorf("DATABASE_CONNECTION_FAILED: %v", err)
+		}
+
+		dbConn, err := manager.GetConnection()
+		if err != nil {
+			log.Println("Database not connected:", err)
+			return nil, fmt.Errorf("DATABASE_CONNECTION_FAILED: %v", err)
+		}
+
+		result, err := handler(ctx, dbConn)
+		if err != nil {
+			log.Println("Database handler error:", err)
+			return nil, err
+		}
+
+		return result, nil
+	}
 }
