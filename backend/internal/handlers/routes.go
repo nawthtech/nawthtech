@@ -9,6 +9,7 @@ import (
 	"github.com/nawthtech/nawthtech/backend/internal/config"
 	"github.com/nawthtech/nawthtech/backend/internal/middleware"
 	"github.com/nawthtech/nawthtech/backend/internal/services"
+ "github.com/nawthtech/nawthtech/backend/internal/email"
 	"github.com/nawthtech/nawthtech/backend/internal/db/d1" // Cloudflare D1 client
 )
 
