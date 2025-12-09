@@ -1,14 +1,20 @@
 package handlers
 
 import (
+	"encoding/json"
 	"net/http"
-
-	"nawthtech/worker/src/utils"
 )
 
-func TestEndpoint(w http.ResponseWriter, r *http.Request) {
-	utils.JSONResponse(w, http.StatusOK, map[string]interface{}{
+func TestHandler(w http.ResponseWriter, r *http.Request) {
+	respondJSON(w, http.StatusOK, map[string]interface{}{
 		"success": true,
-		"message": "Test endpoint working!",
+		"message": "Test endpoint works!",
 	})
+}
+
+// ================= Helper
+func respondJSON(w http.ResponseWriter, status int, payload interface{}) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	json.NewEncoder(w).Encode(payload)
 }
