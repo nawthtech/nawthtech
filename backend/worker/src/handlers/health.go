@@ -1,35 +1,24 @@
 package handlers
 
 import (
+	"encoding/json"
 	"net/http"
 	"time"
-
-	"nawthtech/worker/src/utils"
 )
 
 func HealthCheck(w http.ResponseWriter, r *http.Request) {
-	utils.JSONResponse(w, http.StatusOK, map[string]interface{}{
-		"success": true,
-		"message": "Service is healthy",
+	resp := map[string]interface{}{
+		"success":    true,
+		"message":    "Service is healthy",
 		"data": map[string]interface{}{
-			"status":    "healthy",
-			"database":  "D1",
-			"timestamp": time.Now(),
-			"service":   "nawthtech-worker",
+			"status":      "healthy",
+			"database":    "D1",
+			"timestamp":   time.Now().Format(time.RFC3339),
+			"environment": "production",
+			"version":     "v1",
+			"service":     "nawthtech-worker",
 		},
-	})
-}
-
-func HealthLive(w http.ResponseWriter, r *http.Request) {
-	utils.JSONResponse(w, http.StatusOK, map[string]interface{}{
-		"success": true,
-		"status":  "live",
-	})
-}
-
-func HealthReady(w http.ResponseWriter, r *http.Request) {
-	utils.JSONResponse(w, http.StatusOK, map[string]interface{}{
-		"success": true,
-		"status":  "ready",
-	})
+	}
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(resp)
 }
