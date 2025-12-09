@@ -4,6 +4,7 @@ node_modules/
 .pnpm
 .yarn/
 .yarn.lock
+package-lock.json
 
 # Build outputs
 dist/
@@ -16,10 +17,12 @@ out/
 .env
 .env.local
 .env.*.local
+!.env.example
 
 # Runtime data
 .wrangler/
 .dev.vars
+.cache/
 
 # IDE
 .vscode/
@@ -46,6 +49,17 @@ coverage/
 .vitest/
 __snapshots__/
 
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Secrets
+secrets.json
+*.pem
+*.key
+
 # Misc
 *.pid
 *.seed
+*.pid.lock
