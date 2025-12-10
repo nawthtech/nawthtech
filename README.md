@@ -2,7 +2,7 @@
 
 # 🚀 NawthTech Platform
 
-<img src="/public/logo.svg" alt="NawthTech Logo" width="200" />
+<img src="/frontend/public/logo.svg" alt="NawthTech Logo" width="200" />
 
 ### **Integrated Artificial Intelligence Platform for Digital Business Development**
 
