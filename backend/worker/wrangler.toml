@@ -1,6 +1,22 @@
 name = "nawthtech-api"
 main = "src/index.ts"
+compatibility_flags = ["nodejs_compat"]
 compatibility_date = "2025-12-09"
+[observability]
+enabled = false
+head_sampling_rate = 1
+upload_source_maps = true
+
+[observability.logs]
+enabled = true
+head_sampling_rate = 1
+persist = true
+invocation_logs = true
+
+[observability.traces]
+enabled = false
+persist = true
+head_sampling_rate = 1
 
 # متغيرات البيئة
 [vars]
@@ -12,7 +28,8 @@ APP_NAME = "NawthTech"
 binding = "DB"
 database_name = "nawthtech-db1"
 database_id = "bbf15aeb-0718-47c8-9723-d8a83f79e6cb"
-
+workers_url = "db.nawth.workers.dev"
+preview_url = "*-db.nawth.workers.dev"
 # بيئات مختلفة
 [env.production]
 name = "nawthtech-api-production"
@@ -22,3 +39,38 @@ name = "nawthtech-api-staging"
 
 [env.development]
 name = "nawthtech-api-dev"
+
+# Sentry-specific configuration for Cloudflare Workers
+name = "nawthtech-worker-sentry"
+main = "src/index.ts"
+compatibility_date = "2025-01-01"
+
+[vars]
+SENTRY_DSN = "https://703dc8c9404510702c2c20ce3aba24d4@o4510508331892736.ingest.de.sentry.io/4510508452413520"
+SENTRY_ENVIRONMENT = "production"
+SENTRY_RELEASE = "nawthtech-worker@${git.commit.short}"
+ENABLE_SENTRY = "true"
+
+[build]
+command = "npm run build"
+upload = { format = "service-worker" }
+
+[build.upload]
+include = ["dist/*"]
+exclude = ["node_modules", "tests"]
+
+# Sentry source maps configuration
+[build.upload.rules]
+type = "sentry"
+url = "https://sentry.io/api/0/projects/nawthtech/nawthtech-worker/releases/"
+token = "${SENTRY_AUTH_TOKEN}"
+
+# Environment-specific settings
+[env.production]
+vars = { SENTRY_ENVIRONMENT = "production" }
+
+[env.staging]
+vars = { SENTRY_ENVIRONMENT = "staging" }
+
+[env.development]
+vars = { SENTRY_ENVIRONMENT = "development", SENTRY_DEBUG = "true" }

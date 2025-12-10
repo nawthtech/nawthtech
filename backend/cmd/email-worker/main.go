@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
-	
+
 	"github.com/nawthtech/nawthtech/backend/internal/email"
 )
 
@@ -28,13 +28,13 @@ func main() {
 		if err := worker.DeployWorkerScript(); err != nil {
 			log.Fatalf("❌ Failed to deploy worker: %v", err)
 		}
-		
+
 	case "setup-dns":
 		fmt.Println("🌐 Setting up DNS records for email...")
 		if err := worker.SetupDNSRecords(); err != nil {
 			log.Fatalf("❌ Failed to setup DNS: %v", err)
 		}
-		
+
 	case "add-email":
 		if *emailAddr == "" {
 			log.Fatal("❌ Email address is required for add-email action")
@@ -44,7 +44,7 @@ func main() {
 			log.Fatalf("❌ Failed to add email: %v", err)
 		}
 		fmt.Println("✅ Email added successfully")
-		
+
 	case "remove-email":
 		if *emailAddr == "" {
 			log.Fatal("❌ Email address is required for remove-email action")
@@ -54,7 +54,7 @@ func main() {
 			log.Fatalf("❌ Failed to remove email: %v", err)
 		}
 		fmt.Println("✅ Email removed successfully")
-		
+
 	case "list":
 		fmt.Println("📋 Current allow list:")
 		emails := worker.GetAllowList()
@@ -65,7 +65,7 @@ func main() {
 				fmt.Printf("   %d. %s\n", i+1, email)
 			}
 		}
-		
+
 	case "test":
 		if *emailAddr == "" {
 			log.Fatal("❌ Test email address is required for test action")
@@ -75,7 +75,7 @@ func main() {
 			log.Fatalf("❌ Test failed: %v", err)
 		}
 		fmt.Println("✅ Test completed successfully")
-		
+
 	default:
 		fmt.Println("❌ Unknown action. Available actions:")
 		fmt.Println("   deploy      - Deploy email worker script")
@@ -86,6 +86,6 @@ func main() {
 		fmt.Println("   test        - Test email routing")
 		os.Exit(1)
 	}
-	
+
 	fmt.Println("🎉 Operation completed successfully!")
 }

@@ -69,7 +69,7 @@ func TestNewSlackClient(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			client, err := New(tt.options...)
-			
+
 			if tt.wantErr {
 				assert.Error(t, err)
 				if tt.errContains != "" {
@@ -79,7 +79,7 @@ func TestNewSlackClient(t *testing.T) {
 			} else {
 				assert.NoError(t, err)
 				assert.NotNil(t, client)
-				
+
 				slackClient, ok := client.(*slackClient)
 				assert.True(t, ok)
 				assert.Equal(t, "nawthtech", slackClient.appName)
@@ -91,13 +91,13 @@ func TestNewSlackClient(t *testing.T) {
 
 func TestSlackClient_PushMessage(t *testing.T) {
 	mockAPI := new(MockSlackAPI)
-	
+
 	client := &slackClient{
-		api:       mockAPI,
+		api:        mockAPI,
 		channelURL: "test-channel",
-		token:     "test-token",
-		appName:   "nawthtech",
-		env:       "test",
+		token:      "test-token",
+		appName:    "nawthtech",
+		env:        "test",
 	}
 
 	t.Run("successful message push", func(t *testing.T) {
@@ -106,7 +106,7 @@ func TestSlackClient_PushMessage(t *testing.T) {
 			Once()
 
 		channelURL, timestamp, err := client.PushMessage("Hello, world!")
-		
+
 		assert.NoError(t, err)
 		assert.Equal(t, "test-channel", channelURL)
 		assert.Equal(t, "1234567890.123456", timestamp)
@@ -122,7 +122,7 @@ func TestSlackClient_PushMessage(t *testing.T) {
 		}
 
 		_, _, err := clientNoChannel.PushMessage("Hello, world!")
-		
+
 		assert.Error(t, err)
 		assert.Equal(t, ErrMissingchannelURL, err)
 	})
@@ -130,7 +130,7 @@ func TestSlackClient_PushMessage(t *testing.T) {
 	t.Run("nil client", func(t *testing.T) {
 		var nilClient *slackClient
 		_, _, err := nilClient.PushMessage("Hello, world!")
-		
+
 		assert.Error(t, err)
 		assert.Equal(t, ErrClientNotInitialized, err)
 	})
@@ -141,7 +141,7 @@ func TestSlackClient_PushMessage(t *testing.T) {
 			Once()
 
 		_, _, err := client.PushMessage("Hello, world!")
-		
+
 		assert.Error(t, err)
 		assert.Contains(t, err.Error(), "failed to push message")
 		mockAPI.AssertExpectations(t)
@@ -150,16 +150,16 @@ func TestSlackClient_PushMessage(t *testing.T) {
 
 func TestSlackClient_Channel(t *testing.T) {
 	baseClient := &slackClient{
-		api:       slack.New("test-token"),
+		api:        slack.New("test-token"),
 		channelURL: "default-channel",
-		token:     "test-token",
-		appName:   "nawthtech",
-		env:       "production",
+		token:      "test-token",
+		appName:    "nawthtech",
+		env:        "production",
 	}
 
 	t.Run("create channel-specific client", func(t *testing.T) {
 		specificClient := baseClient.Channel("specific-channel")
-		
+
 		assert.NotNil(t, specificClient)
 		assert.Equal(t, "specific-channel", specificClient.channelURL)
 		assert.Equal(t, baseClient.api, specificClient.api)
@@ -171,20 +171,20 @@ func TestSlackClient_Channel(t *testing.T) {
 	t.Run("nil base client", func(t *testing.T) {
 		var nilClient *slackClient
 		specificClient := nilClient.Channel("specific-channel")
-		
+
 		assert.Nil(t, specificClient)
 	})
 }
 
 func TestSlackClient_PushMessageToChannel(t *testing.T) {
 	mockAPI := new(MockSlackAPI)
-	
+
 	client := &slackClient{
-		api:       mockAPI,
+		api:        mockAPI,
 		channelURL: "default-channel",
-		token:     "test-token",
-		appName:   "nawthtech",
-		env:       "test",
+		token:      "test-token",
+		appName:    "nawthtech",
+		env:        "test",
 	}
 
 	t.Run("successful message to specific channel", func(t *testing.T) {
@@ -193,7 +193,7 @@ func TestSlackClient_PushMessageToChannel(t *testing.T) {
 			Once()
 
 		channelURL, timestamp, err := client.PushMessageToChannel("specific-channel", "Test message")
-		
+
 		assert.NoError(t, err)
 		assert.Equal(t, "specific-channel", channelURL)
 		assert.Equal(t, "1234567890.123456", timestamp)
@@ -203,13 +203,13 @@ func TestSlackClient_PushMessageToChannel(t *testing.T) {
 
 func TestSlackClient_SendAlert(t *testing.T) {
 	mockAPI := new(MockSlackAPI)
-	
+
 	client := &slackClient{
-		api:       mockAPI,
+		api:        mockAPI,
 		channelURL: "alerts-channel",
-		token:     "test-token",
-		appName:   "nawthtech",
-		env:       "production",
+		token:      "test-token",
+		appName:    "nawthtech",
+		env:        "production",
 	}
 
 	t.Run("send error alert", func(t *testing.T) {
@@ -218,7 +218,7 @@ func TestSlackClient_SendAlert(t *testing.T) {
 			Once()
 
 		channelURL, timestamp, err := client.SendAlert("error", "Database Error", "Failed to connect to database")
-		
+
 		assert.NoError(t, err)
 		assert.Equal(t, "alerts-channel", channelURL)
 		assert.Equal(t, "1234567890.123456", timestamp)
@@ -231,7 +231,7 @@ func TestSlackClient_SendAlert(t *testing.T) {
 			Once()
 
 		channelURL, timestamp, err := client.SendAlert("success", "Deployment Complete", "Backend deployed successfully")
-		
+
 		assert.NoError(t, err)
 		assert.Equal(t, "alerts-channel", channelURL)
 		assert.Equal(t, "1234567890.123456", timestamp)
@@ -241,13 +241,13 @@ func TestSlackClient_SendAlert(t *testing.T) {
 
 func TestSlackClient_SendDeploymentNotification(t *testing.T) {
 	mockAPI := new(MockSlackAPI)
-	
+
 	client := &slackClient{
-		api:       mockAPI,
+		api:        mockAPI,
 		channelURL: "deployments-channel",
-		token:     "test-token",
-		appName:   "nawthtech",
-		env:       "staging",
+		token:      "test-token",
+		appName:    "nawthtech",
+		env:        "staging",
 	}
 
 	t.Run("send successful deployment notification", func(t *testing.T) {
@@ -262,7 +262,7 @@ func TestSlackClient_SendDeploymentNotification(t *testing.T) {
 			"abc123def",
 			"Fix database connection issue",
 		)
-		
+
 		assert.NoError(t, err)
 		assert.Equal(t, "deployments-channel", channelURL)
 		assert.Equal(t, "1234567890.123456", timestamp)
@@ -272,13 +272,13 @@ func TestSlackClient_SendDeploymentNotification(t *testing.T) {
 
 func TestSlackClient_SendErrorNotification(t *testing.T) {
 	mockAPI := new(MockSlackAPI)
-	
+
 	client := &slackClient{
-		api:       mockAPI,
+		api:        mockAPI,
 		channelURL: "errors-channel",
-		token:     "test-token",
-		appName:   "nawthtech",
-		env:       "production",
+		token:      "test-token",
+		appName:    "nawthtech",
+		env:        "production",
 	}
 
 	t.Run("send error notification with context", func(t *testing.T) {
@@ -288,14 +288,14 @@ func TestSlackClient_SendErrorNotification(t *testing.T) {
 
 		err := assert.AnError
 		contextInfo := map[string]string{
-			"Service":    "backend",
-			"Endpoint":   "/api/users",
-			"UserID":     "user-123",
-			"RequestID":  "req-456",
+			"Service":   "backend",
+			"Endpoint":  "/api/users",
+			"UserID":    "user-123",
+			"RequestID": "req-456",
 		}
 
 		channelURL, timestamp, err := client.SendErrorNotification(err, contextInfo)
-		
+
 		assert.NoError(t, err)
 		assert.Equal(t, "errors-channel", channelURL)
 		assert.Equal(t, "1234567890.123456", timestamp)
@@ -325,7 +325,7 @@ func TestIntegration(t *testing.T) {
 			WithAppName("nawthtech-test"),
 			WithEnvironment("integration-test"),
 		)
-		
+
 		assert.NoError(t, err)
 		assert.NotNil(t, client)
 
@@ -351,9 +351,9 @@ func TestClientSingleton(t *testing.T) {
 	t.Run("client initialized", func(t *testing.T) {
 		mockAPI := new(MockSlackAPI)
 		defaultClient = &slackClient{
-			api:       mockAPI,
+			api:        mockAPI,
 			channelURL: "test-channel",
-			token:     "test-token",
+			token:      "test-token",
 		}
 
 		client := Client()

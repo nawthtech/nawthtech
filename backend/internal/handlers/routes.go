@@ -14,8 +14,8 @@ func RegisterAllRoutes(app *gin.Engine, cfg *config.Config, hc *HandlerContainer
 
 	// Health
 	app.GET("/health", hc.Health)
-	app.GET("/health/live", func(c *gin.Context){ c.JSON(200, gin.H{"status":"live"}) })
-	app.GET("/health/ready", func(c *gin.Context){ c.JSON(200, gin.H{"status":"ready"}) })
+	app.GET("/health/live", func(c *gin.Context) { c.JSON(200, gin.H{"status": "live"}) })
+	app.GET("/health/ready", func(c *gin.Context) { c.JSON(200, gin.H{"status": "ready"}) })
 
 	// Protected (attach auth middleware)
 	protected := api.Group("")

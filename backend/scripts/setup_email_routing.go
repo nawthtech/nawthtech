@@ -1,13 +1,13 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
 	"time"
-   "bytes"
 )
 
 type CloudflareEmailConfig struct {
@@ -30,19 +30,19 @@ func main() {
 	}
 
 	fmt.Println("🚀 Setting up Cloudflare Email Routing for nawthtech.com")
-	
+
 	// 1. Setup DNS Records
 	if err := setupDNSRecords(config); err != nil {
 		log.Fatalf("❌ Failed to setup DNS: %v", err)
 	}
-	
+
 	fmt.Println("✅ DNS records configured")
-	
+
 	// 2. Create Custom Address
 	if err := createCustomAddress(config); err != nil {
 		log.Fatalf("❌ Failed to create custom address: %v", err)
 	}
-	
+
 	fmt.Println("✅ Custom address created")
 	fmt.Println("📧 Please check your email to confirm the routing")
 }
@@ -88,20 +88,20 @@ func setupDNSRecords(config CloudflareEmailConfig) error {
 
 	// Create all records
 	allRecords := append(mxRecords, txtRecords...)
-	
+
 	for _, record := range allRecords {
 		if err := createDNSRecord(config, record); err != nil {
 			return fmt.Errorf("failed to create record %s: %v", record["type"], err)
 		}
 		fmt.Printf("  ✅ Created %s record\n", record["type"])
 	}
-	
+
 	return nil
 }
 
 func createDNSRecord(config CloudflareEmailConfig, record map[string]interface{}) error {
 	url := fmt.Sprintf("https://api.cloudflare.com/client/v4/zones/%s/dns_records", config.ZoneID)
-	
+
 	jsonData, err := json.Marshal(record)
 	if err != nil {
 		return err
@@ -133,12 +133,12 @@ func createCustomAddress(config CloudflareEmailConfig) error {
 	// Note: Email Routing API is currently in beta
 	// This endpoint might change
 	url := fmt.Sprintf("https://api.cloudflare.com/client/v4/zones/%s/email/routing/addresses", config.ZoneID)
-	
+
 	addressData := map[string]interface{}{
-		"email": fmt.Sprintf("*@%s", config.Domain),
+		"email":    fmt.Sprintf("*@%s", config.Domain),
 		"verified": false,
 	}
-	
+
 	jsonData, err := json.Marshal(addressData)
 	if err != nil {
 		return err

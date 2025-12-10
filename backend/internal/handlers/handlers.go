@@ -451,7 +451,7 @@ func (hc *HandlerContainer) ListServices(c *gin.Context) {
 	// Build query with user filter for non-admin users
 	userRole, _ := c.Get("userRole")
 	queryParams := c.Request.URL.Query()
-	
+
 	if userRole != "admin" {
 		queryParams.Set("user_id", userID.(string))
 	}
@@ -535,7 +535,7 @@ func (hc *HandlerContainer) GetService(c *gin.Context) {
 	// Check ownership for non-admin users
 	userID, _ := c.Get("userID")
 	userRole, _ := c.Get("userRole")
-	
+
 	if serviceData, ok := result["data"].(map[string]interface{}); ok {
 		if serviceUserID, ok := serviceData["user_id"].(string); ok {
 			if serviceUserID != userID && userRole != "admin" {

@@ -66,7 +66,7 @@ func (ws *WorkerService) Call(ctx context.Context, method, path string, data int
 	}
 
 	url := fmt.Sprintf("%s%s", ws.baseURL, path)
-	
+
 	var reqBody []byte
 	if data != nil {
 		var err error
@@ -86,9 +86,9 @@ func (ws *WorkerService) Call(ctx context.Context, method, path string, data int
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("X-Requested-With", "Go-Backend")
 
-	logger.Debug(ctx, "calling worker API", 
-		"method", method, 
-		"path", path, 
+	logger.Debug(ctx, "calling worker API",
+		"method", method,
+		"path", path,
 		"url", url,
 	)
 

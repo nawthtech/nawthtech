@@ -27,7 +27,7 @@ type DatabaseConfig struct {
 var (
 	// db هو الاتصال العالمي بقاعدة البيانات
 	db *DB
-	
+
 	// defaultConfig الإعدادات الافتراضية
 	defaultConfig = DatabaseConfig{
 		Driver:   "postgres",
@@ -183,10 +183,10 @@ func IsConnected() bool {
 	if db == nil {
 		return false
 	}
-	
+
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
-	
+
 	return db.Ping(ctx) == nil
 }
 
@@ -195,11 +195,11 @@ func HealthCheck(ctx context.Context) (bool, error) {
 	if db == nil {
 		return false, fmt.Errorf("database not initialized")
 	}
-	
+
 	if err := db.Ping(ctx); err != nil {
 		return false, err
 	}
-	
+
 	// يمكن إضافة فحوصات إضافية هنا
 	return true, nil
 }

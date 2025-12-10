@@ -1,10 +1,10 @@
 package slack
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
- "time"
- "encoding/json"
+	"time"
 
 	"github.com/slack-go/slack"
 )
@@ -15,15 +15,15 @@ type SlackClient interface {
 	PushMessageWithAttachments(text string, attachments []slack.Attachment) (string, string, error)
 	PushMessageToChannel(channel, text string) (string, string, error)
 	UpdateMessage(channelURL, timestamp, text string) (string, string, string, error)
-	DeleteMessage(channelURL, timestamp string) ( string, error)
+	DeleteMessage(channelURL, timestamp string) (string, error)
 }
 
 type slackClient struct {
-	api       *slack.Client
+	api        *slack.Client
 	channelURL string
-	token     string
-	appName   string
-	env       string // production, staging, development
+	token      string
+	appName    string
+	env        string // production, staging, development
 }
 
 type Option func(*slackClient) error
@@ -34,7 +34,7 @@ var (
 
 	// Error messages
 	ErrClientNotInitialized = fmt.Errorf("slack client not initialized")
-	ErrMissingToken        = fmt.Errorf("slack token is required")
+	ErrMissingToken         = fmt.Errorf("slack token is required")
 	ErrMissingchannelURL    = fmt.Errorf("slack channel ID is required")
 )
 
@@ -121,13 +121,13 @@ func (c *slackClient) Channel(channelURL string) *slackClient {
 	if c == nil {
 		return nil
 	}
-	
+
 	return &slackClient{
-		api:       c.api,
-		token:     c.token,
+		api:        c.api,
+		token:      c.token,
 		channelURL: channelURL,
-		appName:   c.appName,
-		env:       c.env,
+		appName:    c.appName,
+		env:        c.env,
 	}
 }
 
@@ -228,7 +228,7 @@ func (c *slackClient) UpdateMessage(channelURL, timestamp, text string) (string,
 }
 
 // DeleteMessage deletes a message
-func (c *slackClient) DeleteMessage(channelURL, timestamp string) ( string, error) {
+func (c *slackClient) DeleteMessage(channelURL, timestamp string) (string, error) {
 	if c == nil || c.api == nil {
 		return "", "", ErrClientNotInitialized
 	}
@@ -281,7 +281,7 @@ func (c *slackClient) SendAlert(alertType, title, message string) (string, strin
 // SendDeploymentNotification sends a deployment notification
 func (c *slackClient) SendDeploymentNotification(service, version, status, commitHash, commitMessage string) (string, string, error) {
 	title := fmt.Sprintf("Deployment %s - %s", status, service)
-	
+
 	fields := []slack.AttachmentField{
 		{
 			Title: "Service",
@@ -326,11 +326,11 @@ func (c *slackClient) SendDeploymentNotification(service, version, status, commi
 	}
 
 	attachment := slack.Attachment{
-		Color:   color,
-		Title:   title,
-		Fields:  fields,
-		Footer:  "Railway Deployment",
-		Ts:      json.Number(fmt.Sprintf("%d", time.Now().Unix())),
+		Color:  color,
+		Title:  title,
+		Fields: fields,
+		Footer: "Railway Deployment",
+		Ts:     json.Number(fmt.Sprintf("%d", time.Now().Unix())),
 	}
 
 	return c.PushMessageWithAttachments("", []slack.Attachment{attachment})
@@ -339,7 +339,7 @@ func (c *slackClient) SendDeploymentNotification(service, version, status, commi
 // SendErrorNotification sends an error notification
 func (c *slackClient) SendErrorNotification(err error, contextInfo map[string]string) (string, string, error) {
 	title := fmt.Sprintf("Error in %s", c.appName)
-	
+
 	fields := []slack.AttachmentField{
 		{
 			Title: "Error Message",
@@ -368,11 +368,11 @@ func (c *slackClient) SendErrorNotification(err error, contextInfo map[string]st
 	}
 
 	attachment := slack.Attachment{
-		Color:   "#E74C3C",
-		Title:   title,
-		Fields:  fields,
-		Footer:  "Error Notification",
-		Ts:      json.Number(fmt.Sprintf("%d", time.Now().Unix())),
+		Color:  "#E74C3C",
+		Title:  title,
+		Fields: fields,
+		Footer: "Error Notification",
+		Ts:     json.Number(fmt.Sprintf("%d", time.Now().Unix())),
 	}
 
 	return c.PushMessageWithAttachments("", []slack.Attachment{attachment})

@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
-	
+
 	"github.com/nawthtech/nawthtech/backend/internal/email"
 )
 
@@ -52,6 +52,6 @@ func main() {
 		fmt.Println("Available actions: setup, test, add-email, list")
 		os.Exit(1)
 	}
-	
+
 	fmt.Println("✅ Done!")
 }

@@ -12,7 +12,7 @@ func RegisterEmailRoutes(router *gin.RouterGroup) {
 		// Log error but don't crash
 		return
 	}
-	
+
 	emailGroup := router.Group("/email")
 	{
 		emailGroup.POST("/setup", emailHandler.SetupEmail)

@@ -2,7 +2,7 @@ package handlers
 
 import (
 	"net/http"
-	
+
 	"github.com/gin-gonic/gin"
 	"github.com/nawthtech/nawthtech/backend/internal/email"
 )
@@ -22,12 +22,12 @@ func NewEmailHandler() (*EmailHandler, error) {
 func (h *EmailHandler) SetupEmail(c *gin.Context) {
 	if err := h.service.SetupEmailRouting(); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "Failed to setup email",
+			"error":   "Failed to setup email",
 			"details": err.Error(),
 		})
 		return
 	}
-	
+
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Email routing setup initiated",
 	})

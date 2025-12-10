@@ -39,11 +39,156 @@ import {
 } from './handlers/webhooks/email';
 import { handleStaticFile } from './handlers/static';
 import { handleNotFound } from './handlers/notfound';
-
-// Import types
 import type { Env, User } from './types/database';
 import type { APIResponse } from './utils/responses';
+import * as Sentry from '@sentry/cloudflare';
+import { initSentry, withSentryErrorBoundary, captureMessage } from './sentry-setup.js';
 
+export interface Env {
+  // Your bindings
+  DB: D1Database;
+  AI: Ai;
+  // Sentry
+  SENTRY_DSN?: string;
+  SENTRY_ENVIRONMENT?: string;
+}
+
+// Initialize Sentry with environment variables
+const SentryInstance = Sentry.withSentry((env: Env) => ({
+  dsn: env.SENTRY_DSN || "https://703dc8c9404510702c2c20ce3aba24d4@o4510508331892736.ingest.de.sentry.io/4510508452413520",
+  environment: env.SENTRY_ENVIRONMENT || 'production',
+  release: 'nawthtech-worker@1.0.0',
+  sendDefaultPii: true,
+  tracesSampleRate: 0.2,
+  integrations: [
+    new Sentry.CloudflareIntegration(),
+  ],
+  beforeSend(event) {
+    // Add custom context for nawthtech
+    event.tags = {
+      ...event.tags,
+      platform: 'cloudflare-workers',
+      service: 'nawthtech-social-growth',
+      app: 'nawthtech',
+      component: 'main-worker',
+    };
+    
+    // Add user context if available
+    if (event.request?.headers?.get('x-user-id')) {
+      event.user = {
+        id: event.request.headers.get('x-user-id'),
+        ip_address: '{{auto}}',
+      };
+    }
+    
+    return event;
+  },
+}));
+
+export default SentryInstance({
+  async fetch(request: Request, env: Env, ctx: ExecutionContext) {
+    // Start Sentry transaction
+    const transaction = Sentry.startTransaction({
+      name: `${request.method} ${new URL(request.url).pathname}`,
+      op: 'http.server',
+    });
+    
+    Sentry.configureScope(scope => {
+      scope.setSpan(transaction);
+      scope.setTag('http.method', request.method);
+      scope.setTag('http.url', request.url);
+      scope.setTag('app.feature', 'social-growth-platform');
+    });
+    
+    try {
+      // Test error (optional - for verification)
+      if (new URL(request.url).pathname === '/test-error') {
+        setTimeout(() => {
+          throw new Error('Test error for Sentry verification - nawthtech social growth platform');
+        }, 100);
+        return new Response('Test error triggered');
+      }
+      
+      // Health check endpoint
+      if (new URL(request.url).pathname === '/health') {
+        captureMessage('Health check performed', 'info', {
+          timestamp: new Date().toISOString(),
+        });
+        return new Response('OK', { status: 200 });
+      }
+      
+      // Your main logic here
+      const response = await handleRequest(request, env, ctx);
+      
+      // Capture successful request
+      captureMessage('Request processed successfully', 'info', {
+        path: new URL(request.url).pathname,
+        method: request.method,
+        status: response.status,
+      });
+      
+      return response;
+      
+    } catch (error) {
+      // Capture error with nawthtech context
+      Sentry.captureException(error, {
+        tags: {
+          error_type: error instanceof Error ? error.constructor.name : 'Unknown',
+          app_section: 'social-growth-worker',
+          user_action: 'fetch_request',
+        },
+        extra: {
+          request_url: request.url,
+          request_method: request.method,
+          timestamp: new Date().toISOString(),
+          nawthtech_context: 'social-media-intelligence-platform',
+        },
+      });
+      
+      return new Response('Internal Server Error', { status: 500 });
+    } finally {
+      transaction.finish();
+    }
+  },
+  
+  // Scheduled handler (if you have cron triggers)
+  async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext) {
+    captureMessage('Scheduled task executed', 'info', {
+      cron: event.cron,
+      scheduledTime: event.scheduledTime,
+      task: 'nawthtech-background-job',
+    });
+    
+    try {
+      // Your scheduled task logic
+      await processBackgroundTasks(env);
+    } catch (error) {
+      Sentry.captureException(error, {
+        tags: {
+          task_type: 'scheduled',
+          app_feature: 'background-processing',
+        },
+      });
+      throw error;
+    }
+  },
+} satisfies ExportedHandler<Env>);
+
+// Your request handler with error boundary
+const handleRequest = withSentryErrorBoundary(
+  async (request: Request, env: Env, ctx: ExecutionContext) => {
+    // Your existing handler logic
+    return new Response('Hello from nawthtech social growth platform!');
+  },
+  'handleRequest'
+);
+
+// Background task processor
+async function processBackgroundTasks(env: Env) {
+  // Your background task logic
+  console.log('Processing nawthtech background tasks...');
+}
+},
 // Create router
 const router = Router<IRequest, [Env, ExecutionContext]>();
 
