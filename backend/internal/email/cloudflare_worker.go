@@ -95,7 +95,7 @@ export default {
     }
     
     // Also allow any email from the domain itself
-    if (senderEmail.endsWith(\`@\${domain}\`)) {
+    if (senderEmail.endsWith(\`\${domain}\`)) {
       isAllowed = true;
     }
     
