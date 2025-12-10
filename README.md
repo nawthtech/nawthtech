@@ -109,7 +109,7 @@ NawthTech features a sophisticated dark theme design inspired by Sentry's modern
 ### Development Setup
 
 1. **Clone the Repository**
-```bash
+```
 git clone https://github.com/nawthtech/platform.git
 cd nawthtech-platform
 
