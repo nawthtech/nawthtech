@@ -113,22 +113,30 @@ NawthTech features a sophisticated dark theme design inspired by Sentry's modern
 git clone https://github.com/nawthtech/platform.git
 cd nawthtech-platform
 
+2. **Install Dependencies
 make install
+
+3. **Start Development Environment
 make dev
 
-### Backend
+The application will be available at:
+Frontend: http://localhost:3000 •
+Backend API: http://localhost:8080 •
+API Documentation: http:// • localhost:8080/api/v1/docs
+Manual Setup
+Backend (Go)
 cd backend
 cp .env.example .env
 # Edit .env with your settings
 make run
 
-### Frontend
+Frontend (React)
 cd frontend
 cp .env.example .env
 npm install
 npm run dev
 
-### Available Command 
+Available Commands
 # Development
 make dev          # Full development environment
 make backend      # Backend only
@@ -138,12 +146,12 @@ make frontend     # Frontend only
 make build        # Build all components
 make docker       # Build Docker images
 
-## Testing
+# Testing
 make test         # Run all tests
 make test-backend # Backend tests only
 make test-frontend # Frontend tests only
 
-## ⚡️ Deployment
+# Deployment
 make deploy       # Deploy to production
 
 # Maintenance
@@ -169,10 +177,41 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📞 Contact Us
 
-Email**: support@nawthtech.com  
-Website**: www.nawthtech.com  
-<img src="/frontend/public/instagram.svg" alt="Instagram Logo" width="50" /> Instagram**: [@nawthtech](https://instagram.com/nawthtech)  
-Twitter**: [@nawthtech](https://twitter.com/nawthtech)  
+**📧 Email**: support@nawthtech.com  
+**🌐 Website**: www.nawthtech.com  
+
+### **Follow Us on Social Media**
+
+<div style="display: flex; justify-content: center; gap: 20px; margin: 20px 0;">
+  <a href="https://instagram.com/nawthtech" target="_blank">
+    <img src="https://img.shields.io/badge/Instagram-E4405F?style=for-the-badge&logo=instagram&logoColor=white" alt="Instagram" />
+  </a>
+  <a href="https://twitter.com/nawthtech" target="_blank">
+    <img src="https://img.shields.io/badge/Twitter-1DA1F2?style=for-the-badge&logo=twitter&logoColor=white" alt="Twitter" />
+  </a>
+  <a href="https://linkedin.com/company/nawthtech" target="_blank">
+    <img src="https://img.shields.io/badge/LinkedIn-0077B5?style=for-the-badge&logo=linkedin&logoColor=white" alt="LinkedIn" />
+  </a>
+  <a href="https://github.com/nawthtech" target="_blank">
+    <img src="https://img.shields.io/badge/GitHub-181717?style=for-the-badge&logo=github&logoColor=white" alt="GitHub" />
+  </a>
+  <a href="https://youtube.com/@nawthtech" target="_blank">
+    <img src="https://img.shields.io/badge/YouTube-FF0000?style=for-the-badge&logo=youtube&logoColor=white" alt="YouTube" />
+  </a>
+</div>
+
+### **Supported Platforms**
+
+<div style="display: flex; justify-content: center; gap: 15px; margin: 20px 0; flex-wrap: wrap;">
+  <img src="https://img.shields.io/badge/Instagram-E4405F?style=flat-square&logo=instagram&logoColor=white" alt="Instagram" />
+  <img src="https://img.shields.io/badge/TikTok-000000?style=flat-square&logo=tiktok&logoColor=white" alt="TikTok" />
+  <img src="https://img.shields.io/badge/Twitter-1DA1F2?style=flat-square&logo=twitter&logoColor=white" alt="Twitter" />
+  <img src="https://img.shields.io/badge/YouTube-FF0000?style=flat-square&logo=youtube&logoColor=white" alt="YouTube" />
+  <img src="https://img.shields.io/badge/Facebook-1877F2?style=flat-square&logo=facebook&logoColor=white" alt="Facebook" />
+  <img src="https://img.shields.io/badge/Twitch-9146FF?style=flat-square&logo=twitch&logoColor=white" alt="Twitch" />
+  <img src="https://img.shields.io/badge/Telegram-26A5E4?style=flat-square&logo=telegram&logoColor=white" alt="Telegram" />
+  <img src="https://img.shields.io/badge/Discord-5865F2?style=flat-square&logo=discord&logoColor=white" alt="Discord" />
+</div>
 
 ## 🚀 Start Your Smart Digital Growth Journey
 
