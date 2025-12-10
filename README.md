@@ -171,7 +171,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 **📧 Email**: support@nawthtech.com  
 **🌐 Website**: www.nawthtech.com  
-**  Instagram**: [@nawthtech](https://instagram.com/nawthtech)  
+**  <img src="/frontend/public/instagram.svg" alt="Instagram Logo" width="50" /> Instagram**: [@nawthtech](https://instagram.com/nawthtech)  
 **🐦 Twitter**: [@nawthtech](https://twitter.com/nawthtech)  
 
 ## 🚀 Start Your Smart Digital Growth Journey
