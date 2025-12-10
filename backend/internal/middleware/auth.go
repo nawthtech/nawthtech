@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/nawthtech/backend/internal/config"
+	"github.com/nawthtech/nawthtech/backend/internal/config"
 )
 
 // AuthMiddleware يتحقق من صحة التوكن
