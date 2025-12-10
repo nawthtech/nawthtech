@@ -11,6 +11,7 @@ import (
 	"github.com/nawthtech/nawthtech/backend/internal/models"
 )
 
+
 // ================================
 // هياكل المعاملات المحدثة
 // ================================
@@ -296,16 +297,6 @@ func NewServiceContainer(d1db *sql.DB) *ServiceContainer {
 	}
 }
 
-package services
-
-import (
-	"context"
-	"database/sql"
-	"fmt"
-	"time"
-
-	"github.com/nawthtech/nawthtech/backend/internal/models"
-)
 
 // ================================
 // تطبيقات AuthService مع D1
