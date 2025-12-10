@@ -11,9 +11,9 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/nawthtech/backend/internal/config"
-	"github.com/nawthtech/backend/internal/logger"
-	"github.com/nawthtech/backend/internal/middleware"
+	"github.com/nawthtech/nawthtech/backend/internal/config"
+	"github.com/nawthtech/nawthtech/backend/internal/logger"
+	"github.com/nawthtech/nawthtech/backend/internal/middleware"
 )
 
 // HandlerContainer يحتوي على جميع handlers
