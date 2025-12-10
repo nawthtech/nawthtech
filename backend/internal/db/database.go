@@ -100,10 +100,10 @@ func Close() {
 
 // Ping تتحقق من أن قاعدة البيانات لا تزال متصلة
 func Ping(ctx context.Context) error {
-	if db == nil || db.DB == nil {
-		return fmt.Errorf("database not initialized")
-	}
-	return db.DB.PingContext(ctx)
+    if db == nil || db.DB == nil {
+        return fmt.Errorf("database not initialized")
+    }
+    return db.DB.PingContext(ctx)
 }
 
 // ExecContext تنفيذ استعلام بدون إرجاع صفوف
@@ -180,31 +180,28 @@ func (d *DB) Stats() sql.DBStats {
 
 // IsConnected تتحقق مما إذا كانت قاعدة البيانات متصلة
 func IsConnected() bool {
-	if db == nil {
-		return false
-	}
+    if db == nil {
+        return false
+    }
+    
+    ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+    defer cancel()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
-
-	return db.Ping(ctx) == nil
-}
+      return db.DB.PingContext(ctx) == nil
+   }
 
 // HealthCheck تتحقق من صحة قاعدة البيانات
 func HealthCheck(ctx context.Context) (bool, error) {
-	if db == nil {
-		return false, fmt.Errorf("database not initialized")
-	}
-
-	if err := db.Ping(ctx); err != nil {
-		return false, err
-	}
-
-	// يمكن إضافة فحوصات إضافية هنا
-	return true, nil
+    if db == nil {
+        return false, fmt.Errorf("database not initialized")
+    }
+    
+    if err := db.DB.PingContext(ctx); err != nil {
+        return false, err
+    }
+    
+    return true, nil
 }
-
-// Migration Functions (يمكن نقلها من migrate.go)
 
 // RunMigrations تشغيل عمليات الترحيل
 func RunMigrations(ctx context.Context) error {
