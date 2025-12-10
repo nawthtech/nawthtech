@@ -5,6 +5,14 @@ import (
 )
 
 type Config struct {
+    Auth struct {
+        JWTSecret string `mapstructure:"jwt_secret"`
+        // ... حقول أخرى
+    } `mapstructure:"auth"`
+    // ...
+}
+
+type Config struct {
 	Environment string
 	Port        string
 	WorkerURL   string
