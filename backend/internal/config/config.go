@@ -11,9 +11,13 @@ type Config struct {
 	WorkerKey   string `mapstructure:"worker_key"`
 
 	// قسم المصادقة
-	Auth struct {
-		JWTSecret string `mapstructure:"jwt_secret"`
-		// يمكنك إضافة المزيد من الحقول هنا
+    Auth struct {
+        JWTSecret         string `mapstructure:"jwt_secret"`
+        JWTExpiration     int    `mapstructure:"jwt_expiration"`      // أضف هذا
+        RefreshExpiration int    `mapstructure:"refresh_expiration"`  // أضف هذا
+    } `mapstructure:"auth"`
+    // ...
+}
 	} `mapstructure:"auth"`
 
 	// أقسام إضافية (اختيارية)
