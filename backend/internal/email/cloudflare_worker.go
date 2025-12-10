@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"strings"
@@ -23,11 +24,11 @@ type CloudflareEmailWorker struct {
 
 // EmailMessage represents an incoming email
 type EmailMessage struct {
-	From    string   `json:"from"`
-	To      []string `json:"to"`
-	Subject string   `json:"subject"`
-	Text    string   `json:"text"`
-	HTML    string   `json:"html"`
+	From    string            `json:"from"`
+	To      []string          `json:"to"`
+	Subject string            `json:"subject"`
+	Text    string            `json:"text"`
+	HTML    string            `json:"html"`
 	Headers map[string]string `json:"headers"`
 }
 
@@ -71,8 +72,7 @@ func NewCloudflareEmailWorker() (*CloudflareEmailWorker, error) {
 
 // DeployWorkerScript deploys the email worker to Cloudflare
 func (w *CloudflareEmailWorker) DeployWorkerScript() error {
-	workerScript := `
-export default {
+	workerScript := `export default {
   async email(message, env, ctx) {
     // Parse allowed list from environment
     const allowList = env.ALLOWED_LIST ? env.ALLOWED_LIST.split(',') : [];
@@ -80,8 +80,8 @@ export default {
     const domain = env.DOMAIN || "nawthtech.com";
     
     // Log incoming email for debugging
-    log.Printf("Email received from: %s", message.From)
-    log.Printf("Subject: %s", message.Headers.Get("subject"))
+    console.log("Email received from:", message.from);
+    console.log("Subject:", message.headers.get("subject"));
     
     // Check if sender is in allowed list
     const senderEmail = message.from.toLowerCase().trim();
@@ -95,36 +95,35 @@ export default {
     }
     
     // Also allow any email from the domain itself
-    if (senderEmail.endsWith(\`\${domain}\`)) {
+    if (senderEmail.endsWith(domain)) {
       isAllowed = true;
     }
     
     if (!isAllowed) {
-      console.log(\`❌ Rejected email from: \${message.from}\`);
+      console.log("Rejected email from:", message.from);
       message.setReject("Address not allowed");
       return;
     }
     
     try {
       // Forward to the specified address
-      console.log(\`✅ Forwarding email from \${message.from} to \${forwardTo}\`);
+      console.log("Forwarding email from", message.from, "to", forwardTo);
       await message.forward(forwardTo);
       
       // Send acknowledgment to sender (optional)
       if (env.SEND_ACKNOWLEDGMENT === "true") {
-        await message.reply(\`Thank you for your email. It has been forwarded to the appropriate team.\`);
+        await message.reply("Thank you for your email. It has been forwarded to the appropriate team.");
       }
       
     } catch (error) {
-      console.error(\`❌ Failed to forward email: \${error}\`);
+      console.error("Failed to forward email:", error);
       message.setReject("Failed to process email");
     }
   }
-};
-`
+};`
 
 	url := fmt.Sprintf("https://api.cloudflare.com/client/v4/accounts/%s/workers/scripts/%s", w.AccountID, w.ScriptName)
-	
+
 	payload := map[string]interface{}{
 		"script": workerScript,
 		"bindings": []map[string]interface{}{
@@ -188,12 +187,12 @@ export default {
 func (w *CloudflareEmailWorker) SetupDNSRecords() error {
 	// 1. Create MX record
 	mxRecord := map[string]interface{}{
-		"type":    "MX",
-		"name":    w.Domain,
-		"content": "route1.mx.cloudflare.net",
+		"type":     "MX",
+		"name":     w.Domain,
+		"content":  "route1.mx.cloudflare.net",
 		"priority": 28,
-		"ttl": 1, // Auto TTL
-		"proxied": false,
+		"ttl":      1, // Auto TTL
+		"proxied":  false,
 	}
 
 	if err := w.createDNSRecord(mxRecord); err != nil {
@@ -202,12 +201,12 @@ func (w *CloudflareEmailWorker) SetupDNSRecords() error {
 
 	// 2. Create second MX record for redundancy
 	mxRecord2 := map[string]interface{}{
-		"type":    "MX",
-		"name":    w.Domain,
-		"content": "route2.mx.cloudflare.net",
+		"type":     "MX",
+		"name":     w.Domain,
+		"content":  "route2.mx.cloudflare.net",
 		"priority": 48,
-		"ttl": 1,
-		"proxied": false,
+		"ttl":      1,
+		"proxied":  false,
 	}
 
 	if err := w.createDNSRecord(mxRecord2); err != nil {
@@ -219,7 +218,7 @@ func (w *CloudflareEmailWorker) SetupDNSRecords() error {
 		"type":    "TXT",
 		"name":    w.Domain,
 		"content": "v=spf1 include:_spf.mx.cloudflare.net ~all",
-		"ttl": 1,
+		"ttl":     1,
 		"proxied": false,
 	}
 
@@ -232,7 +231,7 @@ func (w *CloudflareEmailWorker) SetupDNSRecords() error {
 		"type":    "TXT",
 		"name":    "_dmarc." + w.Domain,
 		"content": "v=DMARC1; p=none; rua=mailto:dmarc-reports@nawthtech.com",
-		"ttl": 1,
+		"ttl":     1,
 		"proxied": false,
 	}
 
@@ -246,7 +245,7 @@ func (w *CloudflareEmailWorker) SetupDNSRecords() error {
 
 func (w *CloudflareEmailWorker) createDNSRecord(record map[string]interface{}) error {
 	url := fmt.Sprintf("https://api.cloudflare.com/client/v4/zones/%s/dns_records", w.ZoneID)
-	
+
 	jsonData, err := json.Marshal(record)
 	if err != nil {
 		return err
@@ -289,10 +288,10 @@ func (w *CloudflareEmailWorker) AddToAllowList(email string) error {
 	}
 
 	w.AllowedList = append(w.AllowedList, email)
-	
+
 	// Update environment variable
 	os.Setenv("EMAIL_ALLOWED_LIST", strings.Join(w.AllowedList, ","))
-	
+
 	// Redeploy worker with updated list
 	return w.DeployWorkerScript()
 }
@@ -301,7 +300,7 @@ func (w *CloudflareEmailWorker) AddToAllowList(email string) error {
 func (w *CloudflareEmailWorker) RemoveFromAllowList(email string) error {
 	var newList []string
 	found := false
-	
+
 	for _, existing := range w.AllowedList {
 		if !strings.EqualFold(existing, email) {
 			newList = append(newList, existing)
@@ -309,14 +308,14 @@ func (w *CloudflareEmailWorker) RemoveFromAllowList(email string) error {
 			found = true
 		}
 	}
-	
+
 	if !found {
 		return fmt.Errorf("email %s not found in allow list", email)
 	}
-	
+
 	w.AllowedList = newList
 	os.Setenv("EMAIL_ALLOWED_LIST", strings.Join(w.AllowedList, ","))
-	
+
 	return w.DeployWorkerScript()
 }
 
@@ -332,12 +331,12 @@ func (w *CloudflareEmailWorker) TestEmailRouting(testEmail string) error {
 	if testEmail == "" {
 		return fmt.Errorf("test email address is required")
 	}
-	
-	fmt.Printf("📧 Email routing test initialized\n")
+
+	fmt.Printf("Email routing test initialized\n")
 	fmt.Printf("   Domain: %s\n", w.Domain)
 	fmt.Printf("   Forward to: %s\n", w.ForwardTo)
 	fmt.Printf("   Allowed senders: %v\n", w.AllowedList)
 	fmt.Printf("   Test email: %s\n", testEmail)
-	
+
 	return nil
 }
