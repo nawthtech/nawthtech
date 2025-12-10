@@ -80,8 +80,8 @@ export default {
     const domain = env.DOMAIN || "nawthtech.com";
     
     // Log incoming email for debugging
-    console.log(\`📧 Email received from: \${message.from}\`);
-    console.log(\`📨 Subject: \${message.headers.get("subject")}\`);
+    console.log(\` Email received from: \${message.from}\`);
+    console.log(\` Subject: \${message.headers.get("subject")}\`);
     
     // Check if sender is in allowed list
     const senderEmail = message.from.toLowerCase().trim();
