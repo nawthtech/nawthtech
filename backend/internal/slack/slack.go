@@ -13,7 +13,7 @@ type SlackClient interface {
 	PushMessageWithAttachments(text string, attachments []slack.Attachment) (string, string, error)
 	PushMessageToChannel(channel, text string) (string, string, error)
 	UpdateMessage(channelURL, timestamp, text string) (string, string, string, error)
-	DeleteMessage(channelURL, timestamp string) (string, string, error)
+	DeleteMessage(channelURL, timestamp string) ( string, error)
 }
 
 type slackClient struct {
@@ -226,7 +226,7 @@ func (c *slackClient) UpdateMessage(channelURL, timestamp, text string) (string,
 }
 
 // DeleteMessage deletes a message
-func (c *slackClient) DeleteMessage(channelURL, timestamp string) (string, string, error) {
+func (c *slackClient) DeleteMessage(channelURL, timestamp string) ( string, error) {
 	if c == nil || c.api == nil {
 		return "", "", ErrClientNotInitialized
 	}
