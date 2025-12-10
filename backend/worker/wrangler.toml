@@ -1,103 +1,24 @@
 name = "nawthtech-api"
 main = "src/index.ts"
-compatibility_date = "2024-12-31"
-compatibility_flags = ["nodejs_compat"]
+compatibility_date = "2025-12-09"
 
-# Variables for all environments
+# متغيرات البيئة
 [vars]
 ENVIRONMENT = "production"
 APP_NAME = "NawthTech"
-APP_VERSION = "1.0.0"
-ALLOWED_ORIGINS = "https://nawthtech.com,https://www.nawthtech.com,https://admin.nawthtech.com"
-CACHE_TTL = "3600"
 
-# Environment specific configurations
+# قاعدة بيانات D1 (استخدم ID الحقيقي)
+[[d1_databases]]
+binding = "DB"
+database_name = "nawthtech-db1"
+database_id = "bbf15aeb-0718-47c8-9723-d8a83f79e6cb"
+
+# بيئات مختلفة
 [env.production]
-route = "api.nawthtech.com/*"
 name = "nawthtech-api-production"
 
 [env.staging]
-route = "staging-api.nawthtech.com/*"
 name = "nawthtech-api-staging"
 
 [env.development]
 name = "nawthtech-api-dev"
-
-# D1 Database
-[[d1_databases]]
-binding = "DB"
-database_name = "nawthtech_d1"
-database_id = "bbf15aeb-0718-47c8-9723-d8a83f79e6cb"
-preview_database_id = "YOUR_PREVIEW_D1_ID_HERE"
-
-# KV Namespace for caching
-[[kv_namespaces]]
-binding = "KV"
-id = "YOUR_KV_NAMESPACE_ID_HERE"
-preview_id = "YOUR_KV_PREVIEW_ID_HERE"
-
-# R2 Bucket for file storage
-[[r2_buckets]]
-binding = "R2"
-bucket_name = "nawthtech-storage"
-preview_bucket_name = "nawthtech-storage-preview"
-
-# Analytics Engine (optional)
-[[analytics_engine_datasets]]
-binding = "ANALYTICS"
-dataset = "nawthtech-analytics"
-
-# Email Routing
-[email.email_workers]
-bindings = [
-  { type = "forward_address", name = "FORWARD_TO", address = "admin@nawthtech.com" }
-]
-
-# Queues (optional)
-[[queues.producers]]
-queue = "ai-queue"
-binding = "AI_QUEUE"
-
-[[queues.consumers]]
-queue = "ai-queue"
-max_batch_size = 10
-max_batch_timeout = 30
-max_retries = 3
-
-# Scheduled Triggers (cron jobs)
-[triggers]
-crons = [
-  "0 */6 * * *",     # Every 6 hours: cleanup
-  "0 0 * * *",       # Daily at midnight: reset quotas
-  "*/5 * * * *",     # Every 5 minutes: health checks
-  "0 2 * * *",       # Daily at 2 AM: backups
-]
-
-# Limits
-[limits]
-cpu_ms = 50
-memory_mb = 128
-
-# Logs
-[logpush]
-enabled = true
-
-# Observability
-[observability]
-enabled = true
-
-# MTLS Certificates (optional)
-[mtls_certificates]
-binding = "MTLS"
-certificate_id = "YOUR_MTLS_CERTIFICATE_ID"
-
-# Service Bindings (for microservices)
-[[services]]
-binding = "AUTH_SERVICE"
-service = "nawthtech-auth"
-environment = "production"
-
-[[services]]
-binding = "AI_SERVICE"
-service = "nawthtech-ai"
-environment = "production"
