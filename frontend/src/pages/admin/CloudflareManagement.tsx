@@ -174,25 +174,22 @@ const CloudflareManagement: React.FC = () => {
           </Text>
         </Card>
 
-        <Card withBorder>
-          <Group justify="space-between" mb="md">
-            <Text fw={500}>KV Storage</Text>
-            <Badge color="green" variant="light">
-              {cloudflareMetrics?.kv?.keys || 0} مفتاح
-            </Badge>
-          </Group>
-          <Text size="xl" fw={700">
-            {cloudflareMetrics?.kv?.operations || 0}
-          </Text>
-          <Text size="sm" c="dimmed">عمليات اليوم</Text>
-          <Text size="xs" mt="xs">
-            معدل القراءة: {cloudflareMetrics?.kv?.readRate || 0}/ثانية
-          </Text>
-        </Card>
-      </SimpleGrid>
+       <Card withBorder>
+  <Group justify="space-between" mb="md">
+    <Text fw={500}>KV Storage</Text>
+    <Badge color="green" variant="light">
+      {cloudflareMetrics?.kv?.keys || 0} مفتاح
+    </Badge>
+  </Group>
+  <Text size="xl" fw={700}>
+    {cloudflareMetrics?.kv?.operations || 0}
+  </Text>
+  <Text size="sm" c="dimmed">عمليات اليوم</Text>
+  <Text size="xs" mt="xs">
+    معدل القراءة: {cloudflareMetrics?.kv?.readRate || 0}/ثانية
+  </Text>
+</Card>
 
-      {/* Workers Management */}
-      <Card withBorder mb="md">
         <Group justify="space-between" mb="md">
           <Title order={4}>Cloudflare Workers</Title>
           <Button 
