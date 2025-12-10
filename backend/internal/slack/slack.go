@@ -15,7 +15,10 @@ type SlackClient interface {
 	PushMessageWithAttachments(text string, attachments []slack.Attachment) (string, string, error)
 	PushMessageToChannel(channel, text string) (string, string, error)
 	UpdateMessage(channelURL, timestamp, text string) (string, string, string, error)
-	DeleteMessage(channelURL, timestamp string) (string, error) // غيرت لـ (string, error)
+	DeleteMessage(channelURL, timestamp string) (string, error)
+ SendAlert(alertType, title, message string) (string, string, error) 
+ SendDeploymentNotification(service, version, status, commitHash, commitMessage string) (string, string, error)
+ SendErrorNotification (err error, contextInfo map[stringlstring) (string, string, error)
 }
 
 type slackClient struct {
