@@ -109,7 +109,9 @@ NawthTech features a sophisticated dark theme design inspired by Sentry's modern
 ### Development Setup
 
 1. **Clone the Repository**
-```
+
+<div align="center">
+  
 git clone https://github.com/nawthtech/platform.git
 cd nawthtech-platform
 
@@ -171,6 +173,7 @@ We welcome contributions! Please see our Contributing Guide for details on how t
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
+</div>
 ---
 
 <div align="center">
