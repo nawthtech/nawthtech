@@ -77,7 +77,7 @@ func Init(options ...Option) error {
 }
 
 // Client returns the default client instance
-func Client() SlackClient {
+func Client() *slackClient {
 	if defaultClient == nil {
 		log.Println("[WARN] Slack client not initialized, returning nil")
 	}
