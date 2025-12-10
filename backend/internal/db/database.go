@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/nawthtech/backend/internal/config"
+	"github.com/nawthtech/nawthtech/backend/internal/config"
 )
 
 // إزالة MongoDB والتركيز على Worker API فقط
