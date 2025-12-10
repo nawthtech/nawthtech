@@ -190,6 +190,8 @@ const CloudflareManagement: React.FC = () => {
   </Text>
 </Card>
 
+      {/* Workers Management */}
+       <Card withBorder mb="md">
         <Group justify="space-between" mb="md">
           <Title order={4}>Cloudflare Workers</Title>
           <Button 
