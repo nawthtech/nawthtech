@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"time"
+ "bytes"
 )
 
 type CloudflareEmailConfig struct {
