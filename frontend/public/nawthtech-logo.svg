@@ -1,68 +1,41 @@
-<svg width="200" height="200" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
-  <defs>
-    <!-- تدرجات الألوان المستقبلية -->
-    <linearGradient id="mainGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#3A0CA3"/>
-      <stop offset="50%" stop-color="#7209B7"/>
-      <stop offset="100%" stop-color="#4BF2FF"/>
-    </linearGradient>
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="200" height="60" viewBox="0 0 200 60">
+    <defs>
+        <linearGradient id="gradient1" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color:#bc8cff;stop-opacity:1" />
+            <stop offset="100%" style="stop-color:#7c3aed;stop-opacity:1" />
+        </linearGradient>
+        <linearGradient id="gradient2" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color:#58a6ff;stop-opacity:1" />
+            <stop offset="100%" style="stop-color:#1f6feb;stop-opacity:1" />
+        </linearGradient>
+        <linearGradient id="gradient3" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color:#3fb950;stop-opacity:1" />
+            <stop offset="100%" style="stop-color:#238636;stop-opacity:1" />
+        </linearGradient>
+        <linearGradient id="gradient4" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color:#ff7b72;stop-opacity:1" />
+            <stop offset="100%" style="stop-color:#da3633;stop-opacity:1" />
+        </linearGradient>
+    </defs>
     
-    <linearGradient id="cyanGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#4BF2FF"/>
-      <stop offset="100%" stop-color="#00E5FF"/>
-    </linearGradient>
+    <!-- Nawth Text -->
+    <text x="10" y="35" font-family="'Segoe UI', 'Inter', 'Roboto', sans-serif" font-weight="800" font-size="28" fill="url(#gradient1)">Nawth</text>
     
-    <!-- تأثير التوهج -->
-    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
-      <feGaussianBlur stdDeviation="5" result="blur"/>
-      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
-    </filter>
+    <!-- Tech Badge -->
+    <rect x="95" y="10" rx="6" ry="6" width="50" height="24" fill="url(#gradient2)" opacity="0.9"/>
+    <text x="120" y="28" font-family="'Segoe UI', 'Inter', 'Roboto', sans-serif" font-weight="700" font-size="14" text-anchor="middle" fill="#ffffff">Tech</text>
     
-    <filter id="strongGlow" x="-50%" y="-50%" width="200%" height="200%">
-      <feGaussianBlur stdDeviation="8" result="blur"/>
-      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
-    </filter>
-  </defs>
-  
-  <!-- دائرة الخلفية الرئيسية -->
-  <circle cx="100" cy="100" r="80" fill="url(#mainGradient)" filter="url(#glow)"/>
-  
-  <!-- رمز N المستقبلي -->
-  <g filter="url(#strongGlow)">
-    <!-- الشكل الرئيسي لـ N -->
-    <path d="M 70 60 L 70 140 L 90 100 L 110 140 L 110 60 L 90 100 Z" 
-          fill="none" 
-          stroke="url(#cyanGradient)" 
-          stroke-width="8" 
-          stroke-linejoin="round"/>
+    <!-- AI Indicator -->
+    <circle cx="165" cy="15" r="8" fill="url(#gradient3)"/>
+    <text x="165" y="19" font-family="'Segoe UI', 'Inter', 'Roboto', sans-serif" font-weight="900" font-size="10" text-anchor="middle" fill="#ffffff">AI</text>
     
-    <!-- نقاط التوصيل المستقبلية -->
-    <circle cx="70" cy="60" r="6" fill="#4BF2FF"/>
-    <circle cx="70" cy="140" r="6" fill="#4BF2FF"/>
-    <circle cx="110" cy="60" r="6" fill="#4BF2FF"/>
-    <circle cx="110" cy="140" r="6" fill="#4BF2FF"/>
-    <circle cx="90" cy="100" r="6" fill="#4BF2FF"/>
+    <!-- Year 2025 -->
+    <rect x="175" y="35" rx="4" ry="4" width="20" height="16" fill="url(#gradient4)" opacity="0.8"/>
+    <text x="185" y="47" font-family="'Segoe UI', 'Inter', 'Roboto', sans-serif" font-weight="700" font-size="10" text-anchor="middle" fill="#ffffff">25</text>
     
-    <!-- خطوط الطاقة -->
-    <path d="M 75 65 L 85 95" 
-          stroke="#4BF2FF" 
-          stroke-width="2" 
-          stroke-dasharray="3,3"/>
-    <path d="M 105 65 L 95 95" 
-          stroke="#4BF2FF" 
-          stroke-width="2" 
-          stroke-dasharray="3,3"/>
-  </g>
-  
-  <!-- حلقات الطاقة -->
-  <circle cx="100" cy="100" r="65" fill="none" stroke="url(#cyanGradient)" stroke-width="2" opacity="0.6" stroke-dasharray="5,5"/>
-  <circle cx="100" cy="100" r="50" fill="none" stroke="url(#cyanGradient)" stroke-width="1" opacity="0.4" stroke-dasharray="3,3"/>
-  
-  <!-- تأثيرات الطاقة الإضافية -->
-  <g opacity="0.7">
-    <circle cx="100" cy="100" r="45" fill="none" stroke="#4BF2FF" stroke-width="1">
-      <animate attributeName="r" from="45" to="55" dur="2s" repeatCount="indefinite"/>
-      <animate attributeName="opacity" from="0.7" to="0.3" dur="2s" repeatCount="indefinite"/>
-    </circle>
-  </g>
+    <!-- Subtitles -->
+    <text x="10" y="55" font-family="'Segoe UI', 'Inter', 'Roboto', sans-serif" font-weight="600" font-size="12" fill="#8b949e">SOCIAL</text>
+    <text x="58" y="55" font-family="'Segoe UI', 'Inter', 'Roboto', sans-serif" font-weight="600" font-size="12" fill="#58a6ff">SMART</text>
+    <text x="110" y="55" font-family="'Segoe UI', 'Inter', 'Roboto', sans-serif" font-weight="600" font-size="12" fill="#3fb950">GROWTH</text>
 </svg>
