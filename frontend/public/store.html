@@ -111,7 +111,7 @@
         .logo-icon {
             width: 40px;
             height: 40px;
-            background: var(--gradient-purple);
+            background: none;
             border-radius: 10px;
             display: flex;
             align-items: center;
@@ -119,7 +119,13 @@
             color: white;
             font-weight: 700;
             font-size: 20px;
-            box-shadow: var(--shadow-glow);
+            box-shadow: none;
+        }
+
+        .logo-icon svg {
+            width: 100%;
+            height: 100%;
+            border-radius: 8px;
         }
 
         .sidebar-title {
@@ -251,6 +257,26 @@
             align-items: center;
             justify-content: space-between;
             gap: 2rem;
+        }
+
+        .header-logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-right: auto;
+            text-decoration: none;
+            color: var(--text-primary);
+            transition: all 0.3s ease;
+        }
+
+        .header-logo:hover {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
+
+        .header-logo svg {
+            width: 140px;
+            height: 30px;
         }
 
         .header-search {
@@ -1090,7 +1116,16 @@
         <aside class="store-sidebar">
             <div class="sidebar-header">
                 <div class="logo-icon">
-                    <i class="fas fa-store"></i>
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 40">
+                        <defs>
+                            <linearGradient id="sidebarGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" style="stop-color:#bc8cff;stop-opacity:1" />
+                                <stop offset="100%" style="stop-color:#7c3aed;stop-opacity:1" />
+                            </linearGradient>
+                        </defs>
+                        <rect x="5" y="5" width="30" height="30" rx="8" fill="url(#sidebarGradient)"/>
+                        <text x="20" y="25" font-family="'Segoe UI', 'Inter', sans-serif" font-weight="900" font-size="14" text-anchor="middle" fill="#ffffff">NT</text>
+                    </svg>
                 </div>
                 <div class="sidebar-title">
                     <span>NawthTech</span> متجر
@@ -1163,6 +1198,32 @@
         <main class="store-main">
             <!-- Header -->
             <header class="store-header">
+                <!-- الشعار -->
+                <a href="#" class="header-logo">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 40">
+                        <defs>
+                            <linearGradient id="headerGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" style="stop-color:#bc8cff;stop-opacity:1" />
+                                <stop offset="50%" style="stop-color:#7c3aed;stop-opacity:1" />
+                                <stop offset="100%" style="stop-color:#58a6ff;stop-opacity:1" />
+                            </linearGradient>
+                        </defs>
+                        
+                        <!-- Background Shape -->
+                        <rect x="5" y="5" width="30" height="30" rx="8" fill="url(#headerGradient)" opacity="0.9"/>
+                        
+                        <!-- NT Letters -->
+                        <text x="20" y="25" font-family="'Segoe UI', 'Inter', sans-serif" font-weight="900" font-size="16" text-anchor="middle" fill="#ffffff">NT</text>
+                        
+                        <!-- NawthTech Text -->
+                        <text x="50" y="28" font-family="'Segoe UI', 'Inter', sans-serif" font-weight="800" font-size="24" fill="url(#headerGradient)">NawthTech</text>
+                        
+                        <!-- AI Indicator -->
+                        <circle cx="145" cy="15" r="6" fill="#3fb950"/>
+                        <text x="145" y="18" font-family="'Segoe UI', 'Inter', sans-serif" font-weight="900" font-size="8" text-anchor="middle" fill="#ffffff">AI</text>
+                    </svg>
+                </a>
+                
                 <div class="header-search">
                     <input type="text" class="search-input" placeholder="ابحث في الخدمات..." dir="rtl">
                     <span class="search-icon"><i class="fas fa-search"></i></span>
