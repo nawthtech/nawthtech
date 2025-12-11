@@ -109,7 +109,7 @@ type (
 		IsActive   bool    `json:"is_active"`
 		IsFeatured bool    `json:"is_featured"`
 	}
-type ServiceContainer struct {
+ ServiceContainer struct {
 	Auth         AuthService
 	User         UserService
 	Service      ServiceService
