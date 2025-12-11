@@ -2,6 +2,7 @@ package health
 
 import (
 	"context"
+	"database/sql"
 	"net/http"
 	"runtime"
 	"time"
@@ -9,13 +10,11 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/nawthtech/nawthtech/backend/internal/config"
 	"github.com/nawthtech/nawthtech/backend/internal/services"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
 )
 
 // HealthHandler معالج فحوصات الصحة
 type HealthHandler struct {
-	mongoClient  *mongo.Client
+	db           *sql.DB           // Cloudflare D1 connection
 	cacheService services.CacheService
 	version      string
 	environment  string
@@ -24,9 +23,9 @@ type HealthHandler struct {
 }
 
 // NewHealthHandler إنشاء معالج صحة جديد
-func NewHealthHandler(mongoClient *mongo.Client, cacheService services.CacheService, config *config.Config) *HealthHandler {
+func NewHealthHandler(db *sql.DB, cacheService services.CacheService, config *config.Config) *HealthHandler {
 	return &HealthHandler{
-		mongoClient:  mongoClient,
+		db:           db,
 		cacheService: cacheService,
 		version:      config.Version,
 		environment:  config.Environment,
@@ -88,7 +87,7 @@ func (h *HealthHandler) Check(c *gin.Context) {
 	start := time.Now()
 	checks := make(map[string]HealthCheck)
 
-	// فحص قاعدة بيانات MongoDB
+	// فحص قاعدة بيانات Cloudflare D1
 	dbCheck := h.checkDatabase()
 	checks["database"] = dbCheck
 
@@ -148,7 +147,7 @@ func (h *HealthHandler) Live(c *gin.Context) {
 		"status":    "alive",
 		"timestamp": time.Now(),
 		"message":   "الخدمة حية وتعمل",
-		"database":  "MongoDB",
+		"database":  "Cloudflare D1",
 	}
 
 	c.JSON(http.StatusOK, gin.H{
@@ -166,16 +165,16 @@ func (h *HealthHandler) Live(c *gin.Context) {
 // @Success 200 {object} map[string]interface{}
 // @Router /health/ready [get]
 func (h *HealthHandler) Ready(c *gin.Context) {
-	// فحص قاعدة بيانات MongoDB
-	if h.mongoClient != nil {
+	// فحص قاعدة بيانات Cloudflare D1
+	if h.db != nil {
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
-		if err := h.mongoClient.Ping(ctx, nil); err != nil {
+		if err := h.db.PingContext(ctx); err != nil {
 			c.JSON(http.StatusServiceUnavailable, gin.H{
 				"success": false,
 				"message": "الخدمة غير جاهزة",
-				"error":   "MONGODB_CONNECTION_FAILED",
+				"error":   "DATABASE_CONNECTION_FAILED",
 				"details": "فشل في الاتصال بقاعدة البيانات",
 			})
 			return
@@ -184,7 +183,7 @@ func (h *HealthHandler) Ready(c *gin.Context) {
 		c.JSON(http.StatusServiceUnavailable, gin.H{
 			"success": false,
 			"message": "الخدمة غير جاهزة",
-			"error":   "MONGODB_NOT_CONFIGURED",
+			"error":   "DATABASE_NOT_CONFIGURED",
 			"details": "اتصال قاعدة البيانات غير مهيء",
 		})
 		return
@@ -194,7 +193,7 @@ func (h *HealthHandler) Ready(c *gin.Context) {
 		"status":    "ready",
 		"timestamp": time.Now(),
 		"message":   "الخدمة جاهزة لمعالجة الطلبات",
-		"database":  "MongoDB",
+		"database":  "Cloudflare D1",
 	}
 
 	c.JSON(http.StatusOK, gin.H{
@@ -271,7 +270,7 @@ func (h *HealthHandler) Detailed(c *gin.Context) {
 		"issues":          analysis.Issues,
 		"recommendations": analysis.Recommendations,
 		"summary":         analysis.Summary,
-		"database":        "MongoDB",
+		"database":        "Cloudflare D1",
 	}
 
 	c.JSON(http.StatusOK, gin.H{
@@ -331,7 +330,7 @@ func (h *HealthHandler) AdminHealth(c *gin.Context) {
 		"system_info":   sensitiveInfo,
 		"warnings":      h.getSystemWarnings(),
 		"maintenance":   h.getMaintenanceInfo(),
-		"database":      "MongoDB",
+		"database":      "Cloudflare D1",
 	}
 
 	c.JSON(http.StatusOK, gin.H{
@@ -348,7 +347,7 @@ func (h *HealthHandler) AdminHealth(c *gin.Context) {
 func (h *HealthHandler) checkDatabase() HealthCheck {
 	start := time.Now()
 
-	if h.mongoClient == nil {
+	if h.db == nil {
 		return HealthCheck{
 			Status:  "unhealthy",
 			Error:   "قاعدة البيانات غير مهيئة",
@@ -359,7 +358,7 @@ func (h *HealthHandler) checkDatabase() HealthCheck {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	err := h.mongoClient.Ping(ctx, nil)
+	err := h.db.PingContext(ctx)
 	responseTime := time.Since(start).String()
 
 	if err != nil {
@@ -367,14 +366,14 @@ func (h *HealthHandler) checkDatabase() HealthCheck {
 			Status:       "unhealthy",
 			ResponseTime: responseTime,
 			Error:        err.Error(),
-			Details:      "فشل في الاتصال بقاعدة بيانات MongoDB",
+			Details:      "فشل في الاتصال بقاعدة بيانات Cloudflare D1",
 		}
 	}
 
 	return HealthCheck{
 		Status:       "healthy",
 		ResponseTime: responseTime,
-		Details:      "الاتصال بقاعدة بيانات MongoDB نشط",
+		Details:      "الاتصال بقاعدة بيانات Cloudflare D1 نشط",
 	}
 }
 
@@ -490,7 +489,7 @@ func (h *HealthHandler) checkServices() HealthCheck {
 			"total_services":  len(services),
 			"active_services": len(services),
 			"services_list":   services,
-			"database":        "MongoDB",
+			"database":        "Cloudflare D1",
 		},
 	}
 }
@@ -501,7 +500,8 @@ func (h *HealthHandler) checkExternalServices() HealthCheck {
 		"Email Service",
 		"Payment Gateway",
 		"SMS Gateway",
-		"Cloudinary", // إضافة Cloudinary
+		"Cloudinary",
+		"Cloudflare D1",
 	}
 
 	return HealthCheck{
@@ -541,55 +541,55 @@ func (h *HealthHandler) checkPerformance() HealthCheck {
 			"throughput":       "عالٍ",
 			"error_rate":       "منخفض",
 			"concurrent_users": "150",
-			"database":         "MongoDB",
+			"database":         "Cloudflare D1",
 		},
 	}
 }
 
 func (h *HealthHandler) checkDatabaseDetailed() HealthCheck {
-	if h.mongoClient == nil {
+	if h.db == nil {
 		return HealthCheck{
 			Status: "unhealthy",
 			Error:  "قاعدة البيانات غير مهيئة",
 		}
 	}
 
-	// فحص مفصل لقاعدة بيانات MongoDB
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	// الحصول على معلومات قاعدة البيانات
-	database := h.mongoClient.Database("nawthtech")
-	collections, err := database.ListCollectionNames(ctx, nil)
+	// فحص اتصال قاعدة البيانات
+	err := h.db.PingContext(ctx)
 	if err != nil {
 		return HealthCheck{
 			Status:  "degraded",
 			Error:   err.Error(),
-			Details: "فشل في جلب معلومات المجموعات",
+			Details: "فشل في الاتصال بقاعدة البيانات",
 		}
 	}
 
-	// الحصول على إحصائيات الخادم بشكل مبسط
-	serverStatus := bson.M{}
-	err = database.RunCommand(ctx, bson.D{{Key: "serverStatus", Value: 1}}).Decode(&serverStatus)
+	// محاولة استعلام بسيط للتحقق من الجداول
+	var tableCount int
+	query := `SELECT COUNT(*) as count FROM sqlite_master WHERE type='table'`
+	err = h.db.QueryRowContext(ctx, query).Scan(&tableCount)
 
-	connections := make(map[string]interface{})
-	if err == nil {
-		if connData, ok := serverStatus["connections"]; ok {
-			if connMap, ok := connData.(map[string]interface{}); ok {
-				connections = connMap
-			}
+	if err != nil {
+		return HealthCheck{
+			Status: "healthy",
+			Details: gin.H{
+				"database_name": "Cloudflare D1",
+				"connection":    "نشط",
+				"query_error":   "لا يمكن قراءة جداول النظام",
+			},
 		}
 	}
 
 	return HealthCheck{
 		Status: "healthy",
 		Details: gin.H{
-			"database_name":    "nawthtech",
-			"collection_count": len(collections),
-			"collections":      collections,
-			"connections":      connections,
-			"status":           "نشط",
+			"database_name": "Cloudflare D1",
+			"table_count":   tableCount,
+			"connection":    "نشط",
+			"status":        "ممتاز",
 		},
 	}
 }
@@ -619,20 +619,21 @@ func (h *HealthHandler) checkSecurity() HealthCheck {
 			"rate_limiting":  true,
 			"authentication": true,
 			"environment":    h.config.Environment,
-			"database":       "MongoDB",
+			"database":       "Cloudflare D1",
 		},
 	}
 }
 
 func (h *HealthHandler) checkServicesStatus() HealthCheck {
 	services := map[string]string{
-		"API Server":      "نشط",
-		"Database":        "MongoDB - نشط",
-		"Cache":           "نشط",
-		"Authentication":  "نشط",
-		"File Storage":    "Cloudinary - نشط",
-		"Email Service":   "نشط",
-		"Payment Gateway": "نشط",
+		"API Server":         "نشط",
+		"Database":           "Cloudflare D1 - نشط",
+		"Cache":              "نشط",
+		"Authentication":     "نشط",
+		"File Storage":       "Cloudinary - نشط",
+		"Email Service":      "نشط",
+		"Payment Gateway":    "نشط",
+		"Cloudflare Workers": "نشط",
 	}
 
 	return HealthCheck{
@@ -646,9 +647,9 @@ func (h *HealthHandler) checkConfiguration() HealthCheck {
 		"environment":         h.config.Environment,
 		"debug_mode":          h.config.Environment == "development",
 		"port":                h.config.Port,
-		"database_configured": h.mongoClient != nil,
+		"database_configured": h.db != nil,
 		"cache_configured":    h.cacheService != nil,
-		"database_type":       "MongoDB",
+		"database_type":       "Cloudflare D1",
 	}
 
 	return HealthCheck{
@@ -670,7 +671,7 @@ func (h *HealthHandler) getSystemMetrics() gin.H {
 			"goroutines":         runtime.NumGoroutine(),
 			"uptime":             time.Since(h.startTime).String(),
 			"requests_processed": 1250,
-			"database":           "MongoDB",
+			"database":           "Cloudflare D1",
 		},
 		"services": gin.H{
 			"active_services": 8,
@@ -715,7 +716,7 @@ func (h *HealthHandler) getSensitiveInfo() gin.H {
 	return gin.H{
 		"server_time":        time.Now(),
 		"go_version":         runtime.Version(),
-		"database_driver":    "MongoDB",
+		"database_driver":    "Cloudflare D1",
 		"cache_engine":       "In-Memory",
 		"active_sessions":    150,
 		"config_environment": h.config.Environment,
@@ -737,7 +738,7 @@ func (h *HealthHandler) getSystemWarnings() []string {
 		warnings = append(warnings, "عدد الـ goroutines مرتفع")
 	}
 
-	if h.mongoClient == nil {
+	if h.db == nil {
 		warnings = append(warnings, "قاعدة البيانات غير مهيئة")
 	}
 
