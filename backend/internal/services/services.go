@@ -1483,7 +1483,8 @@ func (s *paymentServiceImpl) CreatePaymentIntent(ctx context.Context, req Paymen
 			"order_id": req.OrderID,
 		},
 	}
-
+     return paymentIntent, nil
+}
 func (s *paymentServiceImpl) ConfirmPayment(ctx context.Context, paymentID string, confirmationData map[string]interface{}) (*PaymentResult, error) {
 	_, err := s.db.ExecContext(ctx,
 		"UPDATE payments SET status = 'completed', updated_at = ? WHERE id = ?",
