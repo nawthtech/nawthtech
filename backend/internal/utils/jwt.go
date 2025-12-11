@@ -34,7 +34,7 @@ func GenerateJWT(cfg *config.Config, userID, email, role string) (string, string
 		Role:   role,
 		RegisteredClaims: jwt.RegisteredClaims{
 			IssuedAt:  jwt.NewNumericDate(now),
-			ExpiresAt: jwt.NewNumericDate(now.Add(cfg.Auth.JWTExpiration)),
+			ExpiresAt := now.Add(time.Second * time.Duration(cfg.Auth.JWTExpiration)),
 			Issuer:    "nawthtech",
 		},
 	}
@@ -47,7 +47,7 @@ func GenerateJWT(cfg *config.Config, userID, email, role string) (string, string
 	// refresh token (longer expiry)
 	refreshClaims := jwt.RegisteredClaims{
 		IssuedAt:  jwt.NewNumericDate(now),
-		ExpiresAt: jwt.NewNumericDate(now.Add(cfg.Auth.RefreshExpiration)),
+		refreshExpiresAt:= now.Add(time.Second * time.Duration(cfg.Auth.RefreshExpiration)),
 		Issuer:    "nawthtech",
 		Subject:   userID,
 	}
