@@ -18,6 +18,21 @@ enabled = true
 persist = true
 head_sampling_rate = 1
 
+[observability]
+enabled = true
+
+[[observability.destinations]]
+type = "traces"
+name = "sentry-traces"
+endpoint = "https://o4510508331892736.ingest.de.sentry.io/api/4510508452413520/integration/otlp/v1/traces"
+headers = { "x-sentry-auth=sentry sentry_key=703dc8c9404510702c2c20ce3aba24d4" }
+
+[[observability.destinations]]
+type = "logs"
+name = "sentry-logs"
+endpoint = "https://o4510508331892736.ingest.de.sentry.io/api/4510508452413520/integration/otlp/v1/logs"
+headers = { "x-sentry-auth=sentry sentry_key=703dc8c9404510702c2c20ce3aba24d4" }
+
 # متغيرات البيئة
 [vars]
 ENVIRONMENT = "production"
