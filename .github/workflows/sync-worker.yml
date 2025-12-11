@@ -1,4 +1,3 @@
-# في: nawthtech/nawthtech/.github/workflows/sync-worker.yml
 name: Sync Worker to API-D1 Repo
 
 on:
