@@ -109,6 +109,32 @@ type (
 		IsActive   bool    `json:"is_active"`
 		IsFeatured bool    `json:"is_featured"`
 	}
+type ServiceContainer struct {
+	Auth         AuthService
+	User         UserService
+	Service      ServiceService
+	Category     CategoryService
+	Order        OrderService
+	Payment      PaymentService  // تأكد من وجود هذا
+	Upload       UploadService
+	Notification NotificationService
+	Admin        AdminService
+	Cache        CacheService
+}
+
+func NewServiceContainer(d1db *sql.DB) *ServiceContainer {
+	return &ServiceContainer{
+		Auth:         NewAuthService(d1db),
+		User:         NewUserService(d1db),
+		Service:      NewServiceService(d1db),
+		Category:     NewCategoryService(d1db),
+		Order:        NewOrderService(d1db),
+		Payment:      NewPaymentService(d1db),  // أضف هذا السطر
+		Upload:       NewUploadService(d1db),
+		Notification: NewNotificationService(d1db),
+		Admin:        NewAdminService(d1db),
+		Cache:        NewCacheService(),
+	}
 
 	CategoryCreateRequest struct {
 		Name  string `json:"name"`
