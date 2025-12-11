@@ -21,7 +21,7 @@ func AuthMiddleware() gin.HandlerFunc {
 				})
 				c.Abort()
 				return
-			})
+			}
 
 			// Validate API key
 			func ()validateAPIKey(apiKey string) bool {
