@@ -109,7 +109,7 @@ type (
 		IsActive   bool    `json:"is_active"`
 		IsFeatured bool    `json:"is_featured"`
 	}
- ServiceContainer struct {
+type ServiceContainer struct {
 	Auth         AuthService
 	User         UserService
 	Service      ServiceService
@@ -121,7 +121,7 @@ type (
 	Admin        AdminService
 	Cache        CacheService
 }
-
+}
 func NewServiceContainer(d1db *sql.DB) *ServiceContainer {
 	return &ServiceContainer{
 		Auth:         NewAuthService(d1db),
