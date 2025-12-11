@@ -20,6 +20,8 @@ import (
 	"unicode"
 
 	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt/v5"
+	"github.com/nawthtech/nawthtech/backend/internal/config"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -55,6 +57,17 @@ type MemoryStats struct {
 type ValidationError struct {
 	Field   string `json:"field"`
 	Message string `json:"message"`
+}
+
+// ========== هياكل JWT ==========
+
+// JWTClaims هياكل البيانات لـ JWT
+type JWTClaims struct {
+	UserID   string `json:"user_id"`
+	UserRole string `json:"user_role"`
+	Email    string `json:"email,omitempty"`
+	Name     string `json:"name,omitempty"`
+	jwt.RegisteredClaims
 }
 
 // ========== دوال الاستجابة ==========
@@ -115,6 +128,233 @@ func extractPagination(data interface{}) (*Pagination, bool) {
 	}
 
 	return nil, false
+}
+
+// ========== دوال JWT ==========
+
+// GenerateJWT إنشاء توكن JWT جديد
+func GenerateJWT(cfg *config.Config, userID, userRole string, additionalClaims map[string]interface{}) (string, error) {
+	if cfg == nil {
+		return "", fmt.Errorf("config is required")
+	}
+	if userID == "" {
+		return "", fmt.Errorf("userID is required")
+	}
+	if cfg.Auth.JWTSecret == "" {
+		return "", fmt.Errorf("JWT secret is not configured")
+	}
+
+	// إنشاء الـ claims
+	claims := JWTClaims{
+		UserID:   userID,
+		UserRole: userRole,
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(cfg.Auth.JWTExpiration)),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			Issuer:    "nawthtech",
+			Subject:   userID,
+		},
+	}
+
+	// إضافة الـ claims الإضافية
+	if email, ok := additionalClaims["email"].(string); ok && email != "" {
+		claims.Email = email
+	}
+	if name, ok := additionalClaims["name"].(string); ok && name != "" {
+		claims.Name = name
+	}
+
+	// إنشاء التوكن
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	
+	// توقيع التوكن
+	tokenString, err := token.SignedString([]byte(cfg.Auth.JWTSecret))
+	if err != nil {
+		return "", fmt.Errorf("failed to sign token: %v", err)
+	}
+
+	return tokenString, nil
+}
+
+// VerifyJWT تحقق من صحة التوكن JWT
+func VerifyJWT(cfg *config.Config, tokenString string) (*JWTClaims, error) {
+	if cfg == nil {
+		return nil, fmt.Errorf("config is required")
+	}
+	if tokenString == "" {
+		return nil, fmt.Errorf("token is empty")
+	}
+	if cfg.Auth.JWTSecret == "" {
+		return nil, fmt.Errorf("JWT secret is not configured")
+	}
+
+	// إزالة "Bearer " إذا موجود
+	tokenString = strings.TrimPrefix(tokenString, "Bearer ")
+
+	// تحقق من التوكن
+	token, err := jwt.ParseWithClaims(tokenString, &JWTClaims{}, func(token *jwt.Token) (interface{}, error) {
+		// تحقق من خوارزمية التوقيع
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		}
+		return []byte(cfg.Auth.JWTSecret), nil
+	})
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse token: %v", err)
+	}
+
+	if claims, ok := token.Claims.(*JWTClaims); ok && token.Valid {
+		// تحقق إضافي إذا انتهت صلاحية التوكن
+		if claims.ExpiresAt != nil && claims.ExpiresAt.Time.Before(time.Now()) {
+			return nil, fmt.Errorf("token has expired")
+		}
+		return claims, nil
+	}
+
+	return nil, fmt.Errorf("invalid token")
+}
+
+// GenerateRefreshToken إنشاء refresh token
+func GenerateRefreshToken(cfg *config.Config, userID string) (string, error) {
+	if cfg == nil {
+		return "", fmt.Errorf("config is required")
+	}
+	if userID == "" {
+		return "", fmt.Errorf("userID is required")
+	}
+	if cfg.Auth.RefreshSecret == "" {
+		return "", fmt.Errorf("refresh secret is not configured")
+	}
+
+	claims := jwt.RegisteredClaims{
+		ExpiresAt: jwt.NewNumericDate(time.Now().Add(cfg.Auth.RefreshExpiration)),
+		IssuedAt:  jwt.NewNumericDate(time.Now()),
+		Issuer:    "nawthtech",
+		Subject:   userID,
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	tokenString, err := token.SignedString([]byte(cfg.Auth.RefreshSecret))
+	if err != nil {
+		return "", fmt.Errorf("failed to sign refresh token: %v", err)
+	}
+
+	return tokenString, nil
+}
+
+// VerifyRefreshToken تحقق من صحة refresh token
+func VerifyRefreshToken(cfg *config.Config, tokenString string) (string, error) {
+	if cfg == nil {
+		return "", fmt.Errorf("config is required")
+	}
+	if tokenString == "" {
+		return "", fmt.Errorf("token is empty")
+	}
+	if cfg.Auth.RefreshSecret == "" {
+		return "", fmt.Errorf("refresh secret is not configured")
+	}
+
+	token, err := jwt.ParseWithClaims(tokenString, &jwt.RegisteredClaims{}, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		}
+		return []byte(cfg.Auth.RefreshSecret), nil
+	})
+
+	if err != nil {
+		return "", fmt.Errorf("failed to parse refresh token: %v", err)
+	}
+
+	if claims, ok := token.Claims.(*jwt.RegisteredClaims); ok && token.Valid {
+		if claims.ExpiresAt != nil && claims.ExpiresAt.Time.Before(time.Now()) {
+			return "", fmt.Errorf("refresh token has expired")
+		}
+		return claims.Subject, nil
+	}
+
+	return "", fmt.Errorf("invalid refresh token")
+}
+
+// GeneratePasswordResetToken إنشاء توكن إعادة تعيين كلمة المرور
+func GeneratePasswordResetToken(cfg *config.Config, userID string) (string, error) {
+	if cfg == nil {
+		return "", fmt.Errorf("config is required")
+	}
+	if userID == "" {
+		return "", fmt.Errorf("userID is required")
+	}
+
+	claims := jwt.RegisteredClaims{
+		ExpiresAt: jwt.NewNumericDate(time.Now().Add(cfg.Auth.ResetTokenExpiry)),
+		IssuedAt:  jwt.NewNumericDate(time.Now()),
+		Issuer:    "nawthtech",
+		Subject:   userID,
+		ID:        GenerateRandomString(16),
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	tokenString, err := token.SignedString([]byte(cfg.Auth.JWTSecret))
+	if err != nil {
+		return "", fmt.Errorf("failed to sign reset token: %v", err)
+	}
+
+	return tokenString, nil
+}
+
+// VerifyPasswordResetToken تحقق من توكن إعادة تعيين كلمة المرور
+func VerifyPasswordResetToken(cfg *config.Config, tokenString string) (string, error) {
+	if cfg == nil {
+		return "", fmt.Errorf("config is required")
+	}
+	if tokenString == "" {
+		return "", fmt.Errorf("token is empty")
+	}
+	if cfg.Auth.JWTSecret == "" {
+		return "", fmt.Errorf("JWT secret is not configured")
+	}
+
+	token, err := jwt.ParseWithClaims(tokenString, &jwt.RegisteredClaims{}, func(token *jwt.Token) (interface{}, error) {
+		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
+		}
+		return []byte(cfg.Auth.JWTSecret), nil
+	})
+
+	if err != nil {
+		return "", fmt.Errorf("failed to parse reset token: %v", err)
+	}
+
+	if claims, ok := token.Claims.(*jwt.RegisteredClaims); ok && token.Valid {
+		if claims.ExpiresAt != nil && claims.ExpiresAt.Time.Before(time.Now()) {
+			return "", fmt.Errorf("reset token has expired")
+		}
+		return claims.Subject, nil
+	}
+
+	return "", fmt.Errorf("invalid reset token")
+}
+
+// ExtractUserIDFromToken استخراج معرف المستخدم من التوكن
+func ExtractUserIDFromToken(tokenString string) (string, error) {
+	// دالة مساعدة لاستخراج userID من التوكن بدون التحقق من التوقيع
+	if tokenString == "" {
+		return "", fmt.Errorf("token is empty")
+	}
+
+	tokenString = strings.TrimPrefix(tokenString, "Bearer ")
+
+	// محاولة تحليل التوكن بدون التحقق من التوقيع (للاستخدام في حالات محددة)
+	token, _, err := new(jwt.Parser).ParseUnverified(tokenString, &JWTClaims{})
+	if err != nil {
+		return "", fmt.Errorf("failed to parse token: %v", err)
+	}
+
+	if claims, ok := token.Claims.(*JWTClaims); ok {
+		return claims.UserID, nil
+	}
+
+	return "", fmt.Errorf("invalid token structure")
 }
 
 // ========== دوال الترقيم ==========
@@ -1076,4 +1316,43 @@ func GenerateErrorResponse(message, errorCode string) gin.H {
 		"message": message,
 		"error":   errorCode,
 	}
+}
+
+// GetUserFromContext الحصول على بيانات المستخدم من السياق
+func GetUserFromContext(c *gin.Context) map[string]interface{} {
+	userData := make(map[string]interface{})
+	
+	if userID := GetCurrentUserID(c); userID != "" {
+		userData["user_id"] = userID
+	}
+	
+	if userRole := GetCurrentUserRole(c); userRole != "" {
+		userData["user_role"] = userRole
+	}
+	
+	return userData
+}
+
+// GetPaginationFromQuery الحصول على معلومات الترقيم من الاستعلام
+func GetPaginationFromQuery(c *gin.Context) (int, int, int) {
+	page := GetQueryInt(c, "page", 1)
+	limit := GetQueryInt(c, "limit", 20)
+	offset := (page - 1) * limit
+	
+	return page, limit, offset
+}
+
+// ValidateAccessToken التحقق من توكن الوصول
+func ValidateAccessToken(c *gin.Context, cfg *config.Config) (bool, *JWTClaims) {
+	authHeader := c.GetHeader("Authorization")
+	if authHeader == "" {
+		return false, nil
+	}
+	
+	claims, err := VerifyJWT(cfg, authHeader)
+	if err != nil {
+		return false, nil
+	}
+	
+	return true, claims
 }

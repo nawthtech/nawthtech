@@ -24,7 +24,7 @@ func AuthMiddleware() gin.HandlerFunc {
 			}
 
 			// Validate API key
-			func ()validateAPIKey(apiKey string) bool {
+			func validateAPIKey(apiKey string) bool {
     // تنفيذ التحقق من مفتاح API
     return apiKey != ""
 }

@@ -1483,20 +1483,6 @@ func (s *paymentServiceImpl) CreatePaymentIntent(ctx context.Context, req Paymen
 			"order_id": req.OrderID,
 		},
 	}
-	
-	metadataJSON, _ := json.Marshal(paymentIntent.Metadata)
-	
-	_, err := s.db.ExecContext(ctx,
-		`INSERT INTO payments (id, order_id, amount, currency, status, transaction_id, created_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?)`,
-		paymentID, req.OrderID, req.Amount, req.Currency, "pending", paymentIntent.ClientSecret, time.Now(),
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create payment: %w", err)
-	}
-	
-	return paymentIntent, nil
-}
 
 func (s *paymentServiceImpl) ConfirmPayment(ctx context.Context, paymentID string, confirmationData map[string]interface{}) (*PaymentResult, error) {
 	_, err := s.db.ExecContext(ctx,

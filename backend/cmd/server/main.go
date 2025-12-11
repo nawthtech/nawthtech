@@ -16,7 +16,7 @@ import (
 	"github.com/nawthtech/nawthtech/backend/internal/handlers"
 	"github.com/nawthtech/nawthtech/backend/internal/logger"
 	"github.com/nawthtech/nawthtech/backend/internal/middleware"
-	"github.com/nawthtech/nawthtech/backend/internal/routes"
+	"github.com/nawthtech/nawthtech/backend/internal/router"
 	"github.com/nawthtech/nawthtech/backend/internal/services"
 	"github.com/nawthtech/nawthtech/backend/internal/slack"
 )

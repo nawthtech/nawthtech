@@ -9,18 +9,21 @@ import (
 	"github.com/nawthtech/nawthtech/backend/internal/utils"
 )
 
-// Simple CORS
+// CORSMiddleware handles Cross-Origin Resource Sharing
 func CORSMiddleware(cfg *config.Config) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		origin := c.GetHeader("Origin")
-allowedOrigins := cfg.CORS.AllowedOrigins
-// و
-for _, origin := range cfg.CORS.AllowedOrigins
+		allowedOrigins := cfg.CORS.AllowedOrigins
+		
+		// Check if origin is allowed
+		allowed := false
+		for _, o := range allowedOrigins {
 			if o == origin || o == "*" {
 				allowed = true
 				break
 			}
 		}
+		
 		if allowed {
 			c.Header("Access-Control-Allow-Origin", origin)
 			c.Header("Access-Control-Allow-Methods", strings.Join(cfg.CORS.AllowedMethods, ","))
@@ -29,10 +32,12 @@ for _, origin := range cfg.CORS.AllowedOrigins
 				c.Header("Access-Control-Allow-Credentials", "true")
 			}
 		}
+		
 		if c.Request.Method == "OPTIONS" {
 			c.AbortWithStatus(http.StatusNoContent)
 			return
 		}
+		
 		c.Next()
 	}
 }
@@ -45,12 +50,14 @@ func AuthMiddleware(cfg *config.Config) gin.HandlerFunc {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"success": false, "error": "UNAUTHORIZED"})
 			return
 		}
+		
 		token := strings.TrimPrefix(auth, "Bearer ")
 		claims, err := utils.VerifyJWT(cfg, token)
 		if err != nil {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"success": false, "error": "INVALID_TOKEN"})
 			return
 		}
+		
 		// set user in context
 		c.Set("user_id", claims.UserID)
 		c.Next()
