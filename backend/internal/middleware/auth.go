@@ -24,20 +24,15 @@ func AuthMiddleware() gin.HandlerFunc {
 			}
 
 			// Validate API key
-			userID, userRole, err := validateAPIKey(apiKey)
-			if err != nil {
-				c.JSON(http.StatusUnauthorized, gin.H{
-					"error": "Invalid API key",
-				})
-				c.Abort()
-				return
-			}
+			func validateAPIKey(apiKey string) bool {
+    // تنفيذ التحقق من مفتاح API
+    return apiKey != ""
+}
 
-			c.Set("userID", userID)
-			c.Set("userRole", userRole)
-			c.Next()
-			return
-		}
+func extractUserIDFromToken(tokenString string) (string, error) {
+    // تنفيذ استخراج user ID من الرمز
+    return "", nil
+}
 
 		// Handle JWT token
 		parts := strings.Split(authHeader, " ")
