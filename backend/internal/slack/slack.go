@@ -18,7 +18,7 @@ type SlackClient interface {
 	DeleteMessage(channelURL, timestamp string) (string, error)
  SendAlert(alertType, title, message string) (string, string, error) 
  SendDeploymentNotification(service, version, status, commitHash, commitMessage string) (string, string, error)
- SendErrorNotification (err error, contextInfo map[stringlstring) (string, string, error)
+ SendErrorNotification (err error, contextInfo map[string]string) (string, string, error)
 }
 
 type slackClient struct {
