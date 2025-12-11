@@ -442,14 +442,6 @@ func GetUserIDFromGinContext(c *gin.Context) string {
 	return ""
 }
 
-// GetUserRoleFromContext الحصول على دور المستخدم من السياق
-func GetUserRoleFromContext(ctx context.Context) string {
-	if userRole, ok := ctx.Value("userRole").(string); ok {
-		return userRole
-	}
-	return ""
-}
-
 // WithTimeout إنشاء سياق مع مهلة زمنية
 func WithTimeout(ctx context.Context, timeout time.Duration) (context.Context, context.CancelFunc) {
 	return context.WithTimeout(ctx, timeout)
