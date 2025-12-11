@@ -109,7 +109,7 @@ type (
 		IsActive   bool    `json:"is_active"`
 		IsFeatured bool    `json:"is_featured"`
 	}
-type ServiceContainer struct {
+ ServiceContainer struct {
 	Auth         AuthService
 	User         UserService
 	Service      ServiceService
@@ -121,22 +121,7 @@ type ServiceContainer struct {
 	Admin        AdminService
 	Cache        CacheService
 }
-}
-func NewServiceContainer(d1db *sql.DB) *ServiceContainer {
-	return &ServiceContainer{
-		Auth:         NewAuthService(d1db),
-		User:         NewUserService(d1db),
-		Service:      NewServiceService(d1db),
-		Category:     NewCategoryService(d1db),
-		Order:        NewOrderService(d1db),
-		Payment:      NewPaymentService(d1db),  // أضف هذا السطر
-		Upload:       NewUploadService(d1db),
-		Notification: NewNotificationService(d1db),
-		Admin:        NewAdminService(d1db),
-		Cache:        NewCacheService(),
-	}
-
-	CategoryCreateRequest struct {
+CategoryCreateRequest struct {
 		Name  string `json:"name"`
 		Slug  string `json:"slug"`
 		Image string `json:"image"`
@@ -183,6 +168,22 @@ func NewServiceContainer(d1db *sql.DB) *ServiceContainer {
 		TotalRevenue  float64 `json:"total_revenue"`
 		AvgOrderValue float64 `json:"avg_order_value"`
 	}
+}
+func NewServiceContainer(d1db *sql.DB) *ServiceContainer {
+	return &ServiceContainer{
+		Auth:         NewAuthService(d1db),
+		User:         NewUserService(d1db),
+		Service:      NewServiceService(d1db),
+		Category:     NewCategoryService(d1db),
+		Order:        NewOrderService(d1db),
+		Payment:      NewPaymentService(d1db),  // أضف هذا السطر
+		Upload:       NewUploadService(d1db),
+		Notification: NewNotificationService(d1db),
+		Admin:        NewAdminService(d1db),
+		Cache:        NewCacheService(),
+	}
+
+	
 )
 // ================================
 // هياكل طلبات الدفع
@@ -260,6 +261,7 @@ type RefundRequest struct {
 	Amount    float64 `json:"amount"`
 	Reason    string  `json:"reason,omitempty"`
 }
+
 
 type RefundResult struct {
 	ID        string    `json:"id"`
