@@ -1268,13 +1268,13 @@ func (s *categoryServiceImpl) GetCategoryTree(ctx context.Context) ([]CategoryNo
 		if category.ParentID == "" {
 			// فئة جذرية
 			node := CategoryNode{
-				Category: category,
+				Category: &category,
 				Children: []CategoryNode{},
 			}
 			rootNodes = append(rootNodes, node)
 		} else {
 			// فئة فرعية
-			childrenMap[category.ParentID] = append(childrenMap[category.ParentID], category)
+			childrenMap[category.ParentID] = append(childrenMap[category.ParentID], &category)
 		}
 	}
 	
