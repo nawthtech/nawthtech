@@ -285,3 +285,234 @@ func CreateIndexes(ctx context.Context) error {
 	log.Println("✅ Database indexes created successfully")
 	return nil
 }
+
+// ================================
+// دوال Health الإضافية
+// ================================
+
+// GetDatabaseStats ترجع إحصائيات قاعدة البيانات مفصلة
+func (d *DB) GetDatabaseStats(ctx context.Context) (map[string]interface{}, error) {
+	if d == nil || d.DB == nil {
+		return nil, fmt.Errorf("database not initialized")
+	}
+
+	stats := d.DB.Stats()
+	
+	// الحصول على إحصائيات إضافية حسب نوع قاعدة البيانات
+	var dbInfo map[string]interface{}
+	
+	// محاولة الحصول على معلومات قاعدة البيانات (يعمل مع SQLite)
+	if d.GetDriver() == "sqlite3" {
+		var version string
+		err := d.DB.QueryRowContext(ctx, "SELECT sqlite_version()").Scan(&version)
+		if err == nil {
+			dbInfo = map[string]interface{}{
+				"driver":    d.GetDriver(),
+				"version":   version,
+				"max_conns": stats.MaxOpenConnections,
+				"open_conns": stats.OpenConnections,
+				"in_use":    stats.InUse,
+				"idle":      stats.Idle,
+				"wait_count": stats.WaitCount,
+				"wait_duration_ms": stats.WaitDuration.Milliseconds(),
+				"max_idle_closed": stats.MaxIdleClosed,
+				"max_lifetime_closed": stats.MaxLifetimeClosed,
+			}
+		}
+	} else {
+		dbInfo = map[string]interface{}{
+			"driver":    d.GetDriver(),
+			"max_conns": stats.MaxOpenConnections,
+			"open_conns": stats.OpenConnections,
+			"in_use":    stats.InUse,
+			"idle":      stats.Idle,
+			"wait_count": stats.WaitCount,
+			"wait_duration_ms": stats.WaitDuration.Milliseconds(),
+		}
+	}
+
+	return dbInfo, nil
+}
+
+// GetDriver ترجع نوع قاعدة البيانات
+func (d *DB) GetDriver() string {
+	// محاولة تحديد نوع قاعدة البيانات من الـ DSN
+	if d == nil || d.DB == nil {
+		return "unknown"
+	}
+	
+	// يمكن تحسين هذا المنطق بناءً على تكوينك الفعلي
+	return "sqlite3" // أو "postgres" حسب تكوينك
+}
+
+// TestQuery تجربة استعلام اختبار
+func (d *DB) TestQuery(ctx context.Context) (time.Duration, error) {
+	if d == nil || d.DB == nil {
+		return 0, fmt.Errorf("database not initialized")
+	}
+
+	startTime := time.Now()
+	
+	var result int
+	err := d.DB.QueryRowContext(ctx, "SELECT 1").Scan(&result)
+	
+	duration := time.Since(startTime)
+	
+	if err != nil {
+		return duration, fmt.Errorf("test query failed: %w", err)
+	}
+	
+	if result != 1 {
+		return duration, fmt.Errorf("unexpected test result: %d", result)
+	}
+	
+	return duration, nil
+}
+
+// CheckDatabaseHealth فحص صحة قاعدة البيانات شامل
+func (d *DB) CheckDatabaseHealth(ctx context.Context) (map[string]interface{}, error) {
+	health := make(map[string]interface{})
+	
+	// 1. التحقق من الاتصال
+	startTime := time.Now()
+	connected, err := IsConnected()
+	pingTime := time.Since(startTime)
+	
+	health["connected"] = connected
+	health["ping_time_ms"] = pingTime.Milliseconds()
+	health["connection_error"] = nil
+	
+	if err != nil {
+		health["connection_error"] = err.Error()
+		health["overall_status"] = "unhealthy"
+		return health, err
+	}
+	
+	// 2. اختبار استعلام
+	queryTime, queryErr := d.TestQuery(ctx)
+	health["query_time_ms"] = queryTime.Milliseconds()
+	health["query_error"] = nil
+	
+	if queryErr != nil {
+		health["query_error"] = queryErr.Error()
+		health["overall_status"] = "degraded"
+	} else {
+		health["overall_status"] = "healthy"
+	}
+	
+	// 3. إحصائيات قاعدة البيانات
+	if stats, err := d.GetDatabaseStats(ctx); err == nil {
+		health["stats"] = stats
+	}
+	
+	// 4. معلومات عامة
+	health["driver"] = d.GetDriver()
+	health["timestamp"] = time.Now().UTC().Format(time.RFC3339)
+	
+	return health, nil
+}
+
+// GetConnectionInfo معلومات الاتصال بقاعدة البيانات
+func (d *DB) GetConnectionInfo() map[string]interface{} {
+	info := make(map[string]interface{})
+	
+	if d == nil || d.DB == nil {
+		info["status"] = "not_initialized"
+		return info
+	}
+	
+	stats := d.DB.Stats()
+	info["status"] = "connected"
+	info["driver"] = d.GetDriver()
+	info["max_open_connections"] = stats.MaxOpenConnections
+	info["open_connections"] = stats.OpenConnections
+	info["in_use"] = stats.InUse
+	info["idle"] = stats.Idle
+	info["wait_count"] = stats.WaitCount
+	info["wait_duration"] = stats.WaitDuration.String()
+	
+	return info
+}
+
+// LogHealthMetric تسجيل مقياس صحة قاعدة البيانات
+func (d *DB) LogHealthMetric(ctx context.Context, metricName string, value float64, metadata map[string]interface{}) error {
+	if d == nil || d.DB == nil {
+		return fmt.Errorf("database not initialized")
+	}
+	
+	// تحويل metadata إلى JSON
+	metadataJSON := "{}"
+	if metadata != nil {
+		jsonBytes, err := json.Marshal(metadata)
+		if err != nil {
+			metadataJSON = fmt.Sprintf(`{"error": "%s"}`, err.Error())
+		} else {
+			metadataJSON = string(jsonBytes)
+		}
+	}
+	
+	// إدراج في جدول performance_metrics إذا كان موجوداً
+	query := `INSERT INTO performance_metrics 
+		(id, metric_name, metric_value, metadata, created_at)
+		VALUES (?, ?, ?, ?, ?)`
+	
+	_, err := d.DB.ExecContext(ctx, query,
+		fmt.Sprintf("metric_%d", time.Now().UnixNano()),
+		metricName,
+		value,
+		metadataJSON,
+		time.Now(),
+	)
+	
+	return err
+}
+
+// GetHealthMetrics الحصول على مقاييس الصحة
+func (d *DB) GetHealthMetrics(ctx context.Context, metricName string, hours int) ([]map[string]interface{}, error) {
+	if d == nil || d.DB == nil {
+		return nil, fmt.Errorf("database not initialized")
+	}
+	
+	query := `SELECT metric_name, metric_value, metadata, created_at
+			  FROM performance_metrics 
+			  WHERE metric_name = ? AND created_at >= datetime('now', ?)
+			  ORDER BY created_at ASC`
+	
+	rows, err := d.DB.QueryContext(ctx, query, metricName, fmt.Sprintf("-%d hours", hours))
+	if err != nil {
+		// إذا كان الجدول غير موجود، نرجع مصفوفة فارغة
+		return []map[string]interface{}{}, nil
+	}
+	defer rows.Close()
+	
+	var metrics []map[string]interface{}
+	for rows.Next() {
+		var name string
+		var value float64
+		var metadataJSON string
+		var createdAt time.Time
+		
+		err := rows.Scan(&name, &value, &metadataJSON, &createdAt)
+		if err != nil {
+			continue
+		}
+		
+		metric := map[string]interface{}{
+			"metric_name": name,
+			"metric_value": value,
+			"created_at": createdAt.Format(time.RFC3339),
+		}
+		
+		// تحليل metadata من JSON
+		if metadataJSON != "" && metadataJSON != "{}" {
+			var metadata map[string]interface{}
+			if err := json.Unmarshal([]byte(metadataJSON), &metadata); err == nil {
+				metric["metadata"] = metadata
+			}
+		}
+		
+		metrics = append(metrics, metric)
+	}
+	
+	return metrics, nil
+}
