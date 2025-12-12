@@ -284,13 +284,17 @@ func GeneratePasswordResetToken(cfg *config.Config, userID string) (string, erro
 	if userID == "" {
 		return "", fmt.Errorf("userID is required")
 	}
-
+     randomID, err :=
+    GenerateRandomString (16)
+    if err != nil {
+        return "", fmt. Errorf("failed to generate reset token ID: %v", err)
+    }
 	claims := jwt.RegisteredClaims{
 		ExpiresAt: jwt.NewNumericDate(time.Now().Add(cfg.Auth.ResetTokenExpiry)),
 		IssuedAt:  jwt.NewNumericDate(time.Now()),
 		Issuer:    "nawthtech",
 		Subject:   userID,
-		ID:        GenerateRandomString(16),
+		ID:        randomID,
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)

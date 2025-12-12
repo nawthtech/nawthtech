@@ -58,8 +58,33 @@ func AuthMiddleware(cfg *config.Config) gin.HandlerFunc {
 			return
 		}
 		
-		// set user in context
-		c.Set("user_id", claims.UserID)
+		// set user in context (استخدم نفس أسماء المفاتيح المستخدمة في الكود)
+		c.Set("userID", claims.UserID)
+		c.Set("userRole", claims.UserRole)
+		c.Next()
+	}
+}
+
+// AdminMiddleware يتحقق من أن المستخدم مشرف
+func AdminMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		userRole, exists := c.Get("userRole")
+		if !exists {
+			c.JSON(http.StatusUnauthorized, gin.H{
+				"error": "User not authenticated",
+			})
+			c.Abort()
+			return
+		}
+
+		if userRole != "admin" {
+			c.JSON(http.StatusForbidden, gin.H{
+				"error": "Admin access required",
+			})
+			c.Abort()
+			return
+		}
+
 		c.Next()
 	}
 }

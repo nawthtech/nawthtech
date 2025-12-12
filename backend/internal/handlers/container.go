@@ -30,6 +30,6 @@ func NewHandlerContainer(serviceContainer *services.ServiceContainer) *HandlerCo
 		Upload:       NewUploadHandler(serviceContainer.Upload),
 		Notification: NewNotificationHandler(serviceContainer.Notification),
 		Admin:        NewAdminHandler(serviceContainer.Admin),
-		Health:       NewHealthHandler(serviceContainer.),
+		Health:       NewHealthHandler(serviceContainer.Health),
 	}
 }
