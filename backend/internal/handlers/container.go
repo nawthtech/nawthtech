@@ -98,8 +98,15 @@ type HandlerContainer struct {
 // NewHandlerContainer إنشاء حاوية handlers جديدة
 func NewHandlerContainer(serviceContainer *services.ServiceContainer) *HandlerContainer {
 	container := &HandlerContainer{}
-
+ aiClient, err := ai.NewClient()
+	if err == nil {
+		container.AI = &AIHandler{aiClient: aiClient}
+		log.Println("✅ AI Client initialized")
+	} else {
+		log.Printf("⚠️ Failed to initialize AI Client: %v", err)
+	}
 	if serviceContainer != nil {
+	}
 		if serviceContainer.Auth != nil {
 			container.Auth = &AuthHandler{service: serviceContainer.Auth}
 		}
@@ -131,9 +138,8 @@ func NewHandlerContainer(serviceContainer *services.ServiceContainer) *HandlerCo
 			container.Health = &HealthHandler{service: serviceContainer.Health}
 		}
 		if serviceContainer.Email != nil {
-‎			// محاولة إنشاء email worker
 			emailWorker, err := email.NewCloudflareEmailWorker()
-			if err == nil {
+		if err == nil {
 				container.Email = &EmailHandler{
 					service:     serviceContainer.Email,
 					emailWorker: emailWorker,
@@ -144,6 +150,7 @@ func NewHandlerContainer(serviceContainer *services.ServiceContainer) *HandlerCo
 				container.Email = &EmailHandler{
 					service: serviceContainer.Email,
 				}
+   if serviceContainer != nil {
 			}
 		}
 	}
