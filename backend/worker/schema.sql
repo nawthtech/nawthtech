@@ -53,7 +53,6 @@ CREATE TABLE IF NOT EXISTS email_logs (
   processed_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
--- schema.sql
 -- AI Agent Monitoring Database Schema
 
 -- AI Agent Metrics Table
