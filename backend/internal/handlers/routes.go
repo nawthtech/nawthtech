@@ -7,15 +7,6 @@ import (
  "github.com/nawthtech/nawthtech/backend/internal/handlers/monitoring"
 )
 
-// في دالة RegisterAllRoutes، أضف:
-monitoringGroup := api.Group("/monitoring")
-{
-    monitoringGroup.GET("/ai/metrics", monitoring.GetAIMetrics)
-    monitoringGroup.GET("/ai/health", monitoring.GetAIHealth)
-    monitoringGroup.GET("/ai/alerts", monitoring.GetAIAlerts)
-    monitoringGroup.GET("/ai/stats", monitoring.GetAIStats)
-}
-)
 
 // RegisterAllRoutes تسجيل جميع المسارات
 func RegisterAllRoutes(app *gin.Engine, cfg *config.Config, hc *HandlerContainer) {
@@ -45,7 +36,15 @@ func RegisterAllRoutes(app *gin.Engine, cfg *config.Config, hc *HandlerContainer
 			health.GET("/ready", func(c *gin.Context) { c.JSON(200, gin.H{"status": "ready"}) })
 		}
 	}
-	
+  // monitoringGroup
+	monitoringGroup := api.Group("/monitoring")
+{
+    monitoringGroup.GET("/ai/metrics", monitoring.GetAIMetrics)
+    monitoringGroup.GET("/ai/health", monitoring.GetAIHealth)
+    monitoringGroup.GET("/ai/alerts", monitoring.GetAIAlerts)
+    monitoringGroup.GET("/ai/stats", monitoring.GetAIStats)
+  }
+ }
 	// AI endpoints
  ai := api.Group("/ai")
  {
