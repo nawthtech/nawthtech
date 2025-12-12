@@ -66,6 +66,7 @@
     "verify": "node -r ts-node/register src/lib/llm-verifier/cli.ts",
     "verify:batch": "node scripts/llm-verification/batch-verify.js"
   }
+}
   
   },
   "dependencies": {
@@ -153,5 +154,4 @@
     "url": "https://github.com/nawthtech/api/issues"
   },
   "homepage": "https://github.com/nawthtech/api#readme"
-},
 }
