@@ -1,4 +1,4 @@
-.
+./backend/
 ├── Dockerfile
 ├── Makefile
 ├── README.md
