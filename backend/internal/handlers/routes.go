@@ -19,8 +19,6 @@ func RegisterAllRoutes(app *gin.Engine, cfg *config.Config, hc *HandlerContainer
 			auth.POST("/login", hc.Auth.Login)
 			auth.POST("/logout", hc.Auth.Logout)
 			auth.POST("/refresh", hc.Auth.RefreshToken)
-			auth.POST("/forgot-password", hc.Auth.ForgotPassword)
-			auth.POST("/reset-password", hc.Auth.ResetPassword)
 		}
 	}
 	
@@ -30,50 +28,52 @@ func RegisterAllRoutes(app *gin.Engine, cfg *config.Config, hc *HandlerContainer
 		if hc.Health != nil {
 			health.GET("", hc.Health.CheckHealth)
 			health.GET("/live", hc.Health.HealthCheck)
-			health.GET("/ready", hc.HealthCheck)
+			health.GET("/ready", func(c *gin.Context) { c.JSON(200, gin.H{"status": "ready"}) })
 		} else {
 			health.GET("/live", func(c *gin.Context) { c.JSON(200, gin.H{"status": "live"}) })
 			health.GET("/ready", func(c *gin.Context) { c.JSON(200, gin.H{"status": "ready"}) })
 		}
 	}
 	
-	// SSE (Server-Sent Events)
-	sse := app.Group("/sse")
-	{
-		// Add SSE endpoints if needed
-		sse.GET("/events", func(c *gin.Context) {
-			c.JSON(200, gin.H{"message": "SSE endpoint"})
-		})
-	}
-	
-	// AI endpoints (from ai.go)
+	// AI endpoints
 	ai := api.Group("/ai")
 	{
-		// Assuming you have AI handlers in ai.go
-		// ai.POST("/generate", hc.AI.Generate)
-		// ai.POST("/chat", hc.AI.Chat)
-		ai.GET("/status", func(c *gin.Context) {
-			c.JSON(200, gin.H{"status": "AI service available"})
-		})
+		if hc.AI != nil {
+			ai.GET("/capabilities", hc.AI.GetAICapabilitiesHandler)
+			ai.POST("/generate", hc.AI.GenerateContentHandler)
+			ai.POST("/translate", hc.AI.TranslateTextHandler)
+			ai.POST("/summarize", hc.AI.SummarizeTextHandler)
+			ai.POST("/analyze-image", hc.AI.AnalyzeImageHandler)
+		} else {
+			ai.GET("/capabilities", func(c *gin.Context) {
+				c.JSON(200, gin.H{"message": "AI service not available"})
+			})
+		}
 	}
 	
-	// Video endpoints (from video.go)
-	video := api.Group("/video")
-	{
-		// Assuming you have video handlers in video.go
-		// video.POST("/process", hc.Video.Process)
-		video.GET("/status", func(c *gin.Context) {
-			c.JSON(200, gin.H{"status": "Video service available"})
-		})
-	}
-	
-	// Email endpoints (from email_handler.go)
+	// Email endpoints (public for setup)
 	email := api.Group("/email")
 	{
-		// If you have email handler
-		email.POST("/send", func(c *gin.Context) {
-			c.JSON(200, gin.H{"message": "Email sent (placeholder)"})
-		})
+		if hc.Email != nil {
+			email.GET("/config", hc.Email.GetEmailConfig)
+			email.POST("/validate", hc.Email.ValidateEmail)
+			email.POST("/test", hc.Email.TestEmailRouting)
+			
+			// Admin endpoints for email management
+			adminEmail := email.Group("")
+			adminEmail.Use(middleware.AdminMiddleware())
+			{
+				adminEmail.POST("/deploy-worker", hc.Email.DeployEmailWorker)
+				adminEmail.POST("/setup-dns", hc.Email.SetupEmailDNS)
+				adminEmail.GET("/allow-list", hc.Email.GetEmailAllowList)
+				adminEmail.POST("/allow-list/add", hc.Email.AddToEmailAllowList)
+				adminEmail.POST("/allow-list/remove", hc.Email.RemoveFromEmailAllowList)
+			}
+		} else {
+			email.GET("/status", func(c *gin.Context) {
+				c.JSON(200, gin.H{"status": "Email service not configured"})
+			})
+		}
 	}
 
 	// ==================== Protected Routes ====================
@@ -87,7 +87,14 @@ func RegisterAllRoutes(app *gin.Engine, cfg *config.Config, hc *HandlerContainer
 		if hc.User != nil {
 			user.GET("/profile", hc.User.GetProfile)
 			user.PUT("/profile", hc.User.UpdateProfile)
-			user.POST("/change-password", hc.ChangePassword)
+		}
+	}
+	
+	// Email sending (protected)
+	emailProtected := protected.Group("/email")
+	{
+		if hc.Email != nil {
+			emailProtected.POST("/send", hc.Email.SendEmail)
 		}
 	}
 	
@@ -97,9 +104,6 @@ func RegisterAllRoutes(app *gin.Engine, cfg *config.Config, hc *HandlerContainer
 		if hc.Service != nil {
 			service.GET("", hc.Service.GetServices)
 			service.POST("", hc.Service.CreateService)
-			service.GET("/:id", hc.Service.GetServiceByID)
-			service.PUT("/:id", hc.Service.UpdateService)
-			service.DELETE("/:id", hc.Service.DeleteService)
 		}
 	}
 	
@@ -109,9 +113,6 @@ func RegisterAllRoutes(app *gin.Engine, cfg *config.Config, hc *HandlerContainer
 		if hc.Category != nil {
 			category.GET("", hc.Category.GetCategories)
 			category.POST("", hc.Category.CreateCategory)
-			category.GET("/:id", hc.Category.GetCategoryByID)
-			category.PUT("/:id", hc.Category.UpdateCategory)
-			category.DELETE("/:id", hc.Category.DeleteCategory)
 		}
 	}
 	
@@ -121,8 +122,6 @@ func RegisterAllRoutes(app *gin.Engine, cfg *config.Config, hc *HandlerContainer
 		if hc.Order != nil {
 			order.GET("", hc.Order.GetUserOrders)
 			order.POST("", hc.Order.CreateOrder)
-			order.GET("/:id", hc.Order.GetOrderByID)
-			order.PUT("/:id/cancel", hc.Order.CancelOrder)
 		}
 	}
 	
@@ -132,8 +131,6 @@ func RegisterAllRoutes(app *gin.Engine, cfg *config.Config, hc *HandlerContainer
 		if hc.Payment != nil {
 			payment.POST("/intent", hc.Payment.CreatePaymentIntent)
 			payment.POST("/:id/confirm", hc.Payment.ConfirmPayment)
-			payment.GET("/history", hc.Payment.GetPaymentHistory)
-			payment.GET("/:id", hc.Payment.GetPaymentByID)
 		}
 	}
 	
@@ -142,8 +139,6 @@ func RegisterAllRoutes(app *gin.Engine, cfg *config.Config, hc *HandlerContainer
 	{
 		if hc.Upload != nil {
 			upload.POST("", hc.Upload.UploadFile)
-			upload.POST("/image", hc.Upload.UploadImage)
-			upload.POST("/document", hc.Upload.UploadDocument)
 		}
 	}
 	
@@ -153,8 +148,6 @@ func RegisterAllRoutes(app *gin.Engine, cfg *config.Config, hc *HandlerContainer
 		if hc.Notification != nil {
 			notification.GET("", hc.Notification.GetNotifications)
 			notification.PUT("/:id/read", hc.Notification.MarkAsRead)
-			notification.DELETE("/:id", hc.Notification.DeleteNotification)
-			notification.PUT("/settings", hc.Notification.UpdateNotificationSettings)
 		}
 	}
 	
@@ -165,45 +158,13 @@ func RegisterAllRoutes(app *gin.Engine, cfg *config.Config, hc *HandlerContainer
 		if hc.Admin != nil {
 			admin.GET("/stats", hc.Admin.GetStatistics)
 			admin.GET("/users", hc.Admin.GetAllUsers)
-			admin.GET("/users/:id", hc.Admin.GetUserByID)
-			admin.PUT("/users/:id", hc.Admin.UpdateUser)
-			admin.DELETE("/users/:id", hc.Admin.DeleteUser)
-			
-			// System management
-			admin.GET("/system/health", hc.Admin.GetSystemHealth)
-			admin.POST("/system/maintenance", hc.Admin.StartMaintenance)
-			admin.DELETE("/system/maintenance", hc.Admin.StopMaintenance)
+		}
+		if hc.Email != nil {
+			admin.GET("/email/reports", func(c *gin.Context) {
+				c.JSON(200, gin.H{"message": "Email reports endpoint"})
+			})
 		}
 	}
-	
-	// ==================== Additional Features ====================
-	
-	// WebSocket/Socket.IO endpoints (if implemented)
-	ws := api.Group("/ws")
-	{
-		ws.GET("", func(c *gin.Context) {
-			c.JSON(200, gin.H{"message": "WebSocket endpoint"})
-		})
-	}
-	
-	// API documentation
-	api.GET("/docs", func(c *gin.Context) {
-		c.JSON(200, gin.H{
-			"message": "API Documentation",
-			"version": "v1",
-			"endpoints": []string{
-				"/api/v1/auth/*",
-				"/api/v1/user/*",
-				"/api/v1/services/*",
-				"/api/v1/categories/*",
-				"/api/v1/orders/*",
-				"/api/v1/payments/*",
-				"/api/v1/upload/*",
-				"/api/v1/notifications/*",
-				"/api/v1/admin/*",
-			},
-		})
-	})
 	
 	// ==================== Root/Home ====================
 	app.GET("/", func(c *gin.Context) {
@@ -211,7 +172,49 @@ func RegisterAllRoutes(app *gin.Engine, cfg *config.Config, hc *HandlerContainer
 			"message": "Welcome to NawthTech API",
 			"version": "1.0.0",
 			"status":  "running",
-			"docs":    "/api/v1/docs",
+			"services": gin.H{
+				"auth":      true,
+				"email":     hc.Email != nil,
+				"ai":        hc.AI != nil,
+				"payments":  hc.Payment != nil,
+				"services":  hc.Service != nil,
+				"health":    hc.Health != nil,
+			},
+			"endpoints": gin.H{
+				"docs":         "/api/v1/docs",
+				"health":       "/health",
+				"api_version":  "v1",
+			},
+		})
+	})
+	
+	// API documentation
+	api.GET("/docs", func(c *gin.Context) {
+		c.JSON(200, gin.H{
+			"message": "API Documentation",
+			"version": "v1",
+			"endpoints": []gin.H{
+				{
+					"path": "/api/v1/auth/*",
+					"description": "Authentication endpoints",
+				},
+				{
+					"path": "/api/v1/email/*",
+					"description": "Email management endpoints",
+				},
+				{
+					"path": "/api/v1/ai/*",
+					"description": "AI services endpoints",
+				},
+				{
+					"path": "/api/v1/user/*",
+					"description": "User profile endpoints (protected)",
+				},
+				{
+					"path": "/api/v1/services/*",
+					"description": "Service management endpoints",
+				},
+			},
 		})
 	})
 	
@@ -221,28 +224,11 @@ func RegisterAllRoutes(app *gin.Engine, cfg *config.Config, hc *HandlerContainer
 			"error":   "Endpoint not found",
 			"message": "The requested resource does not exist",
 			"path":    c.Request.URL.Path,
+			"suggestions": []string{
+				"/api/v1/docs",
+				"/health",
+				"/api/v1/auth/login",
+			},
 		})
-	})
-}
-
-// Helper function for health check
-func (hc *HandlerContainer) HealthCheck(c *gin.Context) {
-	c.JSON(200, gin.H{
-		"status":    "ready",
-		"timestamp": "2024-01-01T00:00:00Z",
-		"services": gin.H{
-			"database": "connected",
-			"cache":    "connected",
-			"storage":  "connected",
-		},
-	})
-}
-
-// Helper function for change password
-func (hc *HandlerContainer) ChangePassword(c *gin.Context) {
-	// This is a placeholder - you should implement this properly
-	c.JSON(200, gin.H{
-		"message": "Password change endpoint",
-		"note":    "Implement this in AuthHandler or UserHandler",
 	})
 }
