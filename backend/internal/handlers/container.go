@@ -373,22 +373,6 @@ func (h *OrderHandler) CreateOrder(c *gin.Context) {
 	c.JSON(http.StatusCreated, createdOrder)
 }
 
-// GetUserOrders الحصول على طلبات المستخدم
-func (h *OrderHandler) GetUserOrders(c *gin.Context) {
-	userID := c.GetString("user_id")
-	if userID == "" {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not authenticated"})
-		return
-	}
-
-	orders, err := h.service.GetUserOrders(c.Request.Context(), userID)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, orders)
-}
 
 // ================================
 // PaymentHandler Methods
@@ -1101,10 +1085,6 @@ func (h *AIHandler) getSupportedLanguagesSimple() []string {
 	}
 }
 
-// Helper functions
-func (h *AIHandler) getUserID(c *gin.Context) string {
-	return utils.GetUserIDFromContext(c)
-}
 
 // ================================
 // دوال مساعدة عامة
