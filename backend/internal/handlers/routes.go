@@ -4,6 +4,17 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/nawthtech/nawthtech/backend/internal/config"
 	"github.com/nawthtech/nawthtech/backend/internal/middleware"
+ "github.com/nawthtech/nawthtech/backend/internal/handlers/monitoring"
+)
+
+// في دالة RegisterAllRoutes، أضف:
+monitoringGroup := api.Group("/monitoring")
+{
+    monitoringGroup.GET("/ai/metrics", monitoring.GetAIMetrics)
+    monitoringGroup.GET("/ai/health", monitoring.GetAIHealth)
+    monitoringGroup.GET("/ai/alerts", monitoring.GetAIAlerts)
+    monitoringGroup.GET("/ai/stats", monitoring.GetAIStats)
+}
 )
 
 // RegisterAllRoutes تسجيل جميع المسارات
