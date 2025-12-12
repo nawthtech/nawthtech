@@ -150,7 +150,9 @@ func NewHandlerContainer(serviceContainer *services.ServiceContainer) *HandlerCo
 				container.Email = &EmailHandler{
 					service: serviceContainer.Email,
 				}
-   if serviceContainer != nil {
+  if serviceContainer != nil {
+		// ... rest of the handlers
+	}
 			}
 		}
 	}
