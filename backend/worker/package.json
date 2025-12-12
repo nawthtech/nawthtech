@@ -65,9 +65,6 @@
     "deploy:sentry": "npm run build:with-sentry && wrangler deploy --env production",
     "verify": "node -r ts-node/register src/lib/llm-verifier/cli.ts",
     "verify:batch": "node scripts/llm-verification/batch-verify.js"
-  }
-}
-  
   },
   "dependencies": {
     "@cloudflare/workers-types": "^4.20231121.0",
