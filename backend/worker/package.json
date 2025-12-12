@@ -62,7 +62,11 @@
     "sentry:release": "sentry-cli releases new $npm_package_version",
     "sentry:test": "curl http://localhost:8787/test-error",
     "build:with-sentry": "npm run build && npm run sentry:sourcemaps",
-    "deploy:sentry": "npm run build:with-sentry && wrangler deploy --env production"
+    "deploy:sentry": "npm run build:with-sentry && wrangler deploy --env production",
+    "verify": "node -r ts-node/register src/lib/llm-verifier/cli.ts",
+    "verify:batch": "node scripts/llm-verification/batch-verify.js"
+  }
+}
   },
   "dependencies": {
     "@cloudflare/workers-types": "^4.20231121.0",
@@ -72,7 +76,9 @@
     "nanoid": "^5.0.1",
     "pino": "^9.0.0",
     "pino-pretty": "^10.3.1",
-    "zod": "^3.22.4"
+    "zod": "^3.22.4",
+    "openai": "^4.0.0",
+    "winston": "^3.0.0"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "A4.20231218.0",
