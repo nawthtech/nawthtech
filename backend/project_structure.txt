@@ -1,0 +1,692 @@
+.
+├── Dockerfile
+├── Makefile
+├── README.md
+├── api
+│   ├── shared
+│   │   └── types.go
+│   ├── v1
+│   │   ├── email_routes.go
+│   │   ├── routes
+│   │   └── shared.go
+│   └── v2
+│       └── placeholder.go
+├── cmd
+│   ├── email-setup
+│   │   └── main.go
+│   ├── email-worker
+│   │   └── main.go
+│   ├── migrate
+│   │   └── migrate.go
+│   ├── server
+│   │   └── main.go
+│   ├── test-gemini
+│   │   └── main.go
+│   └── video-server
+│       └── main.go
+├── config.yaml
+├── configs
+│   └── huggingface_config.yaml
+├── go.mod
+├── go.sum
+├── internal
+│   ├── ai
+│   │   ├── client.go
+│   │   ├── cost_manager.go
+│   │   ├── gemini.go
+│   │   ├── huggingface.go
+│   │   ├── models
+│   │   ├── multi_provider.go
+│   │   ├── ollama.go
+│   │   ├── prompts
+│   │   ├── provider.go
+│   │   ├── providers
+│   │   ├── services
+│   │   ├── types
+│   │   ├── video
+│   │   └── video.go
+│   ├── cloudflare
+│   │   └── cloudflare.go
+│   ├── cloudinary
+│   │   └── cloudinary.go
+│   ├── config
+│   │   ├── config.go
+│   │   ├── config_simple_test.go
+│   │   ├── config_test.go
+│   │   ├── cors.go
+│   │   └── test_setup.go
+│   ├── db
+│   │   └── database.go
+│   ├── email
+│   │   ├── cloudflare_worker.go
+│   │   └── service.go
+│   ├── handlers
+│   │   ├── container.go
+│   │   ├── email_handler.go
+│   │   ├── handlers_test.go
+│   │   ├── health
+│   │   ├── routes.go
+│   │   ├── sse
+│   │   └── video.go
+│   ├── logger
+│   │   ├── logger.go
+│   │   └── logger_test.go
+│   ├── middleware
+│   │   ├── ai_metrics.go
+│   │   └── middleware.go
+│   ├── models
+│   │   └── models.go
+│   ├── quote
+│   │   ├── embeded.go
+│   │   ├── quote.go
+│   │   └── quotes.json
+│   ├── router
+│   │   └── router.go
+│   ├── services
+│   │   ├── services.go
+│   │   ├── services_test.go
+│   │   └── worker_service.go
+│   ├── slack
+│   │   ├── slack.go
+│   │   └── slack_test.go
+│   └── utils
+│       ├── utils.go
+│       └── utils_test.go
+├── main.go.backup
+├── project_structure.txt
+├── railway.toml
+├── scripts
+│   ├── setup.sh
+│   ├── setup_email_routing.go
+│   ├── setup_huggingface.sh
+│   ├── test_huggingface_token.py
+│   └── video_generation.py
+├── test_connection.go
+├── test_gemini.sh
+└── worker
+    ├── Dockerfile
+    ├── README.md
+    ├── eslintre.json
+    ├── migrations
+    │   └── 0001_initial.sql
+    ├── node_modules
+    │   ├── @ampproject
+    │   ├── @ardatan
+    │   ├── @babel
+    │   ├── @bcoe
+    │   ├── @cloudflare
+    │   ├── @commitlint
+    │   ├── @cspotcode
+    │   ├── @envelop
+    │   ├── @esbuild
+    │   ├── @esbuild-plugins
+    │   ├── @eslint
+    │   ├── @eslint-community
+    │   ├── @fastify
+    │   ├── @graphql-codegen
+    │   ├── @graphql-hive
+    │   ├── @graphql-tools
+    │   ├── @graphql-typed-document-node
+    │   ├── @humanwhocodes
+    │   ├── @hutson
+    │   ├── @img
+    │   ├── @inquirer
+    │   ├── @istanbuljs
+    │   ├── @jest
+    │   ├── @jridgewell
+    │   ├── @nodelib
+    │   ├── @opentelemetry
+    │   ├── @pinojs
+    │   ├── @polka
+    │   ├── @poppinss
+    │   ├── @repeaterjs
+    │   ├── @rollup
+    │   ├── @sentry
+    │   ├── @sinclair
+    │   ├── @sindresorhus
+    │   ├── @speed-highlight
+    │   ├── @standard-schema
+    │   ├── @theguild
+    │   ├── @types
+    │   ├── @typescript-eslint
+    │   ├── @ungap
+    │   ├── @vitest
+    │   ├── @whatwg-node
+    │   ├── JSONStream
+    │   ├── abort-controller
+    │   ├── acorn
+    │   ├── acorn-jsx
+    │   ├── acorn-walk
+    │   ├── add-stream
+    │   ├── agent-base
+    │   ├── aggregate-error
+    │   ├── ajv
+    │   ├── ansi-escapes
+    │   ├── ansi-regex
+    │   ├── ansi-sequence-parser
+    │   ├── ansi-styles
+    │   ├── argparse
+    │   ├── array-ify
+    │   ├── array-union
+    │   ├── arrify
+    │   ├── asap
+    │   ├── assertion-error
+    │   ├── ast-v8-to-istanbul
+    │   ├── astral-regex
+    │   ├── atomic-sleep
+    │   ├── auto-bind
+    │   ├── auto-changelog
+    │   ├── balanced-match
+    │   ├── base64-js
+    │   ├── baseline-browser-mapping
+    │   ├── bl
+    │   ├── blake3-wasm
+    │   ├── brace-expansion
+    │   ├── braces
+    │   ├── browserslist
+    │   ├── bser
+    │   ├── buffer
+    │   ├── buffer-from
+    │   ├── callsites
+    │   ├── camel-case
+    │   ├── camelcase
+    │   ├── camelcase-keys
+    │   ├── caniuse-lite
+    │   ├── capital-case
+    │   ├── chai
+    │   ├── chalk
+    │   ├── change-case
+    │   ├── change-case-all
+    │   ├── chardet
+    │   ├── clean-stack
+    │   ├── cli-cursor
+    │   ├── cli-spinners
+    │   ├── cli-truncate
+    │   ├── cli-width
+    │   ├── cliui
+    │   ├── clone
+    │   ├── color
+    │   ├── color-convert
+    │   ├── color-name
+    │   ├── color-string
+    │   ├── colorette
+    │   ├── commander
+    │   ├── common-tags
+    │   ├── compare-func
+    │   ├── concat-map
+    │   ├── concat-stream
+    │   ├── constant-case
+    │   ├── conventional-changelog
+    │   ├── conventional-changelog-angular
+    │   ├── conventional-changelog-atom
+    │   ├── conventional-changelog-codemirror
+    │   ├── conventional-changelog-config-spec
+    │   ├── conventional-changelog-conventionalcommits
+    │   ├── conventional-changelog-core
+    │   ├── conventional-changelog-ember
+    │   ├── conventional-changelog-eslint
+    │   ├── conventional-changelog-express
+    │   ├── conventional-changelog-jquery
+    │   ├── conventional-changelog-jshint
+    │   ├── conventional-changelog-preset-loader
+    │   ├── conventional-changelog-writer
+    │   ├── conventional-commits-filter
+    │   ├── conventional-commits-parser
+    │   ├── conventional-recommended-bump
+    │   ├── convert-source-map
+    │   ├── cookie
+    │   ├── core-util-is
+    │   ├── cosmiconfig
+    │   ├── cosmiconfig-typescript-loader
+    │   ├── cross-env
+    │   ├── cross-fetch
+    │   ├── cross-inspect
+    │   ├── cross-spawn
+    │   ├── dargs
+    │   ├── dataloader
+    │   ├── date-fns
+    │   ├── dateformat
+    │   ├── debounce
+    │   ├── debug
+    │   ├── decamelize
+    │   ├── decamelize-keys
+    │   ├── deep-is
+    │   ├── defaults
+    │   ├── dependency-graph
+    │   ├── detect-indent
+    │   ├── detect-libc
+    │   ├── detect-newline
+    │   ├── dir-glob
+    │   ├── doctrine
+    │   ├── dot-case
+    │   ├── dot-prop
+    │   ├── dotenv
+    │   ├── dotgitignore
+    │   ├── dset
+    │   ├── electron-to-chromium
+    │   ├── emoji-regex
+    │   ├── end-of-stream
+    │   ├── environment
+    │   ├── error-ex
+    │   ├── error-stack-parser-es
+    │   ├── es-module-lexer
+    │   ├── esbuild
+    │   ├── escalade
+    │   ├── escape-string-regexp
+    │   ├── eslint
+    │   ├── eslint-config-prettier
+    │   ├── eslint-plugin-vitest
+    │   ├── eslint-scope
+    │   ├── eslint-visitor-keys
+    │   ├── espree
+    │   ├── esquery
+    │   ├── esrecurse
+    │   ├── estraverse
+    │   ├── estree-walker
+    │   ├── esutils
+    │   ├── event-target-shim
+    │   ├── eventemitter3
+    │   ├── events
+    │   ├── execa
+    │   ├── exit-hook
+    │   ├── expect-type
+    │   ├── fast-copy
+    │   ├── fast-deep-equal
+    │   ├── fast-glob
+    │   ├── fast-json-stable-stringify
+    │   ├── fast-levenshtein
+    │   ├── fast-safe-stringify
+    │   ├── fast-uri
+    │   ├── fastq
+    │   ├── fb-watchman
+    │   ├── fbjs
+    │   ├── fbjs-css-vars
+    │   ├── fetch-blob
+    │   ├── fflate
+    │   ├── figures
+    │   ├── file-entry-cache
+    │   ├── fill-range
+    │   ├── find-up
+    │   ├── flat-cache
+    │   ├── flatted
+    │   ├── formdata-polyfill
+    │   ├── fs.realpath
+    │   ├── function-bind
+    │   ├── gensync
+    │   ├── get-caller-file
+    │   ├── get-east-asian-width
+    │   ├── get-pkg-repo
+    │   ├── get-stream
+    │   ├── git-raw-commits
+    │   ├── git-remote-origin-url
+    │   ├── git-semver-tags
+    │   ├── gitconfiglocal
+    │   ├── glob
+    │   ├── glob-parent
+    │   ├── glob-to-regexp
+    │   ├── global-dirs
+    │   ├── globals
+    │   ├── globby
+    │   ├── graceful-fs
+    │   ├── graphemer
+    │   ├── graphql
+    │   ├── graphql-config
+    │   ├── graphql-request
+    │   ├── graphql-tag
+    │   ├── graphql-ws
+    │   ├── handlebars
+    │   ├── happy-dom
+    │   ├── hard-rejection
+    │   ├── has-flag
+    │   ├── hasown
+    │   ├── header-case
+    │   ├── help-me
+    │   ├── hosted-git-info
+    │   ├── html-escaper
+    │   ├── http-proxy-agent
+    │   ├── https-proxy-agent
+    │   ├── human-signals
+    │   ├── husky
+    │   ├── iconv-lite
+    │   ├── ieee754
+    │   ├── ignore
+    │   ├── immutable
+    │   ├── import-cwd
+    │   ├── import-fresh
+    │   ├── import-from
+    │   ├── imurmurhash
+    │   ├── indent-string
+    │   ├── inflight
+    │   ├── inherits
+    │   ├── ini
+    │   ├── inquirer
+    │   ├── invariant
+    │   ├── is-absolute
+    │   ├── is-arrayish
+    │   ├── is-core-module
+    │   ├── is-extglob
+    │   ├── is-fullwidth-code-point
+    │   ├── is-glob
+    │   ├── is-interactive
+    │   ├── is-lower-case
+    │   ├── is-number
+    │   ├── is-obj
+    │   ├── is-path-inside
+    │   ├── is-plain-obj
+    │   ├── is-relative
+    │   ├── is-stream
+    │   ├── is-text-path
+    │   ├── is-unc-path
+    │   ├── is-unicode-supported
+    │   ├── is-upper-case
+    │   ├── is-windows
+    │   ├── isarray
+    │   ├── isexe
+    │   ├── isomorphic-ws
+    │   ├── istanbul-lib-coverage
+    │   ├── istanbul-lib-report
+    │   ├── istanbul-lib-source-maps
+    │   ├── istanbul-reports
+    │   ├── itty-router
+    │   ├── jiti
+    │   ├── jose
+    │   ├── joycon
+    │   ├── js-tokens
+    │   ├── js-yaml
+    │   ├── jsesc
+    │   ├── json-buffer
+    │   ├── json-parse-better-errors
+    │   ├── json-parse-even-better-errors
+    │   ├── json-schema-traverse
+    │   ├── json-stable-stringify-without-jsonify
+    │   ├── json-stringify-safe
+    │   ├── json-to-pretty-yaml
+    │   ├── json5
+    │   ├── jsonc-parser
+    │   ├── jsonparse
+    │   ├── k6
+    │   ├── keyv
+    │   ├── kind-of
+    │   ├── kleur
+    │   ├── levn
+    │   ├── lilconfig
+    │   ├── lines-and-columns
+    │   ├── lint-staged
+    │   ├── listr2
+    │   ├── load-json-file
+    │   ├── locate-path
+    │   ├── lodash
+    │   ├── lodash.camelcase
+    │   ├── lodash.isfunction
+    │   ├── lodash.ismatch
+    │   ├── lodash.isplainobject
+    │   ├── lodash.kebabcase
+    │   ├── lodash.merge
+    │   ├── lodash.mergewith
+    │   ├── lodash.snakecase
+    │   ├── lodash.sortby
+    │   ├── lodash.startcase
+    │   ├── lodash.uniq
+    │   ├── lodash.upperfirst
+    │   ├── log-symbols
+    │   ├── log-update
+    │   ├── loose-envify
+    │   ├── lower-case
+    │   ├── lower-case-first
+    │   ├── lru-cache
+    │   ├── lunr
+    │   ├── magic-string
+    │   ├── magicast
+    │   ├── make-dir
+    │   ├── map-cache
+    │   ├── map-obj
+    │   ├── marked
+    │   ├── meow
+    │   ├── merge-stream
+    │   ├── merge2
+    │   ├── meros
+    │   ├── micromatch
+    │   ├── mime
+    │   ├── mimic-fn
+    │   ├── mimic-function
+    │   ├── min-indent
+    │   ├── miniflare
+    │   ├── minimatch
+    │   ├── minimist
+    │   ├── minimist-options
+    │   ├── modify-values
+    │   ├── mrmime
+    │   ├── ms
+    │   ├── mute-stream
+    │   ├── nanoid
+    │   ├── natural-compare
+    │   ├── neo-async
+    │   ├── no-case
+    │   ├── node-domexception
+    │   ├── node-fetch
+    │   ├── node-int64
+    │   ├── node-releases
+    │   ├── normalize-package-data
+    │   ├── normalize-path
+    │   ├── npm-run-path
+    │   ├── nullthrows
+    │   ├── object-assign
+    │   ├── obug
+    │   ├── on-exit-leak-free
+    │   ├── once
+    │   ├── onetime
+    │   ├── optionator
+    │   ├── ora
+    │   ├── p-limit
+    │   ├── p-locate
+    │   ├── p-map
+    │   ├── p-try
+    │   ├── param-case
+    │   ├── parent-module
+    │   ├── parse-filepath
+    │   ├── parse-github-url
+    │   ├── parse-json
+    │   ├── pascal-case
+    │   ├── path-case
+    │   ├── path-exists
+    │   ├── path-is-absolute
+    │   ├── path-key
+    │   ├── path-parse
+    │   ├── path-root
+    │   ├── path-root-regex
+    │   ├── path-to-regexp
+    │   ├── path-type
+    │   ├── pathe
+    │   ├── picocolors
+    │   ├── picomatch
+    │   ├── pidtree
+    │   ├── pify
+    │   ├── pino
+    │   ├── pino-abstract-transport
+    │   ├── pino-pretty
+    │   ├── pino-std-serializers
+    │   ├── pixelmatch
+    │   ├── pngjs
+    │   ├── postcss
+    │   ├── prelude-ls
+    │   ├── prettier
+    │   ├── process
+    │   ├── process-nextick-args
+    │   ├── process-warning
+    │   ├── progress
+    │   ├── promise
+    │   ├── proxy-from-env
+    │   ├── pump
+    │   ├── punycode
+    │   ├── q
+    │   ├── queue-microtask
+    │   ├── quick-format-unescaped
+    │   ├── quick-lru
+    │   ├── read-pkg
+    │   ├── read-pkg-up
+    │   ├── readable-stream
+    │   ├── real-require
+    │   ├── redent
+    │   ├── relay-runtime
+    │   ├── remedial
+    │   ├── remove-trailing-separator
+    │   ├── remove-trailing-spaces
+    │   ├── require-directory
+    │   ├── require-from-string
+    │   ├── resolve
+    │   ├── resolve-from
+    │   ├── resolve-global
+    │   ├── restore-cursor
+    │   ├── reusify
+    │   ├── rfdc
+    │   ├── rimraf
+    │   ├── rollup
+    │   ├── run-async
+    │   ├── run-parallel
+    │   ├── rxjs
+    │   ├── safe-buffer
+    │   ├── safe-stable-stringify
+    │   ├── safer-buffer
+    │   ├── scuid
+    │   ├── secure-json-parse
+    │   ├── semver
+    │   ├── sentence-case
+    │   ├── setimmediate
+    │   ├── sharp
+    │   ├── shebang-command
+    │   ├── shebang-regex
+    │   ├── shell-quote
+    │   ├── shiki
+    │   ├── siginfo
+    │   ├── signal-exit
+    │   ├── signedsource
+    │   ├── simple-swizzle
+    │   ├── sirv
+    │   ├── slash
+    │   ├── slice-ansi
+    │   ├── snake-case
+    │   ├── sonic-boom
+    │   ├── source-map
+    │   ├── source-map-js
+    │   ├── spdx-correct
+    │   ├── spdx-exceptions
+    │   ├── spdx-expression-parse
+    │   ├── spdx-license-ids
+    │   ├── split
+    │   ├── split2
+    │   ├── sponge-case
+    │   ├── stackback
+    │   ├── standard-version
+    │   ├── std-env
+    │   ├── stoppable
+    │   ├── string-argv
+    │   ├── string-env-interpolation
+    │   ├── string-width
+    │   ├── string_decoder
+    │   ├── stringify-package
+    │   ├── strip-ansi
+    │   ├── strip-bom
+    │   ├── strip-final-newline
+    │   ├── strip-indent
+    │   ├── strip-json-comments
+    │   ├── supports-color
+    │   ├── supports-preserve-symlinks-flag
+    │   ├── swap-case
+    │   ├── sync-fetch
+    │   ├── text-extensions
+    │   ├── text-table
+    │   ├── thread-stream
+    │   ├── through
+    │   ├── through2
+    │   ├── timeout-signal
+    │   ├── tinybench
+    │   ├── tinyexec
+    │   ├── tinyglobby
+    │   ├── tinyrainbow
+    │   ├── title-case
+    │   ├── to-regex-range
+    │   ├── totalist
+    │   ├── tr46
+    │   ├── trim-newlines
+    │   ├── ts-api-utils
+    │   ├── ts-log
+    │   ├── tslib
+    │   ├── type-check
+    │   ├── type-fest
+    │   ├── typedarray
+    │   ├── typedoc
+    │   ├── typedoc-plugin-markdown
+    │   ├── typescript
+    │   ├── ua-parser-js
+    │   ├── uglify-js
+    │   ├── unc-path-regex
+    │   ├── undici
+    │   ├── undici-types
+    │   ├── unenv
+    │   ├── unixify
+    │   ├── update-browserslist-db
+    │   ├── upper-case
+    │   ├── upper-case-first
+    │   ├── uri-js
+    │   ├── urlpattern-polyfill
+    │   ├── util-deprecate
+    │   ├── validate-npm-package-license
+    │   ├── vite
+    │   ├── vitest
+    │   ├── vscode-oniguruma
+    │   ├── vscode-textmate
+    │   ├── wcwidth
+    │   ├── web-streams-polyfill
+    │   ├── whatwg-mimetype
+    │   ├── whatwg-url
+    │   ├── which
+    │   ├── why-is-node-running
+    │   ├── word-wrap
+    │   ├── wordwrap
+    │   ├── workerd
+    │   ├── wrangler
+    │   ├── wrap-ansi
+    │   ├── wrappy
+    │   ├── ws
+    │   ├── xtend
+    │   ├── y18n
+    │   ├── yallist
+    │   ├── yaml
+    │   ├── yaml-ast-parser
+    │   ├── yargs
+    │   ├── yargs-parser
+    │   ├── yocto-queue
+    │   ├── youch
+    │   ├── youch-core
+    │   └── zod
+    ├── package-lock.json
+    ├── package.json
+    ├── public
+    │   └── index.html
+    ├── schema.sql
+    ├── scripts
+    │   ├── build-with-sentry.ts
+    │   ├── migrate.js
+    │   └── upload-sourcemaps.ts
+    ├── sentry.config.ts
+    ├── src
+    │   ├── api
+    │   ├── database
+    │   ├── handlers
+    │   ├── index.ts
+    │   ├── lib
+    │   ├── middleware
+    │   ├── sentry-setup.ts
+    │   ├── services
+    │   ├── types
+    │   └── utils
+    ├── tests
+    │   ├── crypto.test.ts
+    │   ├── integration
+    │   └── unit
+    ├── tsconfig.json
+    ├── vitest.config.ts
+    ├── worker_structure.txt
+    └── wrangler.toml
+
+605 directories, 85 files
