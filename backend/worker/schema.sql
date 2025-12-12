@@ -53,7 +53,66 @@ CREATE TABLE IF NOT EXISTS email_logs (
   processed_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
--- Create indexes
+-- schema.sql
+-- AI Agent Monitoring Database Schema
+
+-- AI Agent Metrics Table
+CREATE TABLE IF NOT EXISTS ai_agent_metrics (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  agent_name TEXT NOT NULL,
+  operation TEXT NOT NULL,
+  execution_time_ms INTEGER NOT NULL,
+  tokens_used INTEGER DEFAULT 0,
+  cost_usd REAL DEFAULT 0,
+  success BOOLEAN NOT NULL,
+  error_message TEXT,
+  metadata TEXT, -- JSON string
+  created_at TEXT NOT NULL
+);
+
+-- LLM Calls Table
+CREATE TABLE IF NOT EXISTS llm_calls (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  provider TEXT NOT NULL,
+  model TEXT NOT NULL,
+  prompt_length INTEGER NOT NULL,
+  success BOOLEAN NOT NULL,
+  error_message TEXT,
+  cost_usd REAL DEFAULT 0,
+  tokens_used INTEGER DEFAULT 0,
+  created_at TEXT NOT NULL
+);
+
+-- Agent Health Table
+CREATE TABLE IF NOT EXISTS agent_health (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  agent_name TEXT NOT NULL,
+  status TEXT NOT NULL, -- 'healthy', 'degraded', 'error'
+  failure_rate INTEGER DEFAULT 0,
+  avg_latency REAL,
+  max_latency REAL,
+  min_latency REAL,
+  checked_at TEXT NOT NULL
+);
+
+-- Performance Alerts Table
+CREATE TABLE IF NOT EXISTS performance_alerts (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  agent_name TEXT NOT NULL,
+  alert_type TEXT NOT NULL, -- 'latency', 'error_rate', 'cost'
+  alert_value REAL NOT NULL,
+  threshold REAL NOT NULL,
+  message TEXT NOT NULL,
+  resolved BOOLEAN DEFAULT FALSE,
+  created_at TEXT NOT NULL,
+  resolved_at TEXT
+);
+
+-- Indexes for better query performance
+CREATE INDEX IF NOT EXISTS idx_agent_metrics_name_time ON ai_agent_metrics(agent_name, created_at);
+CREATE INDEX IF NOT EXISTS idx_agent_metrics_success ON ai_agent_metrics(success, created_at);
+CREATE INDEX IF NOT EXISTS idx_llm_calls_provider_time ON llm_calls(provider, created_at);
+CREATE INDEX IF NOT EXISTS idx_agent_health_name_time ON agent_health(agent_name, checked_at);
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 CREATE INDEX IF NOT EXISTS idx_services_user_id ON services(user_id);
 CREATE INDEX IF NOT EXISTS idx_ai_requests_user_id ON ai_requests(user_id);
