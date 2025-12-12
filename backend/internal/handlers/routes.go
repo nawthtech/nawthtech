@@ -36,20 +36,39 @@ func RegisterAllRoutes(app *gin.Engine, cfg *config.Config, hc *HandlerContainer
 	}
 	
 	// AI endpoints
-	ai := api.Group("/ai")
-	{
-		if hc.AI != nil {
-			ai.GET("/capabilities", hc.AI.GetAICapabilitiesHandler)
-			ai.POST("/generate", hc.AI.GenerateContentHandler)
-			ai.POST("/translate", hc.AI.TranslateTextHandler)
-			ai.POST("/summarize", hc.AI.SummarizeTextHandler)
-			ai.POST("/analyze-image", hc.AI.AnalyzeImageHandler)
-		} else {
-			ai.GET("/capabilities", func(c *gin.Context) {
-				c.JSON(200, gin.H{"message": "AI service not available"})
-			})
-		}
+ ai := api.Group("/ai")
+ {
+	if hc.AI != nil {
+		ai.GET("/capabilities", hc.AI.GetAICapabilitiesHandler)
+		ai.POST("/generate", hc.AI.GenerateContentHandler)
+		ai.POST("/translate", hc.AI.TranslateTextHandler)
+		ai.POST("/summarize", hc.AI.SummarizeTextHandler)
+		ai.POST("/analyze-image", hc.AI.AnalyzeImageHandler)
+		ai.POST("/analyze-text", hc.AI.AnalyzeTextHandler)
+		ai.POST("/generate-video", hc.AI.GenerateVideoHandler)
+		ai.GET("/video-status/:id", hc.AI.CheckVideoStatusHandler)
+		ai.GET("/providers", func(c *gin.Context) {
+			if hc.AI != nil && hc.AI.aiClient != nil {
+				providers := hc.AI.aiClient.GetAvailableProviders()
+				c.JSON(200, gin.H{"providers": providers})
+			} else {
+				c.JSON(200, gin.H{"providers": {}})
+			}
+		})
+		ai.GET("/usage-stats", func(c *gin.Context) {
+			if hc.AI != nil && hc.AI.aiClient != nil {
+				stats := hc.AI.aiClient.GetUsageStatistics()
+				c.JSON(200, gin.H{"stats": stats})
+			} else {
+				c.JSON(200, gin.H{"stats": {}})
+			}
+		})
+	} else {
+		ai.GET("/capabilities", func(c *gin.Context) {
+			c.JSON(200, gin.H{"message": "AI service not available"})
+		})
 	}
+}
 	
 	// Email endpoints (public for setup)
 	email := api.Group("/email")
